@@ -331,11 +331,16 @@
   .holo-portrait.mouth-open.emphasis .holo-portrait__browimg{ transform:translateY(-4px); }
   .holo-portrait.is-talking.mouth-open{ box-shadow:0 0 22px -4px var(--text-primary); }
   .holo-portrait.is-talking.mouth-open.emphasis{ box-shadow:0 0 36px -2px var(--text-primary); }
-  /* real photo blink (see scheduleHoloBlink) — a third stacked frame with eyes closed, same
-     crossfade as the mouth-open/idle swap. Placed after the .mouth-open rules above so it wins
-     on equal specificity and overrides whichever of idle/talk is currently showing. */
-  .holo-portrait.blinking .holo-portrait__img--idle,
-  .holo-portrait.blinking .holo-portrait__img--talk{ opacity:0; }
+  /* real photo blink (see scheduleHoloBlink) — a third stacked frame with eyes closed. Masked
+     to only the nose-and-up region (fading out before the mouth) so it layers on TOP of
+     whichever of idle/talk is currently showing instead of replacing the whole face — the
+     mouth underneath keeps whatever shape it already had, so a blink mid-talk doesn't stomp on
+     the mouth-flap and the eyes-closed photo's own mouth (which didn't quite match the neutral
+     closed-mouth shape) never shows. */
+  .holo-portrait__img--blink{
+    -webkit-mask-image:linear-gradient(to bottom, black 0%, black 55%, transparent 63%);
+    mask-image:linear-gradient(to bottom, black 0%, black 55%, transparent 63%);
+  }
   .holo-portrait.blinking .holo-portrait__img--blink{ opacity:1; }
   @keyframes holo-scan-move{ from{background-position:0 0;} to{background-position:0 4px;} }
   @keyframes holo-idle-breathe{ 0%,100%{opacity:.78;} 50%{opacity:.94;} }
