@@ -3753,6 +3753,14 @@ function tryLocalCommand(text){
     ];
     results.push(faceReplies[Math.floor(Math.random()*faceReplies.length)]);
   }
+  /* "what's your name"/"who are you" answered deterministically — the system prompt tells the
+     model "if asked your name, always say Medulla, never invent a different name," and it was
+     leaking that INSTRUCTION back verbatim instead of just answering ("I never invent names or
+     identities for myself" — with no actual name in the reply at all). Guaranteed clean answer
+     instead of hoping the model paraphrases its own instructions sensibly. */
+  if(/\b(what'?s your name|what is your name|who are you|what should i call you|tell me your name)\b/.test(t)){
+    results.push("My name is Medulla. I'm here to help with anything.");
+  }
   /* Guaranteed, guaranteed-not-corny answer about having no personal life/backstory —
      unprompted, the model previously invented one on its own (claimed "friends call me Mudd"),
      which is precisely the kind of fabricated personal detail this character explicitly
