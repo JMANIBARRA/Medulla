@@ -3577,9 +3577,17 @@ function presentAiReply(text){
 }
 
 const FIT_DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+/* True equality only — no substring, no fuzz. Needed as its own tier so "open gmail" can check
+   SITE_SHORTCUTS before falling back to the looser substring match below, which would otherwise
+   incorrectly resolve "gmail" to the Mail widget purely because "gmail" contains "mail". */
+function findWidgetDefExact(name){
+  return WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.id===name);
+}
 function findWidgetDefByName(name){
-  const exact = WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
+  const exact = findWidgetDefExact(name);
   if(exact) return exact;
+  const substring = WIDGET_DEFS.find(w=> w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()));
+  if(substring) return substring;
   /* typo fallback ("open fitnes", "what's on the sprots tab") — nearest title/id by edit
      distance, only accepted within a tolerance scaled by name length so a short unrelated word
      doesn't get swallowed into matching some random widget just because it's "closest". */
@@ -3890,10 +3898,27 @@ function tryLocalCommand(text){
   let openNotFoundName = null;
   if(openWindowMatch){
     const name = openWindowMatch[1].trim();
-    const def = findWidgetDefByName(name);
-    if(def){
+    /* Priority order matters here: an EXACT widget name always wins ("open fitness" -> the
+       Fitness widget). Then a curated site shortcut ("open gmail") — checked before the looser
+       substring/typo widget match below, because "gmail" contains "mail" and would otherwise
+       incorrectly resolve to the Mail widget through that substring check alone. Only after
+       both of those fails does it fall to the substring/typo-tolerant widget match ("open
+       fitnes"), then finally a generic <word>.com guess for a bare single word that's still
+       none of the above. */
+    const exactDef = findWidgetDefExact(name);
+    if(exactDef){
+      openModal(exactDef);
+      results.push(`Opening ${exactDef.title}.`);
+    } else if(SITE_SHORTCUTS[name]){
+      window.open(SITE_SHORTCUTS[name], "_blank", "noopener,noreferrer");
+      results.push(`Opening ${name}.`);
+    } else if(findWidgetDefByName(name)){
+      const def = findWidgetDefByName(name);
       openModal(def);
       results.push(`Opening ${def.title}.`);
+    } else if(name.split(/\s+/).length === 1 && /^[a-z][a-z0-9-]{1,24}$/.test(name)){
+      window.open(`https://${name}.com`, "_blank", "noopener,noreferrer");
+      results.push(`Opening ${name}.`);
     } else {
       openNotFoundName = name;
     }
