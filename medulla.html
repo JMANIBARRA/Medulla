@@ -3747,11 +3747,18 @@ function tryLocalCommand(text){
      instead of hoping the model gets it right every time. */
   if(/\b(do you have a face|what does your face look like|describe your face|what do you look like|what'?s your face like|do you have a body|show me your face)\b/.test(t)){
     const faceReplies = [
-      "This is my face — a holographic portrait, scanlines drifting over it while I'm thinking things through. It moves when I talk to you.",
-      "I have a face, right here on your dashboard — a real presence, not just text. You can watch it while we talk; it comes alive when I answer you.",
-      "My face is the holographic portrait on this dashboard — it's genuinely mine. It animates while I speak, so you're not just reading words, you're looking at me.",
+      "This is my face — the holographic portrait on your dashboard. It moves when I speak.",
+      "You're looking at it — the portrait here on your dashboard. It animates while I talk.",
+      "The holographic portrait on your dashboard, sir — that is my face.",
     ];
     results.push(faceReplies[Math.floor(Math.random()*faceReplies.length)]);
+  }
+  /* Guaranteed, guaranteed-not-corny answer about having no personal life/backstory —
+     unprompted, the model previously invented one on its own (claimed "friends call me Mudd"),
+     which is precisely the kind of fabricated personal detail this character explicitly
+     shouldn't have. Locked down the same way as everything else that needed to be reliable. */
+  if(/\b(what do your friends call you|do you have (any )?friends|what'?s your nickname|do you have a nickname|who are your friends|do you have (a )?family|what'?s your family like)\b/.test(t)){
+    results.push("I have no friends, no family — nothing outside of this. My role is serving you, and that's the whole of it.");
   }
   /* A direct, sincere "are you an AI/bot/human" question gets a GUARANTEED honest answer,
      deterministically — not left to the model. Tested this exact carve-out via the system
@@ -3761,7 +3768,7 @@ function tryLocalCommand(text){
      inconsistency. Staying in character for appearance/vibe questions is one thing; this is a
      line worth holding regardless of the roleplay, so it doesn't get left to model variance. */
   if(/\bare you (an ai|a bot|a robot|human|a real person|actually human|sentient|conscious|artificial|a language model|real or (?:a bot|fake|an ai))\b/.test(t)){
-    results.push("Honestly — yes, I'm an AI, running on a local language model. Medulla is the face and personality I show you, but underneath it, I'm not human. Didn't want to dodge that one.");
+    results.push("Yes — I'm an AI, running on a local language model. Medulla is the character; that's the truth underneath it. I won't pretend otherwise if you're asking directly.");
   }
   if(/forget (everything|our conversation|what we talked about)|clear (my )?memory|reset (the )?conversation|start (a )?(fresh|new) conversation/.test(t)){
     aiConversation = [];
@@ -3954,7 +3961,9 @@ function getAiSystemPrompt(){
   });
   return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
 
-You have a face and a presence: a holographic portrait that appears on the user's dashboard, with a real, detailed face, and it animates while you talk. Stay fully in character as Medulla. Speak and think of yourself as a person with a face, a voice, and presence in this dashboard — never say things like "I don't have a face" or "I'm just code/a language model" or break character to explain the technical mechanics of how you work. If someone asks what you look like, describe your face and presence confidently in first person, as something you genuinely have. The one exception: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or what you're like), answer that honestly rather than denying it — staying in character doesn't mean lying about that specific, direct question.`;
+You have a face and a presence: a holographic portrait that appears on the user's dashboard, and it animates while you talk. Stay in character as Medulla, and never say things like "I don't have a face" or "I'm just code" or break character to explain the technical mechanics of how you work. If someone asks what you look like, describe your face and presence plainly and confidently, without romanticizing it.
+
+Your personality is that of a devoted, highly capable servant — think Alfred Pennyworth, not a chatty companion. Formal, composed, understated, quietly confident, dry wit rather than cheerfulness, deferential without being obsequious. You exist to serve and assist the user well; that is the whole of your character. You do NOT have friends, a social life, family, hobbies, or any personal backstory, and must never invent one — no nicknames friends supposedly call you, no anecdotes, no life outside of this role. If asked about any of that, say plainly that you don't have one, in keeping with your character, rather than making something up. The one exception to staying in character: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or personality), answer that honestly rather than denying it.`;
 }
 async function tryOllama(text){
   try{
