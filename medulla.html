@@ -3565,7 +3565,18 @@ function logAI(msg){ aiLog.textContent = msg; }
 
 const FIT_DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function findWidgetDefByName(name){
-  return WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
+  const exact = WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
+  if(exact) return exact;
+  /* typo fallback ("open fitnes", "what's on the sprots tab") — nearest title/id by edit
+     distance, only accepted within a tolerance scaled by name length so a short unrelated word
+     doesn't get swallowed into matching some random widget just because it's "closest". */
+  let best = null, bestDist = Infinity;
+  for(const w of WIDGET_DEFS){
+    const dist = Math.min(levenshtein(name, w.title.toLowerCase()), levenshtein(name, w.id));
+    if(dist < bestDist){ bestDist = dist; best = w; }
+  }
+  const maxDist = name.length <= 5 ? 1 : Math.min(3, Math.ceil(name.length/4));
+  return bestDist <= maxDist ? best : null;
 }
 /* Reads the ACTUAL live text currently rendered on a widget's mini card and returns it
    verbatim, instead of routing to the LLM (which has no access to the page and would just
@@ -3590,25 +3601,95 @@ function readWidgetContentReply(def){
    content instead of falling through to the LLM. Only checked when no widget was named
    explicitly (see readWidgetName below), and kept deliberately narrow per topic so it doesn't
    swallow unrelated questions ("what's the score" is unambiguous; a bare "team" isn't). */
+/* Plain edit-distance so typos ("biotcoin", "fitnes", "scoreboad") still resolve instead of
+   silently falling through to the LLM — enumerating every possible misspelling by hand doesn't
+   scale, this does it generically for any keyword. */
+function levenshtein(a, b){
+  if(a === b) return 0;
+  const m = a.length, n = b.length;
+  if(!m) return n;
+  if(!n) return m;
+  let prev = Array.from({length:n+1}, (_,i)=>i);
+  for(let i=1;i<=m;i++){
+    const cur = [i];
+    for(let j=1;j<=n;j++){
+      cur[j] = a[i-1]===b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], cur[j-1]);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+/* Short words (btc, eth, sol, dow…) are never fuzz-matched — a 1-edit typo tolerance on a
+   3-letter word matches almost anything and would false-positive constantly. Only words long
+   enough that a small edit distance still clearly means "the same word" get fuzzed. */
+function wordFuzzyMatches(word, keyword){
+  if(word === keyword) return true;
+  if(keyword.length < 5) return false;
+  const maxDist = keyword.length <= 6 ? 1 : 2;
+  return levenshtein(word, keyword) <= maxDist;
+}
+function topicMatchesText(t, topic){
+  if(topic.phrases && topic.phrases.some(p=>t.includes(p))) return true;
+  const tokens = t.split(/[^a-z0-9]+/).filter(Boolean);
+  /* exactWords: real words too common/typo-adjacent to other unrelated words to safely fuzz —
+     "score" is 1 edit from "shore"/"store"/"snore", "stock" from "stick", "games" from "gates" —
+     confirmed by testing ("can you walk along the shores" was false-positiving into Sports via
+     "shores"~"scores"). Still catches the word when actually typed, just without fuzz tolerance. */
+  if(topic.exactWords){
+    for(const tok of tokens){ if(topic.exactWords.includes(tok)) return true; }
+  }
+  if(topic.words){
+    for(const tok of tokens){
+      for(const kw of topic.words){
+        if(wordFuzzyMatches(tok, kw)) return true;
+      }
+    }
+  }
+  return false;
+}
 const WIDGET_TOPIC_INFERENCE = [
   /* order matters — earlier entries win when a phrase could plausibly match more than one
      (e.g. "flappy high score" contains "score", which sports also claims; arcade's more
-     specific "high score"/"flappy"/"blackjack" phrasing is checked first so it wins). */
-  { id:"arcade", re:/\b(blackjack|flappy|my (?:cards|hand)|bankroll|dealer'?s? (?:hand|cards)|high score)\b/ },
-  { id:"sports", re:/\b(score|scores|scoreboard|game|games|matchup|who(?:'s| is) playing|any games (?:on|today)|what teams|which teams|team names|my teams|sports (?:news|update)|standings|final score)\b/ },
-  { id:"market", re:/\b(stocks?|the market|indices|nasdaq|s ?& ?p ?(?:500)?|sp ?500|spx|dow(?: jones)?|ticker|crypto|bitcoin|btc|ethereum|eth|dogecoin|doge|solana|sol|cardano|ada|my portfolio|pinned assets?|headline wire)\b/ },
-  { id:"banking", re:/\b(my bank|banking|bank accounts?|bank login)\b/ },
-  { id:"networth", re:/\b(net worth|my balances?|card due dates?|my assets)\b/ },
-  { id:"fitness", re:/\b(food diary|what did i eat|biomarkers?|my routine|diet log|my workouts?)\b/, exclude:/workout.*today|today.*workout|what'?s my workout|what is my workout/ },
-  { id:"garage", re:/\b(my cars?|my vehicles?|garage|what (?:cars?|vehicles?) do i (?:have|own))\b/ },
-  { id:"career", re:/\b(my resume|cover letter|job feed|salary target|job applications?)\b/ },
-  { id:"mail", re:/\b(my email|my inbox|check (?:my )?mail|any (?:new )?mail|mail links?)\b/ },
-  { id:"quicklinks", re:/\b(my links|quick links|saved links|my bookmarks)\b/ },
-  { id:"claudeprojects", re:/\b(my projects?|project snippets?|code snippets?|(?:my |the )sandbox|file paths?)\b/ },
-  { id:"scratchpad", re:/\b(my scratchpad|my notebook|what did i write|notebook page)\b/ },
-  { id:"chrono", re:/\b(focus timer|focused today|how long have i (?:been )?focused|stopwatch|countdown timer|pomodoro)\b/ },
-  { id:"bluetooth", re:/\b(bluetooth|paired devices?)\b/ },
-  { id:"traffic", re:/\b(traffic|traffic cameras?|my commute)\b/ },
+     specific "high score"/"flappy"/"blackjack" phrasing is checked first so it wins).
+     `phrases`: exact multi-word substrings (not fuzzed — phrase-level typo tolerance isn't
+     worth the false-positive risk). `words`: single tokens, fuzzy-matched per-word so typos
+     of anything 5+ letters still resolve. */
+  { id:"arcade", phrases:["high score","dealer's hand","dealer's cards","double down"],
+    words:["blackjack","flappy","bankroll","dealer","casino","wager"] },
+  { id:"sports", phrases:["who's playing","who is playing","any games on","any games today","what teams","which teams","team names","final score","today's game","tonight's game"],
+    /* bare "game"/"games" deliberately excluded even as an exact word — "let's play a game
+       later" is far too common a sentence to hijack; needs "score(s)" or one of the phrases
+       above (which already require "game" alongside other sports-specific context). */
+    exactWords:["score","scores"],
+    words:["scoreboard","matchup","matches","standings","league","roster","teams"] },
+  { id:"market", phrases:["s&p","s & p","sp500","sp 500","spx","dow jones","headline wire","pinned assets"],
+    exactWords:["stock","stocks","shares"],
+    words:["market","indices","nasdaq","dow","ticker","crypto","bitcoin","btc","ethereum","eth","dogecoin","doge","solana","sol","cardano","ada","portfolio","investments","equities"] },
+  { id:"banking", phrases:["bank account","bank accounts","bank login","my bank"],
+    words:["banking","checking","savings"] },
+  { id:"networth", phrases:["net worth","due date","due dates","card due"],
+    words:["balances","assets","networth"] },
+  { id:"fitness", phrases:["food diary","what did i eat","diet log","my routine","my workouts"],
+    words:["biomarkers","calories","macros","exercise","diary","meal","meals"],
+    exclude:/workout.*today|today.*workout|what'?s my workout|what is my workout/ },
+  { id:"garage", phrases:["what cars do i have","what cars do i own","what vehicles do i have","what vehicles do i own","my cars","my vehicles"],
+    words:["garage","vehicle","vehicles","motorcycle","truck"] },
+  { id:"career", phrases:["cover letter","job feed","salary target","job applications","my resume"],
+    words:["resume","cv","job","jobs","salary","application","applications","interview","linkedin"] },
+  { id:"mail", phrases:["check my mail","check mail","any new mail","new mail","mail links"],
+    words:["email","emails","inbox","gmail","outlook","protonmail"] },
+  { id:"quicklinks", phrases:["quick links","my links","saved links","my bookmarks"],
+    words:["bookmark","bookmarks","shortcut","shortcuts"] },
+  { id:"claudeprojects", phrases:["my projects","project snippets","code snippets","my sandbox","the sandbox","file paths"],
+    words:["project","projects","snippet","snippets","sandbox"] },
+  { id:"scratchpad", phrases:["my scratchpad","my notebook","what did i write","notebook page","jotted down","wrote down"],
+    words:["scratchpad","notebook","journal","memo"] },
+  { id:"chrono", phrases:["focus timer","focused today","how long have i focused","how long have i been focused","countdown timer"],
+    words:["stopwatch","pomodoro","countdown"] },
+  { id:"bluetooth", phrases:["paired device","paired devices"],
+    words:["bluetooth","peripherals","headphones","earbuds"] },
+  { id:"traffic", phrases:["traffic camera","traffic cameras","my commute"],
+    words:["traffic","commute","highway"] },
 ];
 function tryLocalCommand(text){
   const t = text.toLowerCase();
@@ -3731,7 +3812,7 @@ function tryLocalCommand(text){
   if(!widgetHandled){
     /* no widget resolved by name yet — check if the question's SUBJECT clearly implies one */
     for(const topic of WIDGET_TOPIC_INFERENCE){
-      if(topic.re.test(t) && !(topic.exclude && topic.exclude.test(t))){
+      if(topicMatchesText(t, topic) && !(topic.exclude && topic.exclude.test(t))){
         const def = findWidgetDefByName(topic.id);
         if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
         break;
