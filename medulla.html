@@ -522,6 +522,9 @@
     position:fixed;left:50%;bottom:0;
     transform:translateX(-50%) translateY(10px);
     display:flex;gap:10px;align-items:center;
+    max-width:min(760px, calc(100vw - 40px));
+    overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none; /* firefox — hidden to match the app's other overlay-style scroll areas */
     padding:8px 12px;
     background:rgba(4,10,14,.78);backdrop-filter:blur(8px);
     border:1px solid var(--line);border-radius:16px;
@@ -530,8 +533,10 @@
     transition:opacity .16s ease, transform .16s ease;
     z-index:45;
   }
+  #hotbar::-webkit-scrollbar{display:none;}
   #hotbar.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
   .hotbar-icon{
+    flex:none;
     height:38px;padding:0 16px;border-radius:19px;white-space:nowrap;
     display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,.045);border:1px solid var(--line);
@@ -4152,6 +4157,16 @@ aiForm.addEventListener("submit", async (e)=>{
   hotbar.addEventListener("mouseenter", show);
   hotbar.addEventListener("mouseleave", scheduleHide);
   window.addEventListener("resize", ()=>{ if(hotbar.classList.contains("visible")) positionAboveDock(); });
+  /* lets a plain vertical mouse wheel scroll it side to side too, not just shift+wheel/trackpad
+     swipe — only takes over when there's actually somewhere to scroll (scrollWidth > clientWidth)
+     and the scroll is mostly vertical, so a genuine horizontal gesture still passes through
+     untouched. */
+  hotbar.addEventListener("wheel", (e)=>{
+    if(hotbar.scrollWidth <= hotbar.clientWidth) return;
+    if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    hotbar.scrollLeft += e.deltaY;
+  }, {passive:false});
 
   $$(".hotbar-icon", hotbar).forEach(btn=>{
     btn.addEventListener("click", ()=>{
