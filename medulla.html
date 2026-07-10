@@ -3605,13 +3605,21 @@ function tryLocalCommand(text){
    deterministic one-offs and don't need conversational context. "forget"/"clear memory" (see
    tryLocalCommand) resets this back to empty. */
 let aiConversation = loadJSON(NS+"aiConversation", []);
-const AI_SYSTEM_PROMPT = "Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. Answer briefly and helpfully.";
 const AI_HISTORY_MAX_MESSAGES = 16; // ~8 exchanges of context kept
 function saveAiConversation(){ saveJSON(NS+"aiConversation", aiConversation); }
+/* Computed fresh per-request (not a static const) so "now" stays accurate across a long-running
+   session. America/New_York auto-handles the EST/EDT switch, unlike a fixed UTC offset. */
+function getAiSystemPrompt(){
+  const nowEastern = new Date().toLocaleString("en-US", {
+    timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric",
+    hour:"numeric", minute:"2-digit", timeZoneName:"short"
+  });
+  return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Answer briefly and helpfully.`;
+}
 async function tryOllama(text){
   try{
     const messages = [
-      {role:"system", content: AI_SYSTEM_PROMPT},
+      {role:"system", content: getAiSystemPrompt()},
       ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
       {role:"user", content: text}
     ];
