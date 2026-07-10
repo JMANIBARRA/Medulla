@@ -4094,6 +4094,7 @@ aiForm.addEventListener("submit", async (e)=>{
   const text = aiInput.value.trim();
   if(!text) return;
   aiInput.value="";
+  lastAiInteractionTime = Date.now(); // resets the idle clock for the proactive check-in scheduler
   /* hideHoloSpeech() clears any still-showing previous reply (and stops the mouth animation
      that goes with it) up front. The mouth only starts moving again inside showHoloSpeech(),
      i.e. exactly when a real response is ready to display — never during "Thinking…", never
@@ -4155,6 +4156,90 @@ aiForm.addEventListener("submit", async (e)=>{
     });
   });
 })();
+
+/* ================= IDLE CHECK-INS =================
+   Every ~12-18 minutes (randomized so it never feels like a mechanical timer), if nothing's
+   been going on, Medulla says something small on her own — a check-in, or occasionally the
+   weather — through the same talking animation/bubble as a real response. Deliberately
+   infrequent per an explicit "not too often, so it's not annoying" request; this is NOT meant
+   to be a chatty assistant. */
+let lastAiInteractionTime = Date.now();
+
+/* Approximate location via IP (ipwho.is) — no browser geolocation permission prompt, which
+   would be a far bigger interruption than the feature it's meant to support. Cached for hours
+   since a location essentially never changes mid-session. */
+let cachedLocation = null, cachedLocationTime = 0;
+const LOCATION_CACHE_TTL = 6*60*60*1000;
+async function fetchApproxLocation(){
+  if(cachedLocation && (Date.now()-cachedLocationTime) < LOCATION_CACHE_TTL) return cachedLocation;
+  try{
+    const res = await fetch("https://ipwho.is/");
+    const data = await res.json();
+    if(data && data.success !== false && data.latitude){
+      cachedLocation = { city: data.city, lat: data.latitude, lon: data.longitude };
+      cachedLocationTime = Date.now();
+      return cachedLocation;
+    }
+  }catch(e){}
+  return null;
+}
+const WEATHER_CODE_TEXT = {
+  0:"clear", 1:"mostly clear", 2:"partly cloudy", 3:"overcast",
+  45:"foggy", 48:"foggy",
+  51:"lightly drizzling", 53:"drizzly", 55:"drizzly",
+  56:"freezing drizzle", 57:"freezing drizzle",
+  61:"lightly raining", 63:"raining", 65:"raining hard",
+  66:"freezing rain", 67:"freezing rain",
+  71:"lightly snowing", 73:"snowing", 75:"snowing hard", 77:"snowing",
+  80:"scattered showers", 81:"showery", 82:"pouring",
+  85:"snow showers", 86:"heavy snow showers",
+  95:"thunderstorms", 96:"thunderstorms", 99:"thunderstorms",
+};
+let cachedWeather = null, cachedWeatherTime = 0;
+const WEATHER_CACHE_TTL = 30*60000;
+async function fetchWeatherSummary(){
+  if(cachedWeather && (Date.now()-cachedWeatherTime) < WEATHER_CACHE_TTL) return cachedWeather;
+  const loc = await fetchApproxLocation();
+  if(!loc) return null;
+  try{
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current_weather=true&temperature_unit=fahrenheit`);
+    const data = await res.json();
+    const cw = data.current_weather;
+    if(!cw) return null;
+    const desc = WEATHER_CODE_TEXT[cw.weathercode] || "mild";
+    const temp = Math.round(cw.temperature);
+    const place = loc.city ? ` in ${loc.city}` : "";
+    cachedWeather = `It's ${temp}°F and ${desc}${place} right now.`;
+    cachedWeatherTime = Date.now();
+    return cachedWeather;
+  }catch(e){ return null; }
+}
+const PROACTIVE_GENERIC = [
+  "Ready to start your day?",
+  "Anything you need help with?",
+  "Just checking in — let me know if you need anything.",
+  "All quiet here. I'm around if you need me.",
+];
+async function pickProactiveMessage(){
+  if(Math.random() < 0.3){
+    const weather = await fetchWeatherSummary();
+    if(weather) return weather;
+  }
+  return PROACTIVE_GENERIC[Math.floor(Math.random()*PROACTIVE_GENERIC.length)];
+}
+function scheduleProactiveMedulla(){
+  const gap = (12 + Math.random()*6) * 60000; // 12-18 minutes
+  setTimeout(async ()=>{
+    const idleForMs = Date.now() - lastAiInteractionTime;
+    const alreadyTalking = !!document.querySelector(".holo-portrait.is-talking");
+    if(idleForMs >= 2*60000 && !alreadyTalking && !document.hidden && getHoloWidgetCard()){
+      const msg = await pickProactiveMessage();
+      presentAiReply(msg);
+    }
+    scheduleProactiveMedulla();
+  }, gap);
+}
+scheduleProactiveMedulla();
 
 /* ================= MAIL LAUNCHPAD WIDGET ================= */
 let mailData = loadJSON(NS+"maillinks", [
