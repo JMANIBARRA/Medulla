@@ -3527,7 +3527,7 @@ async function tryOllama(text){
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         model:"llama3.2:1b",
-        prompt: `You are the local assistant for a personal dashboard called Medulla. Answer briefly and helpfully. User: ${text}`,
+        prompt: `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. Answer briefly and helpfully. User: ${text}`,
         stream:false
       })
     });
