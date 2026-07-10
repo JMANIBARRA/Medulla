@@ -2441,6 +2441,26 @@ async function fetchLeagueLastScore(leagueId){
     return (data.events && data.events[0]) || null;
   }catch(e){ return null; }
 }
+function todayDateStr(){ return new Date().toLocaleDateString("en-CA", {timeZone:"America/New_York"}); } // en-CA -> YYYY-MM-DD
+async function fetchLeagueTodayEvents(leagueId){
+  try{
+    const res = await fetch(`${SPORTSDB}/eventsday.php?d=${todayDateStr()}&l=${leagueId}`);
+    const data = await res.json();
+    return data.events || [];
+  }catch(e){ return []; }
+}
+/* TheSportsDB's free tier has no true live-score endpoint (livescore.php 404s on the test key),
+   so "live" here really means "today's game, not yet marked finished" rather than a play-by-play
+   feed — still the best available signal for "still going" vs "over" without a paid key.
+   strStatus is "FT" (or similar terminal markers) once final, "NS" before it starts, and various
+   in-progress values while it's being played; any event dated before today is always finished
+   regardless of what strStatus says, since it obviously can't still be in progress. */
+const FINISHED_STATUSES = new Set(["FT","AET","AOT","FT_PEN","Match Finished","Finished","Final"]);
+function isEventFinished(ev){
+  if(FINISHED_STATUSES.has((ev.strStatus||"").trim())) return true;
+  const diff = dayDiff(ev.dateEvent);
+  return diff !== null && diff > 0;
+}
 function dayDiff(dateStr){
   const evDate = new Date(dateStr+"T00:00:00");
   if(isNaN(evDate)) return null;
@@ -2489,10 +2509,20 @@ function renderSchedule(events){
   });
   return Object.entries(groups)
     .sort((a,b)=>a[1].diff-b[1].diff)
-    .map(([label,g])=>`
-      <div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px;">${label}</div>
-      ${g.items.map(formatGameLine).join("")}
-    `).join("");
+    .map(([label,g])=>{
+      const heading = `<div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px;">${label}</div>`;
+      /* only "Today" can contain a still-going/not-yet-started game — every other day group is
+         necessarily in the past, so splitting those would just be a "Finished" heading with
+         nothing under "Live" every time. Split just Today's games so it's obvious at a glance
+         what's still going vs already over. */
+      if(label !== "Today") return heading + g.items.map(formatGameLine).join("");
+      const live = g.items.filter(ev=>!isEventFinished(ev));
+      const finished = g.items.filter(ev=>isEventFinished(ev));
+      let html = heading;
+      if(live.length) html += `<div style="color:var(--text-dim);font-size:10px;letter-spacing:.04em;margin:2px 0;">● Live / In Progress</div>` + live.map(formatGameLine).join("");
+      if(finished.length) html += `<div style="color:var(--text-dim);font-size:10px;letter-spacing:.04em;margin:6px 0 2px;">Finished</div>` + finished.map(formatGameLine).join("");
+      return html;
+    }).join("");
 }
 /* TheSportsDB's free test key rate-limits hard (HTTP 429 after ~5 rapid requests), so:
    - league requests are fetched one at a time with a short stagger, never all at once
@@ -2511,8 +2541,16 @@ async function fetchPopularScores(){
   popularScoresPromise = (async ()=>{
     const rows = [];
     for(const lg of POPULAR_LEAGUES){
-      const ev = await fetchLeagueLastScore(lg.id);
-      if(ev) rows.push({league:lg.label, ev});
+      /* prefer today's slate (so a still-going/not-yet-started game surfaces as "live", not
+         just whatever finished last) and only fall back to the last past result — guaranteed
+         finished — if that league has nothing scheduled today */
+      const todays = await fetchLeagueTodayEvents(lg.id);
+      if(todays.length){
+        todays.forEach(ev=> rows.push({league:lg.label, ev}));
+      } else {
+        const ev = await fetchLeagueLastScore(lg.id);
+        if(ev) rows.push({league:lg.label, ev});
+      }
       await new Promise(r=>setTimeout(r, 350));
     }
     if(rows.length) popularScoresCache = rows;
@@ -2541,6 +2579,9 @@ const SPORTS_REFRESH_MS = 60000;
 /* synchronous on purpose: sets up polling + returns its cleanup immediately, while the
    actual score fetch runs async inside — lets renderWidgetCard register the cleanup
    right away instead of racing an in-flight promise. */
+function sportsSectionHeader(label){
+  return `<div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:6px 0 2px;">${label}</div>`;
+}
 function hydrateSportsMini(scope){
   let first = true;
   async function refresh(){
@@ -2550,13 +2591,13 @@ function hydrateSportsMini(scope){
     const popular = await fetchPopularScores();
     const el2 = scope.querySelector("#sport-mini-list");
     if(!el2) return;
-    const mostRecent = popular
-      .slice()
-      .sort((a,b)=> new Date(b.ev.dateEvent) - new Date(a.ev.dateEvent))
-      .slice(0,2);
-    el2.innerHTML = mostRecent.length
-      ? mostRecent.map(p=>formatScoreLine(p.ev)).join("")
-      : `<div style="color:var(--text-dim);">Scores unavailable right now.</div>`;
+    const byRecency = (a,b)=> new Date(b.ev.dateEvent) - new Date(a.ev.dateEvent);
+    const live = popular.filter(p=>!isEventFinished(p.ev)).sort(byRecency).slice(0,3);
+    const finished = popular.filter(p=>isEventFinished(p.ev)).sort(byRecency).slice(0,2);
+    let html = "";
+    if(live.length) html += sportsSectionHeader("Live / Today") + live.map(p=>formatScoreLine(p.ev)).join("");
+    if(finished.length) html += sportsSectionHeader("Finished") + finished.map(p=>formatScoreLine(p.ev)).join("");
+    el2.innerHTML = html || `<div style="color:var(--text-dim);">Scores unavailable right now.</div>`;
     first = false;
   }
   refresh();
