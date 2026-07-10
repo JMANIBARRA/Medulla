@@ -233,7 +233,9 @@
     12.6%, 100%{opacity:0;}
   }
   /* ---------- holographic portrait: real photo, three CSS-blend layers, no canvas ----------
-     1. img              — grayscaled, screen-blended into the card's own dark background
+     1. img (idle + talk, stacked)  — grayscaled, screen-blended into the card's own dark
+        background. Both frames sit absolutely positioned on top of each other and are
+        crossfaded with opacity, so swapping never shifts layout or reflows anything.
      2. .holo-portrait__tint — var(--text-primary) via mix-blend-mode:color, masked by the same
         photo's luminance so the tint only paints the subject, not the "removed" background —
         follows the app's live theme-accent picker automatically, no JS wiring needed here
@@ -241,10 +243,14 @@
      Works because the widget card's own background (var(--bg-panel)) is already near-black. */
   .holo-portrait{position:relative;width:100%;overflow:hidden;}
   .holo-portrait__img{
+    position:absolute;inset:0;
     display:block;width:100%;height:100%;object-fit:cover;
     filter:grayscale(1) contrast(1.08) brightness(1.02);
     mix-blend-mode:screen;
+    opacity:0;
+    transition:opacity .09s linear; /* quick crossfade between mouth frames, opacity-only so it never reflows */
   }
+  .holo-portrait__img--idle{ opacity:1; } /* resting frame, shown whenever not actively "talking" */
   .holo-portrait__tint{
     position:absolute;inset:0;
     background:var(--text-primary);
@@ -262,10 +268,12 @@
     mix-blend-mode:multiply;
     pointer-events:none;
   }
-  /* "talking"/active state — only opacity and background-position are animated here, neither of
-     which triggers layout (no reflow), so this can toggle on/off freely with zero shift or
-     blinking in the widget card around it. There's a single static photo, not per-frame mouth
-     art, so this is a processing/active indicator rather than literal lip-sync. */
+  /* "talking" state — JS toggles .mouth-open on/off every ~130ms (see setHoloTalking) to flap
+     between the idle (mouth closed) and talk (mouth open) frames, simulating speech from just
+     two source photos. Only opacity and background-position ever animate, neither of which
+     triggers layout, so this can toggle freely with zero shift or blinking in the widget card. */
+  .holo-portrait.mouth-open .holo-portrait__img--idle{ opacity:0; }
+  .holo-portrait.mouth-open .holo-portrait__img--talk{ opacity:1; }
   .holo-portrait.is-talking .holo-portrait__scan{ animation:holo-scan-move .6s linear infinite; }
   .holo-portrait.is-talking .holo-portrait__tint{ animation:holo-pulse .9s ease-in-out infinite; }
   @keyframes holo-scan-move{ from{background-position:0 0;} to{background-position:0 4px;} }
@@ -273,6 +281,7 @@
   @media (prefers-reduced-motion: reduce){
     .holo-portrait.is-talking .holo-portrait__scan,
     .holo-portrait.is-talking .holo-portrait__tint{ animation:none; }
+    .holo-portrait__img{ transition:none; }
   }
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
@@ -1765,7 +1774,8 @@ function renderMini(id){
   if(id==="holoportrait"){
     return `
     <div class="holo-portrait" style="flex:1;">
-      <img class="holo-portrait__img" src="portrait.jpg" alt="Holographic portrait">
+      <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
+      <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
       <div class="holo-portrait__tint"></div>
       <div class="holo-portrait__scan"></div>
     </div>`;
@@ -2179,7 +2189,8 @@ function renderFull(id){
   if(id==="holoportrait"){
     return `
     <div class="holo-portrait" style="height:70vh;max-height:640px;">
-      <img class="holo-portrait__img" src="portrait.jpg" alt="Holographic portrait">
+      <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
+      <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
       <div class="holo-portrait__tint"></div>
       <div class="holo-portrait__scan"></div>
     </div>`;
@@ -3249,10 +3260,28 @@ $("#settings-btn").addEventListener("click", ()=>{
 
 /* ================= HOLOGRAPHIC PORTRAIT — "talking"/active state =================
    Toggles .is-talking on every currently-mounted .holo-portrait (there can be both a mini
-   widget and an expanded-modal copy live at once — this hits all of them). Only opacity and
-   background-position animate (see the CSS), so this never causes layout shift. */
+   widget and an expanded-modal copy live at once — this hits all of them), and while active
+   flaps .mouth-open on/off on an interval to crossfade between the idle (mouth closed) and
+   talk (mouth open) photo frames, simulating speech from just two source images. Only opacity
+   and background-position ever animate (see the CSS), so this never causes layout shift.
+   Each .holo-portrait instance gets its own interval (tracked in holoMouthTimers) so mini and
+   modal copies flap independently and are cleaned up independently. */
+const holoMouthTimers = new WeakMap();
+const HOLO_MOUTH_FLAP_MS = 130;
 function setHoloTalking(active){
-  $$(".holo-portrait").forEach(el=>{ el.classList.toggle("is-talking", active); });
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $$(".holo-portrait").forEach(el=>{
+    el.classList.toggle("is-talking", active);
+    const existing = holoMouthTimers.get(el);
+    if(existing) clearInterval(existing);
+    holoMouthTimers.delete(el);
+    if(active && !reduceMotion){
+      const id = setInterval(()=>{ el.classList.toggle("mouth-open"); }, HOLO_MOUTH_FLAP_MS);
+      holoMouthTimers.set(el, id);
+    } else {
+      el.classList.remove("mouth-open");
+    }
+  });
 }
 function startTalking(){ setHoloTalking(true); }
 function stopTalking(){ setHoloTalking(false); }
