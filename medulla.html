@@ -3489,6 +3489,7 @@ function trackHoloBubblePosition(){
 }
 function showHoloSpeech(text){
   if(!getHoloWidgetCard()) return;
+  startTalking(); // mouth only moves while the dialogue box itself is on screen — never before or after
   const el = ensureHoloBubble();
   el.querySelector(".holo-speech-bubble__text").textContent = text;
   el.classList.add("visible");
@@ -3499,6 +3500,7 @@ function showHoloSpeech(text){
   holoBubbleHideTimer = setTimeout(hideHoloSpeech, displayMs);
 }
 function hideHoloSpeech(){
+  stopTalking(); // always stop in lockstep with the bubble hiding, whatever the reason
   if(!holoBubbleEl) return;
   holoBubbleEl.classList.remove("visible");
   if(holoBubbleRaf){ cancelAnimationFrame(holoBubbleRaf); holoBubbleRaf = null; }
@@ -3610,33 +3612,20 @@ aiForm.addEventListener("submit", async (e)=>{
   const text = aiInput.value.trim();
   if(!text) return;
   aiInput.value="";
-  startTalking();
+  /* hideHoloSpeech() clears any still-showing previous reply (and stops the mouth animation
+     that goes with it) up front. The mouth only starts moving again inside showHoloSpeech(),
+     i.e. exactly when a real response is ready to display — never during "Thinking…", never
+     before the dialogue box itself appears, and it stops in lockstep with the box hiding
+     (see hideHoloSpeech) rather than on a separate timer that could drift out of sync. */
   hideHoloSpeech();
-  /* try/finally so stopTalking() always fires — on the fast local-command path, after Ollama
-     resolves, AND if tryOllama ever throws — instead of a blind setTimeout that could stop the
-     animation early on a slow response or leave it running forever after an error. Swap the body
-     of the `work` async function below for your own request if you're wiring in a real backend;
-     call stopTalking() (or just let this finally block run) whenever that response actually
-     lands. The minDisplay floor keeps the animation up long enough to read as a spoken reply
-     (several mouth flaps) instead of a single quick flash, on a local command that resolves
-     synchronously/near-instantly — it never delays the actual response, only how long the
-     animation stays up afterward. */
-  const minDisplay = new Promise(r=>setTimeout(r, 1400));
-  try{
-    const work = (async ()=>{
-      const local = tryLocalCommand(text);
-      if(local){ logAI(local); showHoloSpeech(local); return; }
-      logAI("Thinking…");
-      const remote = await tryOllama(text);
-      if(remote){ logAI(remote); showHoloSpeech(remote); }
-      else{
-        const fallback = "No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers.";
-        logAI(fallback); showHoloSpeech(fallback);
-      }
-    })();
-    await Promise.all([work, minDisplay]);
-  } finally {
-    stopTalking();
+  const local = tryLocalCommand(text);
+  if(local){ logAI(local); showHoloSpeech(local); return; }
+  logAI("Thinking…");
+  const remote = await tryOllama(text);
+  if(remote){ logAI(remote); showHoloSpeech(remote); }
+  else{
+    const fallback = "No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers.";
+    logAI(fallback); showHoloSpeech(fallback);
   }
 });
 
