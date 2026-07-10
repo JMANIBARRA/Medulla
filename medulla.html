@@ -3567,8 +3567,13 @@ function tryLocalCommand(text){
     results.push(`Added ${id.toUpperCase()} to your market ticker.`);
   }
 
-  /* generic "open <widget> window/widget/full view" — opens that widget's detail screen directly */
-  const openWindowMatch = t.match(/open (?:the |my )?([a-z0-9 ]+?)\s*(?:window|widget|full view|detail view|panel|screen)\b/);
+  /* generic "open <widget>[ window/widget/full view]" — opens that widget's detail screen
+     directly, same as clicking its expand button. Anchored to the WHOLE message (not just a
+     substring) so this only fires when opening something is clearly the entire intent, not a
+     word that happens to appear mid-sentence. The trailing "widget"/"window"/etc is optional —
+     plain "open fitness" needs to work just as well as "open fitness widget", otherwise this
+     silently falls through to the LLM, which can only describe doing it, not actually do it. */
+  const openWindowMatch = t.match(/^(?:open|show(?: me)?|pull up|bring up)(?: the| my)? ([a-z0-9 ]+?)(?:\s*(?:window|widget|full view|detail view|panel|screen))?$/);
   if(openWindowMatch){
     const name = openWindowMatch[1].trim();
     const def = WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
