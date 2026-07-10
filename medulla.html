@@ -283,6 +283,41 @@
     .holo-portrait.is-talking .holo-portrait__tint{ animation:none; }
     .holo-portrait__img{ transition:none; }
   }
+  /* ---------- MEDULLA's spoken-response callout — a small holographic dialogue box anchored
+     to the portrait widget card. Position is written as `transform:translate()` on a rAF loop
+     (see trackHoloBubblePosition) so it tracks the card across camera pans/zooms without ever
+     triggering layout; only opacity is transitioned for the fade in/out. ---------- */
+  #holo-speech-bubble{
+    position:fixed;left:0;top:0;
+    max-width:min(340px, calc(100vw - 32px));
+    padding:10px 14px;
+    background:rgba(4,10,12,.9);
+    border:1px solid var(--text-primary);
+    border-radius:4px;
+    box-shadow:0 0 16px -3px var(--text-primary);
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--text-primary);
+    opacity:0;
+    pointer-events:none;
+    z-index:260;
+    transition:opacity .18s ease;
+  }
+  #holo-speech-bubble.visible{opacity:1;}
+  .holo-speech-bubble__tail{
+    position:absolute;width:10px;height:10px;margin-left:-5px;
+    background:rgba(4,10,12,.9);
+  }
+  #holo-speech-bubble.tail-below .holo-speech-bubble__tail{
+    bottom:-5px;border-right:1px solid var(--text-primary);border-bottom:1px solid var(--text-primary);transform:rotate(45deg);
+  }
+  #holo-speech-bubble.tail-above .holo-speech-bubble__tail{
+    top:-5px;border-left:1px solid var(--text-primary);border-top:1px solid var(--text-primary);transform:rotate(45deg);
+  }
+  @media (prefers-reduced-motion: reduce){
+    #holo-speech-bubble{transition:none;}
+  }
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
   .yt-suggestions{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
@@ -3291,6 +3326,62 @@ function setHoloTalking(active){
 function startTalking(){ setHoloTalking(true); }
 function stopTalking(){ setHoloTalking(false); }
 
+/* ================= MEDULLA spoken-response bubble =================
+   Shows the final AI reply as a small holographic callout anchored to the portrait widget
+   card itself, instead of only the plain #ai-log status line. Position is recomputed every
+   frame via requestAnimationFrame while visible (transform-only — no layout thrash) so it
+   stays glued to the widget through camera pans/zooms/resizes, then auto-hides after a
+   reading-time-based delay. If the MEDULLA widget isn't mounted in the current profile
+   there's nothing to anchor to, so it's skipped entirely and #ai-log still shows the text. */
+let holoBubbleEl = null, holoBubbleRaf = null, holoBubbleHideTimer = null;
+function ensureHoloBubble(){
+  if(holoBubbleEl) return holoBubbleEl;
+  const el = document.createElement("div");
+  el.id = "holo-speech-bubble";
+  el.innerHTML = `<div class="holo-speech-bubble__text"></div><div class="holo-speech-bubble__tail"></div>`;
+  document.body.appendChild(el);
+  holoBubbleEl = el;
+  return el;
+}
+function getHoloWidgetCard(){
+  return document.querySelector('.claustrum-widget[data-widget-id="holoportrait"]');
+}
+function trackHoloBubblePosition(){
+  const card = getHoloWidgetCard();
+  const el = holoBubbleEl;
+  if(!card || !el){ hideHoloSpeech(); return; }
+  const cardRect = card.getBoundingClientRect();
+  const bw = el.offsetWidth, bh = el.offsetHeight;
+  const gap = 14;
+  let tailBelow = true, top = cardRect.top - bh - gap;
+  if(top < 8){ top = cardRect.bottom + gap; tailBelow = false; }
+  let left = cardRect.left + cardRect.width/2 - bw/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  el.classList.toggle("tail-below", tailBelow);
+  el.classList.toggle("tail-above", !tailBelow);
+  el.style.transform = `translate(${left}px, ${top}px)`;
+  const tailX = Math.max(14, Math.min(cardRect.left + cardRect.width/2 - left, bw - 14));
+  el.querySelector(".holo-speech-bubble__tail").style.left = tailX + "px";
+  holoBubbleRaf = requestAnimationFrame(trackHoloBubblePosition);
+}
+function showHoloSpeech(text){
+  if(!getHoloWidgetCard()) return;
+  const el = ensureHoloBubble();
+  el.querySelector(".holo-speech-bubble__text").textContent = text;
+  el.classList.add("visible");
+  if(holoBubbleRaf) cancelAnimationFrame(holoBubbleRaf);
+  trackHoloBubblePosition();
+  clearTimeout(holoBubbleHideTimer);
+  const displayMs = Math.min(9000, Math.max(2600, text.length * 45));
+  holoBubbleHideTimer = setTimeout(hideHoloSpeech, displayMs);
+}
+function hideHoloSpeech(){
+  if(!holoBubbleEl) return;
+  holoBubbleEl.classList.remove("visible");
+  if(holoBubbleRaf){ cancelAnimationFrame(holoBubbleRaf); holoBubbleRaf = null; }
+  clearTimeout(holoBubbleHideTimer);
+}
+
 /* ================= AI DOCK (local intent parsing + optional Ollama) ================= */
 const aiForm = $("#ai-form");
 const aiInput = $("#ai-input");
@@ -3393,6 +3484,7 @@ aiForm.addEventListener("submit", async (e)=>{
   if(!text) return;
   aiInput.value="";
   startTalking();
+  hideHoloSpeech();
   /* try/finally so stopTalking() always fires — on the fast local-command path, after Ollama
      resolves, AND if tryOllama ever throws — instead of a blind setTimeout that could stop the
      animation early on a slow response or leave it running forever after an error. Swap the body
@@ -3406,11 +3498,14 @@ aiForm.addEventListener("submit", async (e)=>{
   try{
     const work = (async ()=>{
       const local = tryLocalCommand(text);
-      if(local){ logAI(local); return; }
+      if(local){ logAI(local); showHoloSpeech(local); return; }
       logAI("Thinking…");
       const remote = await tryOllama(text);
-      if(remote){ logAI(remote); }
-      else{ logAI("No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers."); }
+      if(remote){ logAI(remote); showHoloSpeech(remote); }
+      else{
+        const fallback = "No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers.";
+        logAI(fallback); showHoloSpeech(fallback);
+      }
     })();
     await Promise.all([work, minDisplay]);
   } finally {
