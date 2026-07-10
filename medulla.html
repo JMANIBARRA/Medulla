@@ -3534,6 +3534,17 @@ function tryLocalCommand(text){
     saveAiConversation();
     results.push("Cleared — starting fresh, I won't remember what we talked about before this.");
   }
+  /* Direct time/date questions answered exactly, in code, instead of leaving them to the LLM.
+     A 1B local model will happily hallucinate a plausible-but-wrong date/time despite the
+     correct one being right there in its system prompt (see getAiSystemPrompt) — and once it
+     says something wrong, that wrong answer gets saved into aiConversation and keeps
+     reinforcing itself in later replies. This is zero-hallucination-risk by construction. */
+  if(/^(what(?:'?s| is) (?:the )?(?:current )?time( (is )?it)?|what time is it|current time)[?.\s]*$/.test(t)){
+    results.push("It's " + new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"}) + ".");
+  }
+  if(/^(what(?:'?s| is) (?:today'?s|the) date|what day is (?:it|today)|current date)[?.\s]*$/.test(t)){
+    results.push("Today is " + new Date().toLocaleDateString("en-US", {timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric"}) + ".");
+  }
   if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
   if(/switch to entertainment|load.*entertainment/.test(t)){ switchProfile("entertainment"); profileSelect.value="entertainment"; results.push("Switched to Entertainment Profile."); }
   if(/zoom out|wide view/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 0.7); saveProfileState(); results.push("Zoomed out."); }
