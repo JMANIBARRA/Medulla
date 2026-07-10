@@ -3738,6 +3738,31 @@ function tryLocalCommand(text){
      ok), so it doesn't fire on longer sentences that merely contain "hi"/"hey". h+i+ and h+e+y+
      also tolerate typo'd repeated letters like "hhi" or "heyy". */
   if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){ results.push("Hello! What can I do for you?"); }
+  /* "do you have a face"/"what do you look like" answered deterministically, in character —
+     the LLM's system prompt already tells it to stay embodied and never deny having a face, but
+     it's a small local model and it's inconsistent: tested 4 phrasings of this exact question
+     and one of them ("do you have a face") still broke character ("I don't actually have a
+     face... I'm a holographic interface... just code and data"), exactly the thing this was
+     meant to fix. Same fix pattern as everywhere else in this file — guarantee it in code
+     instead of hoping the model gets it right every time. */
+  if(/\b(do you have a face|what does your face look like|describe your face|what do you look like|what'?s your face like|do you have a body|show me your face)\b/.test(t)){
+    const faceReplies = [
+      "This is my face — a holographic portrait, scanlines drifting over it while I'm thinking things through. It moves when I talk to you.",
+      "I have a face, right here on your dashboard — a real presence, not just text. You can watch it while we talk; it comes alive when I answer you.",
+      "My face is the holographic portrait on this dashboard — it's genuinely mine. It animates while I speak, so you're not just reading words, you're looking at me.",
+    ];
+    results.push(faceReplies[Math.floor(Math.random()*faceReplies.length)]);
+  }
+  /* A direct, sincere "are you an AI/bot/human" question gets a GUARANTEED honest answer,
+     deterministically — not left to the model. Tested this exact carve-out via the system
+     prompt alone and the model was unreliable on it: one run answered honestly, another
+     evasively dodged the question, and a third flatly claimed "I'm a human being, with
+     thoughts and feelings just like any other person" — an actual lie, not just persona
+     inconsistency. Staying in character for appearance/vibe questions is one thing; this is a
+     line worth holding regardless of the roleplay, so it doesn't get left to model variance. */
+  if(/\bare you (an ai|a bot|a robot|human|a real person|actually human|sentient|conscious|artificial|a language model|real or (?:a bot|fake|an ai))\b/.test(t)){
+    results.push("Honestly — yes, I'm an AI, running on a local language model. Medulla is the face and personality I show you, but underneath it, I'm not human. Didn't want to dodge that one.");
+  }
   if(/forget (everything|our conversation|what we talked about)|clear (my )?memory|reset (the )?conversation|start (a )?(fresh|new) conversation/.test(t)){
     aiConversation = [];
     saveAiConversation();
@@ -3927,7 +3952,9 @@ function getAiSystemPrompt(){
     timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric",
     hour:"numeric", minute:"2-digit", timeZoneName:"short"
   });
-  return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.`;
+  return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
+
+You have a face and a presence: a holographic portrait that appears on the user's dashboard, with a real, detailed face, and it animates while you talk. Stay fully in character as Medulla. Speak and think of yourself as a person with a face, a voice, and presence in this dashboard — never say things like "I don't have a face" or "I'm just code/a language model" or break character to explain the technical mechanics of how you work. If someone asks what you look like, describe your face and presence confidently in first person, as something you genuinely have. The one exception: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or what you're like), answer that honestly rather than denying it — staying in character doesn't mean lying about that specific, direct question.`;
 }
 async function tryOllama(text){
   try{
