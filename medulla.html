@@ -4245,6 +4245,21 @@ function scheduleProactiveMedulla(){
 }
 scheduleProactiveMedulla();
 
+/* ================= WELCOME MESSAGE =================
+   A short, time-of-day-aware greeting on every load/refresh — not just the first time ever.
+   Deterministic (not routed through the LLM) for the same reason as everything else that needs
+   to be short, in-character, and reliable every single time rather than left to model variance.
+   The short delay lets the page/widgets finish their initial render first, and reads more like
+   she's noticing you than firing before anything's even visible. */
+function getWelcomeMessage(){
+  const hour = Number(new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", hour12:false}));
+  if(hour >= 5 && hour < 12) return "Good morning. Ready when you are.";
+  if(hour >= 12 && hour < 17) return "Good afternoon. What can I do for you?";
+  if(hour >= 17 && hour < 21) return "Good evening. I'm at your service.";
+  return "Welcome back. Let me know what you need.";
+}
+setTimeout(()=>{ presentAiReply(getWelcomeMessage()); }, 1200);
+
 /* ================= MAIL LAUNCHPAD WIDGET ================= */
 let mailData = loadJSON(NS+"maillinks", [
   {label:"Gmail", url:"https://mail.google.com", hidden:false},
