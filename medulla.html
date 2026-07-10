@@ -3562,6 +3562,19 @@ const aiInput = $("#ai-input");
 const aiLog = $("#ai-log");
 
 function logAI(msg){ aiLog.textContent = msg; }
+/* A final AI reply shows in exactly one place, not both: the talking dialogue bubble when the
+   MEDULLA widget is mounted (it's the more prominent, animated presentation), falling back to
+   the plain text line below the input only when the widget isn't around to show a bubble on.
+   Previously every reply called both logAI() and showHoloSpeech() with the same text, so it
+   displayed twice at once — genuinely redundant, not just visually busy. */
+function presentAiReply(text){
+  if(getHoloWidgetCard()){
+    logAI("");
+    showHoloSpeech(text);
+  } else {
+    logAI(text);
+  }
+}
 
 const FIT_DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function findWidgetDefByName(name){
@@ -4010,13 +4023,12 @@ aiForm.addEventListener("submit", async (e)=>{
      (see hideHoloSpeech) rather than on a separate timer that could drift out of sync. */
   hideHoloSpeech();
   const local = tryLocalCommand(text);
-  if(local){ logAI(local); showHoloSpeech(local); return; }
+  if(local){ presentAiReply(local); return; }
   logAI("Thinking…");
   const remote = await tryOllama(text);
-  if(remote){ logAI(remote); showHoloSpeech(remote); }
+  if(remote){ presentAiReply(remote); }
   else{
-    const fallback = "No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers.";
-    logAI(fallback); showHoloSpeech(fallback);
+    presentAiReply("No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers.");
   }
 });
 
