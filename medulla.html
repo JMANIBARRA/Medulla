@@ -532,7 +532,7 @@
   }
   #hotbar.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
   .hotbar-icon{
-    width:42px;height:42px;border-radius:11px;
+    height:38px;padding:0 16px;border-radius:19px;white-space:nowrap;
     display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,.045);border:1px solid var(--line);
     color:var(--text-primary);font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:.02em;
@@ -656,16 +656,16 @@
   </div>
 
   <div id="hotbar">
-    <button class="hotbar-icon" data-site="gmail" title="Gmail">Gm</button>
-    <button class="hotbar-icon" data-site="claude" title="Claude">Cl</button>
-    <button class="hotbar-icon" data-site="chatgpt" title="ChatGPT">GPT</button>
-    <button class="hotbar-icon" data-site="youtube" title="YouTube">YT</button>
-    <button class="hotbar-icon" data-site="google" title="Google">Go</button>
-    <button class="hotbar-icon" data-site="amazon" title="Amazon">Az</button>
-    <button class="hotbar-icon" data-site="netflix" title="Netflix">Nx</button>
-    <button class="hotbar-icon" data-site="spotify" title="Spotify">Sp</button>
-    <button class="hotbar-icon" data-site="github" title="GitHub">Gh</button>
-    <button class="hotbar-icon" data-site="x" title="X">X</button>
+    <button class="hotbar-icon" data-site="gmail">Gmail</button>
+    <button class="hotbar-icon" data-site="claude">Claude</button>
+    <button class="hotbar-icon" data-site="chatgpt">ChatGPT</button>
+    <button class="hotbar-icon" data-site="youtube">YouTube</button>
+    <button class="hotbar-icon" data-site="google">Google</button>
+    <button class="hotbar-icon" data-site="amazon">Amazon</button>
+    <button class="hotbar-icon" data-site="netflix">Netflix</button>
+    <button class="hotbar-icon" data-site="spotify">Spotify</button>
+    <button class="hotbar-icon" data-site="github">GitHub</button>
+    <button class="hotbar-icon" data-site="x">X</button>
   </div>
 
   <div id="ai-dock">
@@ -4123,8 +4123,8 @@ aiForm.addEventListener("submit", async (e)=>{
   const hotbar = $("#hotbar");
   const dock = $("#ai-dock");
   if(!hotbar || !dock) return;
-  const REVEAL_MARGIN = 90;
-  const HIDE_DELAY_MS = 350;
+  const REVEAL_MARGIN = 16; // small buffer above the hotbar/dock — leaving that band hides it almost immediately
+  const HIDE_DELAY_MS = 120;
   let hideTimer = null;
 
   function positionAboveDock(){
@@ -4142,7 +4142,11 @@ aiForm.addEventListener("submit", async (e)=>{
   }
   window.addEventListener("mousemove", (e)=>{
     const dockRect = dock.getBoundingClientRect();
-    const nearChatBar = e.clientY >= dockRect.top - REVEAL_MARGIN;
+    const hotbarRect = hotbar.getBoundingClientRect();
+    /* Math.min(...) so the zone hugs whichever sits higher — the hotbar itself once it's shown
+       — instead of a fixed margin off the dock that could sit below the hotbar's own top edge
+       and cause it to hide while the mouse is still over it. */
+    const nearChatBar = e.clientY >= Math.min(dockRect.top, hotbarRect.top) - REVEAL_MARGIN;
     if(nearChatBar) show(); else scheduleHide();
   }, {passive:true});
   hotbar.addEventListener("mouseenter", show);
