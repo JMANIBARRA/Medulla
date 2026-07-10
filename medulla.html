@@ -3567,6 +3567,25 @@ const FIT_DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function findWidgetDefByName(name){
   return WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
 }
+/* Reads the ACTUAL live text currently rendered on a widget's mini card and returns it
+   verbatim, instead of routing to the LLM (which has no access to the page and would just
+   hallucinate plausible-sounding content). Shared by both the explicit "what does X say" command
+   and the topic-inference fallback below (e.g. "what's the score" -> Sports, no widget named). */
+function readWidgetContentReply(def){
+  const card = document.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`);
+  const body = card ? card.querySelector(".widget-body") : null;
+  if(!body) return `I can't see the ${def.title} widget on your dashboard right now — it may be minimized or on a different profile. Try "open ${def.title.toLowerCase()}" first, then ask again.`;
+  const content = body.innerText.replace(/\n{3,}/g,"\n\n").trim();
+  return content ? `${def.title}: ${content}` : `The ${def.title} widget is open but there's nothing showing on it right now.`;
+}
+/* Some questions don't name a widget at all ("what's the score", "who's playing today", "any
+   games on") but clearly belong to one — mapped here so those still get the real, live widget
+   content instead of falling through to the LLM. Only checked when no widget was named
+   explicitly (see readWidgetName below), and kept deliberately narrow per topic so it doesn't
+   swallow unrelated questions ("what's the score" is unambiguous; a bare "team" isn't). */
+const WIDGET_TOPIC_INFERENCE = [
+  { id:"sports", re:/\b(score|scores|scoreboard|game|games|matchup|who(?:'s| is) playing|any games (?:on|today)|what teams|which teams|team names|my teams|sports (?:news|update)|standings|final score)\b/ },
+];
 function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
@@ -3676,16 +3695,14 @@ function tryLocalCommand(text){
   if(readWidgetName){
     const name = readWidgetName.trim();
     const def = findWidgetDefByName(name);
-    if(!def){
-      results.push(`Couldn't find a widget called "${name}".`);
-    } else {
-      const card = document.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`);
-      const body = card ? card.querySelector(".widget-body") : null;
-      if(!body){
-        results.push(`I can't see the ${def.title} widget on your dashboard right now — it may be minimized or on a different profile. Try "open ${def.title.toLowerCase()}" first, then ask again.`);
-      } else {
-        const content = body.innerText.replace(/\n{3,}/g,"\n\n").trim();
-        results.push(content ? `${def.title}: ${content}` : `The ${def.title} widget is open but there's nothing showing on it right now.`);
+    results.push(def ? readWidgetContentReply(def) : `Couldn't find a widget called "${name}".`);
+  } else {
+    /* no widget named — check if the question's SUBJECT clearly implies one anyway */
+    for(const topic of WIDGET_TOPIC_INFERENCE){
+      if(topic.re.test(t)){
+        const def = findWidgetDefByName(topic.id);
+        if(def) results.push(readWidgetContentReply(def));
+        break;
       }
     }
   }
