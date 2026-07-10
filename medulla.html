@@ -3589,12 +3589,24 @@ function tryLocalCommand(text){
      positive here just states the correct time in response to a time-adjacent sentence, which
      is harmless; a false NEGATIVE means real misinformation reaches the user, so this
      deliberately errs toward over-matching. */
+  /* "knowledge cutoff"/"training cutoff"/etc asks about the MODEL's cutoff, not today's date —
+     has to be excluded from (and checked before) the date check below, or "what's your
+     knowledge cutoff date" gets wrongly answered with today's date instead of the actual
+     question. Confirmed the model is just as unreliable here as it was for the current date:
+     asked three different ways, it gave three different, mutually-inconsistent cutoffs (March
+     2023, June 2023, September 2023) — it has no real introspective access to its own training
+     data, so like the date/time fix above, this bypasses the LLM with the actual documented
+     fact (Meta's Llama 3.2 model card) instead of letting it guess. */
+  const CUTOFF_RE = /knowledge cutoff|training cutoff|training data(?:'?s)? (?:cutoff|collected|updated|end)|how (?:recent|current) is your knowledge|when (?:was|is) your (?:training|knowledge)|most recent event you know/;
+  if(CUTOFF_RE.test(t)){
+    results.push("My underlying model (Llama 3.2) has a training data cutoff of December 2023, per Meta's official model card — I don't have reliable knowledge of anything after that, and current date/time questions are answered separately, not from training data.");
+  }
   const NOT_CLOCK_TIME = /timezone|time zone|bedtime|halftime|overtime|sometime|anytime|time out|timer|time limit|on time|in time|took time|spend time|spent time|waste time|wasted time|long time|short time|first time|last time|next time|good time|hard time|free time|save time|no time/;
   const asksQuestion = /\?\s*$/.test(text.trim()) || /^(what|when|do you know|can you tell|tell me|current|the current)\b/.test(t) || /\bcurrent (time|date)\b/.test(t);
-  if(/\btime\b/.test(t) && asksQuestion && !NOT_CLOCK_TIME.test(t)){
+  if(/\btime\b/.test(t) && asksQuestion && !NOT_CLOCK_TIME.test(t) && !CUTOFF_RE.test(t)){
     results.push("It's " + new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"}) + ".");
   }
-  if((/\bdate\b/.test(t) || /what day is (it|today)/.test(t)) && asksQuestion && !/update|dating|candidate|mandate|validate|outdated|to date/.test(t)){
+  if((/\bdate\b/.test(t) || /what day is (it|today)/.test(t)) && asksQuestion && !/update|dating|candidate|mandate|validate|outdated|to date/.test(t) && !CUTOFF_RE.test(t)){
     results.push("Today is " + new Date().toLocaleDateString("en-US", {timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric"}) + ".");
   }
   if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
