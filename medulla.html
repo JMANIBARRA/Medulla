@@ -275,11 +275,34 @@
     mix-blend-mode:multiply;
     pointer-events:none;
   }
+  /* .holo-portrait__browmask — both source photos have identical, static eyebrows (only the
+     mouth was ever edited between them), so there's no real brow art to swap to. This fakes a
+     brow "twitch" instead: a small fixed window clipped to just the eyebrow band (a duplicate
+     of the same photo, sized/offset so at rest it lines up pixel-for-pixel with the base image
+     beneath and is invisible), and on each spoken beat the duplicate slides up a couple of
+     pixels inside that static window while briefly fading in, reading as a quick brow raise.
+     Kept at opacity:0 outside of .mouth-open so there's zero effect — and zero cost — at rest. */
+  .holo-portrait__browmask{
+    position:absolute;left:0;top:25%;width:100%;height:10%;
+    overflow:hidden;
+    mix-blend-mode:screen;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .12s ease-out;
+    -webkit-mask-image:linear-gradient(to bottom, transparent, black 35%, black 65%, transparent);
+    mask-image:linear-gradient(to bottom, transparent, black 35%, black 65%, transparent);
+  }
+  .holo-portrait__browimg{
+    position:absolute;left:0;top:-250%;width:100%;height:1000%;
+    object-fit:cover;
+    filter:grayscale(1) contrast(1.08) brightness(1.02);
+    transition:transform .14s ease-out;
+  }
   /* "talking" state — JS toggles .mouth-open on/off (see scheduleHoloFlap) to flap between the
      idle (mouth closed) and talk (mouth open) frames at a randomized, speech-like cadence, and
      occasionally marks a beat .emphasis for a bigger reaction (a stressed syllable). Every
      effect below is driven directly off those two classes rather than its own independent
-     timer, so the glow/scale/tint all land in sync with the same "spoken" beat instead of
+     timer, so the glow/scale/tint/brow all land in sync with the same "spoken" beat instead of
      drifting against each other. Only opacity, transform and box-shadow ever change — none of
      which trigger layout — so this can toggle freely with zero shift or blinking in the card. */
   .holo-portrait.mouth-open .holo-portrait__img--idle{ opacity:0; }
@@ -289,6 +312,10 @@
   .holo-portrait.is-talking.mouth-open .holo-portrait__tint{ opacity:1; }
   .holo-portrait.mouth-open .holo-portrait__stage{ transform:scale(1.012) translateY(-1px); }
   .holo-portrait.mouth-open.emphasis .holo-portrait__stage{ transform:scale(1.03) translateY(-2px); }
+  .holo-portrait.mouth-open .holo-portrait__browmask{ opacity:.85; }
+  .holo-portrait.mouth-open .holo-portrait__browimg{ transform:translateY(-2px); }
+  .holo-portrait.mouth-open.emphasis .holo-portrait__browmask{ opacity:1; }
+  .holo-portrait.mouth-open.emphasis .holo-portrait__browimg{ transform:translateY(-4px); }
   .holo-portrait.is-talking.mouth-open{ box-shadow:0 0 22px -4px var(--text-primary); }
   .holo-portrait.is-talking.mouth-open.emphasis{ box-shadow:0 0 36px -2px var(--text-primary); }
   @keyframes holo-scan-move{ from{background-position:0 0;} to{background-position:0 4px;} }
@@ -296,8 +323,12 @@
   @media (prefers-reduced-motion: reduce){
     .holo-portrait,
     .holo-portrait__stage,
-    .holo-portrait__tint{ transition:none; animation:none; }
+    .holo-portrait__tint,
+    .holo-portrait__browmask,
+    .holo-portrait__browimg{ transition:none; animation:none; }
     .holo-portrait.mouth-open .holo-portrait__stage{ transform:none; }
+    .holo-portrait.mouth-open .holo-portrait__browmask{ opacity:0; }
+    .holo-portrait.mouth-open .holo-portrait__browimg{ transform:none; }
     .holo-portrait.is-talking.mouth-open,
     .holo-portrait.is-talking.mouth-open.emphasis{ box-shadow:none; }
     .holo-portrait__img{ transition:none; }
@@ -1832,6 +1863,7 @@ function renderMini(id){
         <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
+        <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
         <div class="holo-portrait__scan"></div>
       </div>
     </div>`;
@@ -2249,6 +2281,7 @@ function renderFull(id){
         <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
+        <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
         <div class="holo-portrait__scan"></div>
       </div>
     </div>`;
