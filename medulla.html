@@ -3677,7 +3677,10 @@ const WIDGET_TOPIC_INFERENCE = [
   { id:"career", phrases:["cover letter","job feed","salary target","job applications","my resume"],
     words:["resume","cv","job","jobs","salary","application","applications","interview","linkedin"] },
   { id:"mail", phrases:["check my mail","check mail","any new mail","new mail","mail links"],
-    words:["email","emails","inbox","gmail","outlook","protonmail"] },
+    /* "gmail"/"outlook" deliberately excluded — those are handled earlier as direct site
+       launches (SITE_SHORTCUTS below) now that a bare "gmail" opens Gmail itself rather than
+       reading the Mail widget's link list, per an explicit later request for that behavior. */
+    words:["email","emails","inbox"] },
   { id:"quicklinks", phrases:["quick links","my links","saved links","my bookmarks"],
     words:["bookmark","bookmarks","shortcut","shortcuts"] },
   { id:"claudeprojects", phrases:["my projects","project snippets","code snippets","my sandbox","the sandbox","file paths"],
@@ -3691,6 +3694,42 @@ const WIDGET_TOPIC_INFERENCE = [
   { id:"traffic", phrases:["traffic camera","traffic cameras","my commute"],
     words:["traffic","commute","highway"] },
 ];
+/* Bare site names ("gmail", "claude", "chatgpt") open that site directly in a new tab — no
+   "open" prefix, no typing ".com". Curated so the common ones are exact and correct (Gmail's
+   real URL is mail.google.com, not gmail.com; ChatGPT needs chat.openai.com pre-2024-rebrand
+   compatibility handled by chatgpt.com's own redirect, etc.) — checked early, right after
+   greetings, so it wins over looser topic inference for an unambiguous request like "gmail".
+   Anything NOT in this list can still be launched via the generic <word>.com guess fallback at
+   the very end of this function (last resort, once nothing more specific has matched). */
+const SITE_SHORTCUTS = {
+  gmail:"https://mail.google.com", "google mail":"https://mail.google.com",
+  outlook:"https://outlook.com", protonmail:"https://mail.proton.me",
+  youtube:"https://youtube.com", yt:"https://youtube.com",
+  google:"https://google.com", maps:"https://maps.google.com", "google maps":"https://maps.google.com",
+  drive:"https://drive.google.com", "google drive":"https://drive.google.com",
+  calendar:"https://calendar.google.com", "google calendar":"https://calendar.google.com",
+  amazon:"https://amazon.com", netflix:"https://netflix.com", spotify:"https://open.spotify.com",
+  "apple music":"https://music.apple.com", icloud:"https://icloud.com",
+  github:"https://github.com", gitlab:"https://gitlab.com",
+  twitter:"https://x.com", x:"https://x.com",
+  reddit:"https://reddit.com", instagram:"https://instagram.com", insta:"https://instagram.com", ig:"https://instagram.com",
+  facebook:"https://facebook.com", fb:"https://facebook.com",
+  linkedin:"https://linkedin.com", tiktok:"https://tiktok.com",
+  whatsapp:"https://web.whatsapp.com", discord:"https://discord.com", slack:"https://slack.com",
+  twitch:"https://twitch.tv", pinterest:"https://pinterest.com",
+  claude:"https://claude.ai", chatgpt:"https://chatgpt.com", "chat gpt":"https://chatgpt.com",
+  openai:"https://openai.com", gemini:"https://gemini.google.com", bard:"https://gemini.google.com",
+  wikipedia:"https://wikipedia.org", notion:"https://notion.so", figma:"https://figma.com",
+  canva:"https://canva.com", zoom:"https://zoom.us", dropbox:"https://dropbox.com",
+  ebay:"https://ebay.com", walmart:"https://walmart.com", target:"https://target.com",
+  imdb:"https://imdb.com", yelp:"https://yelp.com", venmo:"https://venmo.com", paypal:"https://paypal.com",
+  hulu:"https://hulu.com", disneyplus:"https://disneyplus.com", "disney plus":"https://disneyplus.com",
+  espn:"https://espn.com", cnn:"https://cnn.com", nytimes:"https://nytimes.com", "new york times":"https://nytimes.com",
+};
+/* Casual acknowledgment words that should never be treated as a site-name guess ("ok" isn't a
+   request to open ok.com). Only relevant to the generic .com-guess fallback — an exact
+   SITE_SHORTCUTS match always wins regardless, since that's unambiguous. */
+const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait"]);
 function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
@@ -3703,6 +3742,15 @@ function tryLocalCommand(text){
     aiConversation = [];
     saveAiConversation();
     results.push("Cleared — starting fresh, I won't remember what we talked about before this.");
+  }
+  /* bare site name ("gmail", "claude", "chatgpt") -> open it directly, no "open" prefix needed.
+     Checked this early (right after greetings) so an unambiguous, exact shortcut match always
+     wins over looser topic inference elsewhere (e.g. "gmail" opens Gmail itself, not a read-out
+     of the Mail widget's link list). */
+  const siteShortcutHandled = !!SITE_SHORTCUTS[t.trim()];
+  if(siteShortcutHandled){
+    window.open(SITE_SHORTCUTS[t.trim()], "_blank", "noopener,noreferrer");
+    results.push(`Opening ${t.trim()}.`);
   }
   /* Direct time/date questions answered exactly, in code, instead of leaving them to the LLM.
      A 1B local model will happily hallucinate a plausible-but-wrong date/time despite the
@@ -3801,7 +3849,7 @@ function tryLocalCommand(text){
      If the captured phrase doesn't match a real widget title ("what's in my blackjack hand"
      captures "blackjack hand", which isn't a title), this falls through to topic inference
      instead of giving up — that's what actually resolves the widget in cases like that one. */
-  let readWidgetName = null, m, widgetHandled = !!openWindowMatch && !openNotFoundName;
+  let readWidgetName = null, m, widgetHandled = siteShortcutHandled || (!!openWindowMatch && !openNotFoundName);
   if((m = t.match(/^what(?:'?s| is| does it say) (?:on|in) (?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))?[?.\s]*$/))) readWidgetName = m[1];
   else if((m = t.match(/^read (?:me )?(?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))?( to me)?[?.\s]*$/))) readWidgetName = m[1];
   else if((m = t.match(/^what does (?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))? say[?.\s]*$/))) readWidgetName = m[1];
@@ -3838,6 +3886,28 @@ function tryLocalCommand(text){
   if(/open google maps|find a mechanic/.test(t)){ window.open("https://maps.google.com","_blank","noopener,noreferrer"); results.push("Opening Maps."); }
   if(/play spotify/.test(t)){ window.open("https://open.spotify.com","_blank","noopener,noreferrer"); results.push("Opening Spotify."); }
   if(/launch youtube/.test(t)){ window.open("https://www.youtube.com","_blank","noopener,noreferrer"); results.push("Opening YouTube."); }
+
+  /* Last-resort site launch: nothing more specific matched this message at all, and it still
+     looks like it could just be a bare website/brand name someone typed to jump to it (a single
+     short word, not a question, not a stopword) — guess https://<word>.com, which is correct
+     for the large majority of real products/companies not already in SITE_SHORTCUTS above.
+     Deliberately the very last check in this function so it only ever fires when everything
+     else — greetings, commands, widget lookups, topic inference — has already had its shot. */
+  if(results.length === 0 && !/[?]/.test(text) && !/^(what|who|when|where|why|how|can|could|should|is|are|do|does|did|will|would)\b/.test(t)){
+    const bare = t.trim();
+    if(bare && bare.split(/\s+/).length === 1 && !SITE_LAUNCH_STOPWORDS.has(bare)){
+      /* your own dashboard takes priority over a guessed external site — bare "fitness" should
+         open your Fitness widget, not gamble on fitness.com existing/being relevant. */
+      const widgetDef = findWidgetDefByName(bare);
+      if(widgetDef){
+        openModal(widgetDef);
+        results.push(`Opening ${widgetDef.title}.`);
+      } else if(/^[a-z][a-z0-9-]{1,24}$/.test(bare)){
+        window.open(`https://${bare}.com`, "_blank", "noopener,noreferrer");
+        results.push(`Opening ${bare}.`);
+      }
+    }
+  }
 
   return results.length ? results.join(" ") : null;
 }
