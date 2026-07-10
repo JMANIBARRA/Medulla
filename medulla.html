@@ -83,12 +83,12 @@
   #globe-hit{
     position:absolute;border-radius:50%;clip-path:circle(50%);
     cursor:grab;z-index:-1;pointer-events:auto;
-    box-shadow:0 0 0 0 rgba(191,233,247,0) inset;
+    box-shadow:0 0 0 0 transparent inset;
     transition:box-shadow .2s;
     touch-action:none;
   }
-  #globe-hit:hover{box-shadow:0 0 0 2px rgba(191,233,247,.3) inset;}
-  #globe-hit.held{cursor:grabbing;box-shadow:0 0 0 2px rgba(191,233,247,.55) inset;}
+  #globe-hit:hover{box-shadow:0 0 0 2px color-mix(in srgb, var(--text-primary) 30%, transparent) inset;}
+  #globe-hit.held{cursor:grabbing;box-shadow:0 0 0 2px color-mix(in srgb, var(--text-primary) 55%, transparent) inset;}
   #globe-hint{
     position:absolute;transform:translate(-50%,0);
     font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;
@@ -100,8 +100,8 @@
   #globe-ring-1, #globe-ring-2{
     position:absolute;border-radius:50%;pointer-events:none;z-index:-1;
   }
-  #globe-ring-1{border:1px dashed rgba(191,233,247,.3);animation:hud-spin-cw 60s linear infinite;}
-  #globe-ring-2{border:1px dotted rgba(191,233,247,.22);animation:hud-spin-ccw 85s linear infinite;}
+  #globe-ring-1{border:1px dashed color-mix(in srgb, var(--text-primary) 30%, transparent);animation:hud-spin-cw 60s linear infinite;}
+  #globe-ring-2{border:1px dotted color-mix(in srgb, var(--text-primary) 22%, transparent);animation:hud-spin-ccw 85s linear infinite;}
   @keyframes hud-spin-cw{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   @keyframes hud-spin-ccw{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
   #globe-move-handle{
@@ -151,6 +151,17 @@
     overflow:hidden;
     container-type:inline-size;
     container-name:widget;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  /* hover "pop toward the screen" — scale + deeper shadow + a temporary z-index bump (!important,
+     since the JS-managed stacking order is an inline style and always outranks a stylesheet rule
+     otherwise) so a hovered card actually lifts above its neighbors instead of just visually
+     overlapping under them. Suppressed while actively dragging/resizing so it doesn't fight with
+     that in-progress interaction's own styling. */
+  .claustrum-widget:hover:not(.dragging):not(.resizing){
+    transform:scale(1.025);
+    box-shadow:0 18px 46px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4), 0 0 24px -4px color-mix(in srgb, var(--accent) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.03);
+    z-index:999 !important;
   }
   .claustrum-widget.dragging{opacity:.85;box-shadow:0 12px 40px rgba(0,0,0,.6), 0 0 26px -4px color-mix(in srgb, var(--accent) 85%, transparent);}
   .claustrum-widget.resizing{opacity:.9;}
@@ -220,6 +231,48 @@
   @keyframes cheetah-run{
     0%, 12.4%{opacity:1;}
     12.6%, 100%{opacity:0;}
+  }
+  /* ---------- holographic portrait: real photo, three CSS-blend layers, no canvas ----------
+     1. img              — grayscaled, screen-blended into the card's own dark background
+     2. .holo-portrait__tint — var(--text-primary) via mix-blend-mode:color, masked by the same
+        photo's luminance so the tint only paints the subject, not the "removed" background —
+        follows the app's live theme-accent picker automatically, no JS wiring needed here
+     3. .holo-portrait__scan — repeating-gradient scanline texture on top
+     Works because the widget card's own background (var(--bg-panel)) is already near-black. */
+  .holo-portrait{position:relative;width:100%;overflow:hidden;}
+  .holo-portrait__img{
+    display:block;width:100%;height:100%;object-fit:cover;
+    filter:grayscale(1) contrast(1.08) brightness(1.02);
+    mix-blend-mode:screen;
+  }
+  .holo-portrait__tint{
+    position:absolute;inset:0;
+    background:var(--text-primary);
+    mix-blend-mode:color;
+    -webkit-mask-image:url("portrait.jpg"); mask-image:url("portrait.jpg");
+    -webkit-mask-mode:luminance; mask-mode:luminance;
+    -webkit-mask-size:cover; mask-size:cover;
+    -webkit-mask-position:center; mask-position:center;
+    pointer-events:none;
+  }
+  .holo-portrait__scan{
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.35) 0px, rgba(0,0,0,.35) 1px, transparent 2px, transparent 4px);
+    background-size:100% 4px; /* explicit tile size so animating background-position actually scrolls it */
+    mix-blend-mode:multiply;
+    pointer-events:none;
+  }
+  /* "talking"/active state — only opacity and background-position are animated here, neither of
+     which triggers layout (no reflow), so this can toggle on/off freely with zero shift or
+     blinking in the widget card around it. There's a single static photo, not per-frame mouth
+     art, so this is a processing/active indicator rather than literal lip-sync. */
+  .holo-portrait.is-talking .holo-portrait__scan{ animation:holo-scan-move .6s linear infinite; }
+  .holo-portrait.is-talking .holo-portrait__tint{ animation:holo-pulse .9s ease-in-out infinite; }
+  @keyframes holo-scan-move{ from{background-position:0 0;} to{background-position:0 4px;} }
+  @keyframes holo-pulse{ 0%,100%{opacity:1;} 50%{opacity:.7;} }
+  @media (prefers-reduced-motion: reduce){
+    .holo-portrait.is-talking .holo-portrait__scan,
+    .holo-portrait.is-talking .holo-portrait__tint{ animation:none; }
   }
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
@@ -499,6 +552,7 @@ const WIDGET_DEFS = [
   {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
   {id:"youtubeoauth", title:"Video (Google)", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
   {id:"cheetah", title:"Cheetah", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Running-cheetah sprite loop — 8 frames cropped from a user-supplied silhouette sheet, recolored ice-blue, cycling via CSS steps() to fake a gallop."},
+  {id:"holoportrait", title:"Medulla", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"A real photo with mix-blend-mode:screen dropping out its black background, scanlines laid over it, and a color-blend tint that follows the app's theme accent live — no canvas, pure CSS."},
 ];
 
 /* default layout coordinates */
@@ -510,6 +564,7 @@ const SIZE_OVERRIDES = {
   youtube: {w:340, h:280},
   youtubeoauth: {w:340, h:280},
   cheetah: {w:280, h:170},
+  holoportrait: {w:260, h:320},
 };
 
 /* size presets (S/M/L) cycle relative to each widget's base size.
@@ -744,6 +799,122 @@ let googleClientId = loadJSON(NS+"googleClientId", "");
    client here doesn't even hand out). */
 let googleAccessToken = null;
 
+/* ================= ACCENT COLOR (theme-wide, not per-profile) ================= */
+/* --text-primary and all four --accent-* vars ship identical (ice blue) — this is the "one color
+   driving the whole HUD" the reskin targets. Every glow/shadow/border in the CSS is built from
+   color-mix() against these vars, so retargeting just these 5 covers the whole app automatically
+   without touching individual rules. Global (not tied to state/profiles) since it's a display
+   preference, not per-profile data — shouldn't reset when switching profiles. */
+let themeAccent = loadJSON(NS+"themeAccent", "#bfe9f7");
+/* the color actually applied to CSS vars / canvas draws — see ensureReadableAccent() below.
+   Kept separate from themeAccent (the raw picked color) so Settings still shows exactly what
+   was picked/typed, even when the applied version has been auto-lightened for readability. */
+let themeAccentDisplay = themeAccent;
+/* "R,G,B" form of themeAccentDisplay, cached and only recomputed on theme change — the globe
+   redraws every animation frame via requestAnimationFrame, so its rgba() strings are built from
+   this instead of re-parsing the hex color 60x/sec. */
+let themeAccentRgbStr = "191,233,247";
+function hexToHsl(hex){
+  const [r0,g0,b0] = hexToRgb(hex).map(v=>v/255);
+  const max=Math.max(r0,g0,b0), min=Math.min(r0,g0,b0);
+  let h=0, s=0; const l=(max+min)/2;
+  if(max!==min){
+    const d = max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r0: h=(g0-b0)/d+(g0<b0?6:0); break;
+      case g0: h=(b0-r0)/d+2; break;
+      default: h=(r0-g0)/d+4;
+    }
+    h /= 6;
+  }
+  return [h*360, s*100, l*100];
+}
+function hslToHex(h,s,l){
+  h/=360; s/=100; l/=100;
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const hue2rgb=(p,q,t)=>{
+      if(t<0) t+=1; if(t>1) t-=1;
+      if(t<1/6) return p+(q-p)*6*t;
+      if(t<1/2) return q;
+      if(t<2/3) return p+(q-p)*(2/3-t)*6;
+      return p;
+    };
+    const q = l<0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  const toHex=v=>Math.round(v*255).toString(16).padStart(2,"0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+/* --text-primary/--accent-* double as body-text and border/glow color against a near-black
+   background (--bg-deep is #020304) — a dark pick like black, or any dark custom color, would be
+   flatly unreadable. Floors HSL lightness at 65% (matching where the other presets already sit —
+   e.g. the amber/pink/green swatches are all ~65-78% L) so text stays legible while keeping the
+   chosen hue: black specifically becomes a light neutral gray, exactly "white or at least light
+   gray" as asked for, rather than an arbitrary fixed fallback color. */
+function ensureReadableAccent(hex){
+  const [h,s,l] = hexToHsl(hex);
+  const MIN_L = 65;
+  return l < MIN_L ? hslToHex(h, s, MIN_L) : hex;
+}
+function applyThemeAccent(){
+  themeAccentDisplay = ensureReadableAccent(themeAccent);
+  themeAccentRgbStr = hexToRgb(themeAccentDisplay).join(",");
+  const root = document.documentElement.style;
+  root.setProperty("--text-primary", themeAccentDisplay);
+  root.setProperty("--accent-amber", themeAccentDisplay);
+  root.setProperty("--accent-teal", themeAccentDisplay);
+  root.setProperty("--accent-rust", themeAccentDisplay);
+  root.setProperty("--accent-violet", themeAccentDisplay);
+  recolorCheetahFrames();
+}
+/* The cheetah widget's frames are pre-baked PNGs (body ice-blue, spots dark teal) — a CSS
+   variable can't reach into a raster image, so they'd otherwise be the one thing stuck on the
+   old color forever. Recolors them per-pixel instead of just tinting flatly: distance to the
+   ORIGINAL body color vs. the ORIGINAL spot color decides how much of the new accent vs. the
+   (fixed) spot color each pixel gets, so the spot pattern stays visible instead of being
+   flattened into one solid silhouette. Always redraws from each frame's untouched original file
+   (dataset.srcOriginal), never from the currently-displayed image — recoloring an already
+   recolored image would compound/drift instead of giving a clean result each time. */
+function hexToRgb(hex){
+  const m = (hex||"").replace("#","").match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [191,233,247];
+}
+function recolorCheetahFrames(){
+  const target = hexToRgb(themeAccentDisplay);
+  const ORIGINAL_BODY = [191,233,247], ORIGINAL_DOT = [28,51,60];
+  $$(".cheetah-frame").forEach(imgEl=>{
+    if(imgEl.dataset.recoloredFor === themeAccentDisplay) return;
+    if(!imgEl.dataset.srcOriginal) imgEl.dataset.srcOriginal = imgEl.getAttribute("src");
+    const loader = new Image();
+    loader.onload = ()=>{
+      const canvas = document.createElement("canvas");
+      canvas.width = loader.naturalWidth; canvas.height = loader.naturalHeight;
+      const cctx = canvas.getContext("2d");
+      cctx.drawImage(loader, 0, 0);
+      const imgData = cctx.getImageData(0, 0, canvas.width, canvas.height);
+      const px = imgData.data;
+      for(let i=0; i<px.length; i+=4){
+        if(px[i+3]===0) continue;
+        const dBody = Math.hypot(px[i]-ORIGINAL_BODY[0], px[i+1]-ORIGINAL_BODY[1], px[i+2]-ORIGINAL_BODY[2]);
+        const dDot = Math.hypot(px[i]-ORIGINAL_DOT[0], px[i+1]-ORIGINAL_DOT[1], px[i+2]-ORIGINAL_DOT[2]);
+        const t = dBody/((dBody+dDot)||1); // 0 = pure body, 1 = pure spot
+        px[i]   = Math.round(target[0]*(1-t) + ORIGINAL_DOT[0]*t);
+        px[i+1] = Math.round(target[1]*(1-t) + ORIGINAL_DOT[1]*t);
+        px[i+2] = Math.round(target[2]*(1-t) + ORIGINAL_DOT[2]*t);
+      }
+      cctx.putImageData(imgData, 0, 0);
+      imgEl.src = canvas.toDataURL("image/png");
+      imgEl.dataset.recoloredFor = themeAccentDisplay;
+    };
+    loader.src = imgEl.dataset.srcOriginal;
+  });
+}
+applyThemeAccent();
+
 /* ================= CAMERA / CANVAS ================= */
 const viewport = $("#canvas-viewport");
 const world = $("#canvas-world");
@@ -930,17 +1101,17 @@ function drawGlobe(){
   gctx.clearRect(0,0,globeSize,globeSize);
 
   const glow = gctx.createRadialGradient(globeCx,globeCy,globeR*0.15,globeCx,globeCy,globeR*1.05);
-  glow.addColorStop(0,"rgba(191,233,247,.09)");
-  glow.addColorStop(0.85,"rgba(191,233,247,.03)");
-  glow.addColorStop(1,"rgba(191,233,247,0)");
+  glow.addColorStop(0,`rgba(${themeAccentRgbStr},.09)`);
+  glow.addColorStop(0.85,`rgba(${themeAccentRgbStr},.03)`);
+  glow.addColorStop(1,`rgba(${themeAccentRgbStr},0)`);
   gctx.fillStyle = glow;
   gctx.beginPath(); gctx.arc(globeCx,globeCy,globeR*1.05,0,Math.PI*2); gctx.fill();
 
-  GLOBE_GRATICULE_LAT.forEach(r=>strokeGlobePath(gctx, r, "191,233,247", 0.16, 1, true));
-  GLOBE_GRATICULE_LON.forEach(m=>strokeGlobePath(gctx, m, "191,233,247", 0.14, 1, false));
-  EARTH_LAND.forEach(ring=>strokeGlobePath(gctx, ring, "191,233,247", 0.92, 1.1, true));
+  GLOBE_GRATICULE_LAT.forEach(r=>strokeGlobePath(gctx, r, themeAccentRgbStr, 0.16, 1, true));
+  GLOBE_GRATICULE_LON.forEach(m=>strokeGlobePath(gctx, m, themeAccentRgbStr, 0.14, 1, false));
+  EARTH_LAND.forEach(ring=>strokeGlobePath(gctx, ring, themeAccentRgbStr, 0.92, 1.1, true));
 
-  gctx.strokeStyle = "rgba(191,233,247,.8)";
+  gctx.strokeStyle = `rgba(${themeAccentRgbStr},.8)`;
   gctx.lineWidth = 1.5;
   gctx.beginPath(); gctx.arc(globeCx,globeCy,globeR,0,Math.PI*2); gctx.stroke();
 
@@ -949,7 +1120,7 @@ function drawGlobe(){
     const sb = globeToScreen(sphericalToCartesian(link.b.lat, link.b.lon));
     if(sa.z < -0.2 && sb.z < -0.2) return;
     const mx=(sa.x+sb.x)/2, my=(sa.y+sb.y)/2;
-    gctx.strokeStyle = "rgba(191,233,247,.35)";
+    gctx.strokeStyle = `rgba(${themeAccentRgbStr},.35)`;
     gctx.lineWidth = 1;
     gctx.beginPath(); gctx.moveTo(sa.x,sa.y);
     gctx.quadraticCurveTo(mx+(mx-globeCx)*0.15, my+(my-globeCy)*0.15, sb.x, sb.y);
@@ -961,7 +1132,7 @@ function drawGlobe(){
     if(s.z < -0.15) return;
     n.pulse += 0.05;
     const pulse = 0.5+0.5*Math.sin(n.pulse);
-    gctx.fillStyle = `rgba(191,233,247,${(0.55+0.45*Math.max(0.2,s.z)).toFixed(2)})`;
+    gctx.fillStyle = `rgba(${themeAccentRgbStr},${(0.55+0.45*Math.max(0.2,s.z)).toFixed(2)})`;
     gctx.beginPath(); gctx.arc(s.x,s.y,2+pulse*1.5,0,Math.PI*2); gctx.fill();
   });
 }
@@ -1047,7 +1218,7 @@ viewport.addEventListener("pointerdown", (e)=>{
   if(paintMode && !spaceDown){
     drawing=true;
     const p = screenToWorld(e.clientX,e.clientY);
-    currentStroke = {color: "#bfe9f7", points:[[p.x,p.y]]};
+    currentStroke = {color: themeAccentDisplay, points:[[p.x,p.y]]};
     ctx.strokeStyle = currentStroke.color; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
     ctx.beginPath(); ctx.moveTo(p.x,p.y);
     return;
@@ -1162,7 +1333,7 @@ function renderStrokes(){
   ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
   state.draw.strokes.forEach(s=>{
     if(s.points.length<2) return;
-    ctx.strokeStyle=s.color||"#bfe9f7"; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
+    ctx.strokeStyle=s.color||themeAccentDisplay; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
     ctx.beginPath(); ctx.moveTo(s.points[0][0], s.points[0][1]);
     s.points.slice(1).forEach(pt=>ctx.lineTo(pt[0],pt[1]));
     ctx.stroke();
@@ -1468,6 +1639,7 @@ function renderWidgetCard(def,l){
   if(def.id==="garage") setTimeout(()=>hydrateGarageMini(body),0);
   if(def.id==="youtube") setTimeout(()=>{ const c = hydrateYouTubeMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="youtubeoauth") setTimeout(()=>{ const c = hydrateYouTubeOAuthMini(body); if(c) activeMiniCleanups.push(c); },0);
+  if(def.id==="cheetah") setTimeout(()=>recolorCheetahFrames(),0);
 
   return card;
 }
@@ -1590,6 +1762,14 @@ function renderMini(id){
     return `
     <div class="cheetah-sprite">${imgs}</div>`;
   }
+  if(id==="holoportrait"){
+    return `
+    <div class="holo-portrait" style="flex:1;">
+      <img class="holo-portrait__img" src="portrait.jpg" alt="Holographic portrait">
+      <div class="holo-portrait__tint"></div>
+      <div class="holo-portrait__scan"></div>
+    </div>`;
+  }
   if(id==="youtube"){
     return `
     <div style="display:flex;flex-direction:column;width:100%;height:100%;gap:6px;">
@@ -1670,24 +1850,19 @@ function renderMini(id){
     return `
     <div style="display:flex;flex-direction:column;height:100%;width:100%;font-family:var(--font-mono);">
       <div class="arcade-scroll" style="flex:1;overflow:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;width:100%;">
-        <div class="arcade-mini-panel-bj" style="text-align:center;width:100%;">
-          <div class="mini-bj-dealer-cards card-row" style="min-height:2.9em;margin-top:4px;"></div>
-          <div class="mini-bj-dealer-value" style="color:var(--text-dim);font-size:0.8em;"></div>
-          <div class="mini-bj-player-cards card-row" style="min-height:2.9em;margin-top:8px;"></div>
-          <div class="mini-bj-player-value" style="color:var(--text-dim);font-size:0.8em;"></div>
-          <div class="mini-bj-message" style="color:var(--accent-teal);min-height:1.2em;font-size:0.85em;"></div>
-          <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;width:100%;">
-            <button class="btn primary mini-bj-hit" disabled style="flex:1;max-width:7em;padding:0.4em;">Hit</button>
-            <button class="btn primary mini-bj-stand" disabled style="flex:1;max-width:7em;padding:0.4em;">Stand</button>
+        <div class="arcade-mini-panel-bj" style="width:100%;">
+          <!-- cards-only mirror of the shared game (see setupBlackjack), plus Hit/Stand so you can
+               actually play from here — Deal/Double/Restart still live only in the full view. -->
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;">
+            <div style="flex:1;text-align:center;min-width:0;">
+              <div class="mini-bj-dealer-cards card-row" style="min-height:2.9em;margin-top:4px;"></div>
+              <div class="mini-bj-player-cards card-row" style="min-height:2.9em;margin-top:8px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;flex:none;">
+              <button class="btn primary mini-bj-hit" disabled style="padding:0.3em 0.8em;font-size:0.8em;">Hit</button>
+              <button class="btn primary mini-bj-stand" disabled style="padding:0.3em 0.8em;font-size:0.8em;">Stand</button>
+            </div>
           </div>
-          <div style="display:flex;justify-content:center;margin-top:6px;">
-            <button class="btn primary mini-bj-deal" style="padding:0.4em 1.6em;">Deal</button>
-          </div>
-          <div style="display:flex;gap:4px;justify-content:center;margin-top:6px;">
-            <button class="btn mini-bj-double" disabled style="padding:0.3em 0.6em;">Double</button>
-            <button class="btn mini-bj-restart" style="padding:0.3em 0.6em;">Restart</button>
-          </div>
-          <div class="mini-bj-balance" style="margin-top:8px;color:var(--accent-amber);font-family:var(--font-mono);font-size:0.85em;">$1000</div>
         </div>
         <div class="arcade-mini-panel-flappy" style="display:none;text-align:center;width:100%;">
           <canvas class="mini-flappy-canvas" width="240" height="150" style="background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;width:100%;height:auto;display:block;"></canvas>
@@ -1961,13 +2136,12 @@ function renderFull(id){
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
       <div class="field-row" style="margin-bottom:0;">
         <label>Age</label>
-        <input id="fit-age-input" type="text" placeholder="e.g. 29" style="width:80px;">
+        <input id="fit-age-input" type="text" style="width:80px;">
       </div>
       <div class="field-row" style="margin-bottom:0;">
         <label>Gender</label>
-        <input id="fit-gender-input" type="text" placeholder="e.g. male" style="width:120px;">
+        <input id="fit-gender-input" type="text" style="width:120px;">
       </div>
-      <span style="font-size:11px;color:var(--text-dim);">used only as a benchmark baseline — nothing is diagnosed here</span>
     </div>
 
     <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;">Weekly Plan</h3>
@@ -2001,6 +2175,14 @@ function renderFull(id){
       </div>
     </div>
     <p style="font-size:11px;color:var(--text-dim);margin-top:14px;">Entries are sorted into a column automatically based on keywords — no need to pick a category yourself. This is a simple rules-based sort, not medical analysis.</p>`;
+  }
+  if(id==="holoportrait"){
+    return `
+    <div class="holo-portrait" style="height:70vh;max-height:640px;">
+      <img class="holo-portrait__img" src="portrait.jpg" alt="Holographic portrait">
+      <div class="holo-portrait__tint"></div>
+      <div class="holo-portrait__scan"></div>
+    </div>`;
   }
   return "";
 }
@@ -2953,6 +3135,10 @@ $("#cursor-toggle-btn").addEventListener("click", ()=>{
 
 /* ================= SETTINGS (theme / backup) ================= */
 const THEME_SWATCHES = ["#020304","#000000","#02080a","#04080a","#050505","#000a08","#02040a"];
+/* ice blue (default), white, purple, red, green, amber, pink, black — kept at a similar
+   pastel/light lightness to ice blue (except black) since these double as glowing text/border
+   colors, not just fills; too dark and they'd be unreadable against the near-black background. */
+const ACCENT_SWATCHES = ["#bfe9f7","#ffffff","#c9a0f5","#ff6b6b","#7ee787","#f7c948","#ff8fc7","#000000"];
 $("#settings-btn").addEventListener("click", ()=>{
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
   modalTitle.textContent = "System Config";
@@ -2960,6 +3146,14 @@ $("#settings-btn").addEventListener("click", ()=>{
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Background theme</h3>
     <div style="display:flex;gap:8px;margin:10px 0 18px;">
       ${THEME_SWATCHES.map(c=>`<div class="swatch" data-c="${c}" style="background:${c}"></div>`).join("")}
+    </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Accent color</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Retints every glowing border/text/icon at once — including the paint tool's pen color and the cheetah widget.
+    </p>
+    <div style="display:flex;gap:8px;margin:10px 0 18px;align-items:center;flex-wrap:wrap;">
+      ${ACCENT_SWATCHES.map(c=>`<div class="swatch accent-swatch" data-c="${c}" style="background:${c};${c===themeAccent?"box-shadow:0 0 0 2px var(--text-primary);":""}"></div>`).join("")}
+      <input type="color" id="accent-color-input" value="${themeAccent}" style="width:34px;height:26px;padding:0;border:1px solid var(--line);background:none;cursor:pointer;" title="Custom color"/>
     </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">YouTube Data API key</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
@@ -3003,13 +3197,27 @@ $("#settings-btn").addEventListener("click", ()=>{
     $("#google-client-id-save-btn").textContent = "Saved";
     setTimeout(()=>{ $("#google-client-id-save-btn").textContent = "Save"; }, 1200);
   });
-  $$(".swatch",modalBody).forEach(sw=>{
+  /* .accent-swatch also carries the shared .swatch class for its square-color-chip styling, so
+     this must exclude it explicitly — otherwise clicking an accent color would also wrongly
+     overwrite the background color, since both handlers would fire off the same class match. */
+  $$(".swatch:not(.accent-swatch)",modalBody).forEach(sw=>{
     sw.addEventListener("click", ()=>{
       state.theme = sw.dataset.c;
       document.documentElement.style.setProperty("--bg-deep", sw.dataset.c);
       saveProfileState();
     });
   });
+  function setAccentColor(c){
+    themeAccent = c;
+    saveJSON(NS+"themeAccent", themeAccent);
+    applyThemeAccent();
+    $$(".accent-swatch",modalBody).forEach(s=>{ s.style.boxShadow = s.dataset.c===themeAccent ? "0 0 0 2px var(--text-primary)" : "none"; });
+    $("#accent-color-input").value = themeAccent;
+  }
+  $$(".accent-swatch",modalBody).forEach(sw=>{
+    sw.addEventListener("click", ()=> setAccentColor(sw.dataset.c));
+  });
+  $("#accent-color-input").addEventListener("input", (e)=> setAccentColor(e.target.value));
   $("#export-btn").addEventListener("click", ()=>{
     const dump = {};
     for(let i=0;i<localStorage.length;i++){
@@ -3038,6 +3246,16 @@ $("#settings-btn").addEventListener("click", ()=>{
   });
   modalOverlay.classList.add("open");
 });
+
+/* ================= HOLOGRAPHIC PORTRAIT — "talking"/active state =================
+   Toggles .is-talking on every currently-mounted .holo-portrait (there can be both a mini
+   widget and an expanded-modal copy live at once — this hits all of them). Only opacity and
+   background-position animate (see the CSS), so this never causes layout shift. */
+function setHoloTalking(active){
+  $$(".holo-portrait").forEach(el=>{ el.classList.toggle("is-talking", active); });
+}
+function startTalking(){ setHoloTalking(true); }
+function stopTalking(){ setHoloTalking(false); }
 
 /* ================= AI DOCK (local intent parsing + optional Ollama) ================= */
 const aiForm = $("#ai-form");
@@ -3140,12 +3358,29 @@ aiForm.addEventListener("submit", async (e)=>{
   const text = aiInput.value.trim();
   if(!text) return;
   aiInput.value="";
-  const local = tryLocalCommand(text);
-  if(local){ logAI(local); return; }
-  logAI("Thinking…");
-  const remote = await tryOllama(text);
-  if(remote){ logAI(remote); }
-  else{ logAI("No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers."); }
+  startTalking();
+  /* try/finally so stopTalking() always fires — on the fast local-command path, after Ollama
+     resolves, AND if tryOllama ever throws — instead of a blind setTimeout that could stop the
+     animation early on a slow response or leave it running forever after an error. Swap the body
+     of the `work` async function below for your own request if you're wiring in a real backend;
+     call stopTalking() (or just let this finally block run) whenever that response actually
+     lands. The minDisplay floor just keeps the animation from flashing and vanishing before it's
+     even visible on a local command, which resolves synchronously/near-instantly — it never
+     delays the actual response, only how long the animation stays up afterward. */
+  const minDisplay = new Promise(r=>setTimeout(r, 500));
+  try{
+    const work = (async ()=>{
+      const local = tryLocalCommand(text);
+      if(local){ logAI(local); return; }
+      logAI("Thinking…");
+      const remote = await tryOllama(text);
+      if(remote){ logAI(remote); }
+      else{ logAI("No local command matched, and no local Ollama instance found at localhost:11434 — run Ollama to enable free-form AI answers."); }
+    })();
+    await Promise.all([work, minDisplay]);
+  } finally {
+    stopTalking();
+  }
 });
 
 /* ================= MAIL LAUNCHPAD WIDGET ================= */
@@ -3505,20 +3740,21 @@ function hydrateArcadeMini(scope){
   tabBJ.addEventListener("click", ()=>{
     panelBJ.style.display=""; panelFlappy.style.display="none";
     tabBJ.classList.add("primary"); tabFlappy.classList.remove("primary");
+    bjAutoDealIfEmpty();
   });
   tabFlappy.addEventListener("click", ()=>{
     panelFlappy.style.display=""; panelBJ.style.display="none";
     tabFlappy.classList.add("primary"); tabBJ.classList.remove("primary");
   });
+  /* cards-only mirror + Hit/Stand — Deal/Double/Restart still live only in the full view */
   const bjCleanup = setupBlackjack(scope, {
-    balance:".mini-bj-balance", dealerCards:".mini-bj-dealer-cards", dealerVal:".mini-bj-dealer-value",
-    playerCards:".mini-bj-player-cards", playerVal:".mini-bj-player-value", msg:".mini-bj-message",
-    deal:".mini-bj-deal", hit:".mini-bj-hit", stand:".mini-bj-stand",
-    dbl:".mini-bj-double", restart:".mini-bj-restart"
+    dealerCards:".mini-bj-dealer-cards", playerCards:".mini-bj-player-cards",
+    hit:".mini-bj-hit", stand:".mini-bj-stand"
   });
   const flappyCleanup = setupFlappy(scope, {
     canvas:".mini-flappy-canvas", score:".mini-flappy-score", high:".mini-flappy-high", start:".mini-flappy-start"
   });
+  bjAutoDealIfEmpty(); // Blackjack is the mini widget's default-active tab, so it should already have cards showing
   return function cleanup(){ bjCleanup(); flappyCleanup(); };
 }
 
@@ -3534,6 +3770,7 @@ function hydrateArcadeFull(scope){
   tabBJ.addEventListener("click", ()=>{
     panelBJ.style.display=""; panelFlappy.style.display="none";
     tabBJ.classList.add("primary"); tabFlappy.classList.remove("primary");
+    bjAutoDealIfEmpty();
   });
 
   const flappyCleanup = setupFlappy(scope);
@@ -3587,7 +3824,7 @@ function setupFlappy(scope, ids){
     ctx2.ellipse(-bird.r*0.15, bird.r*0.1, bird.r*0.62, bird.r*0.36, wingLift, 0, Math.PI*2);
     ctx2.fill();
     /* body */
-    ctx2.fillStyle = "#bfe9f7";
+    ctx2.fillStyle = themeAccentDisplay;
     ctx2.beginPath();
     ctx2.ellipse(0, 0, bird.r*1.15, bird.r, 0, 0, Math.PI*2);
     ctx2.fill();
@@ -3625,11 +3862,11 @@ function setupFlappy(scope, ids){
     for(let gx=(-frame*PIPE_SPEED*0.3)%40; gx<W; gx+=40){ ctx2.beginPath(); ctx2.moveTo(gx,0); ctx2.lineTo(gx,H); ctx2.stroke(); }
     pipes.forEach(p=>{
       const grad = ctx2.createLinearGradient(p.x,0,p.x+PIPE_W,0);
-      grad.addColorStop(0,"#4a7c8c"); grad.addColorStop(0.5,"#bfe9f7"); grad.addColorStop(1,"#4a7c8c");
+      grad.addColorStop(0,"#4a7c8c"); grad.addColorStop(0.5,themeAccentDisplay); grad.addColorStop(1,"#4a7c8c");
       ctx2.fillStyle = grad;
       ctx2.fillRect(p.x, 0, PIPE_W, p.gapY);
       ctx2.fillRect(p.x, p.gapY+PIPE_GAP, PIPE_W, H-(p.gapY+PIPE_GAP));
-      ctx2.fillStyle = "#bfe9f7";
+      ctx2.fillStyle = themeAccentDisplay;
       ctx2.fillRect(p.x-3, p.gapY-14, PIPE_W+6, 14);
       ctx2.fillRect(p.x-3, p.gapY+PIPE_GAP, PIPE_W+6, 14);
     });
@@ -3667,7 +3904,7 @@ function setupFlappy(scope, ids){
       }
       ctx2.fillStyle = "rgba(2,3,4,.78)";
       ctx2.fillRect(0,0,W,H);
-      ctx2.fillStyle = "#bfe9f7";
+      ctx2.fillStyle = themeAccentDisplay;
       ctx2.font = "700 16px 'Space Mono', monospace";
       ctx2.textAlign = "center";
       ctx2.fillText("Game over — score "+score, W/2, H/2);
@@ -3704,6 +3941,139 @@ function setupFlappy(scope, ids){
 }
 
 /* ---- Infinite-Bankroll Blackjack Engine ---- */
+/* Blackjack is ONE shared game, not a separate instance per view — the mini widget (cards-only,
+   no controls) is a live mirror of whatever's happening in the full view, where the actual
+   Hit/Stand/Deal/Double/Restart controls live. bjViews holds every currently-mounted view's DOM
+   refs (any of which may be absent — the mini view only ever supplies the two card rows), and
+   every render/control-state change fans out to all of them at once. */
+const SUITS = ["♠","♥","♦","♣"], RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+let bjDealer=[], bjPlayer=[], bjBet=0, bjInHand=false;
+const bjViews = [];
+function bjDrawCard(){
+  const rank = RANKS[Math.floor(Math.random()*RANKS.length)];
+  const suit = SUITS[Math.floor(Math.random()*SUITS.length)];
+  return rank+suit;
+}
+function bjCardValue(card){
+  const rank = card.slice(0,-1);
+  if(rank==="A") return 11;
+  if(["J","Q","K"].includes(rank)) return 10;
+  return Number(rank);
+}
+function bjCardFrontHTML(card){
+  const rank = card.slice(0,-1), suit = card.slice(-1);
+  const isRed = suit==="♥" || suit==="♦";
+  return `<span class="playing-card${isRed?' red':''}"><span class="pc-rank">${rank}</span><span class="pc-suit">${suit}</span></span>`;
+}
+function bjCardBackHTML(){ return `<span class="playing-card back"></span>`; }
+function bjRenderCardRow(el, hand, hideAfterFirst){
+  if(!el) return;
+  el.innerHTML = hand.map((c,i)=> (hideAfterFirst && i>0) ? bjCardBackHTML() : bjCardFrontHTML(c)).join("");
+}
+function bjHandValue(hand){
+  let total = hand.reduce((s,c)=>s+bjCardValue(c),0);
+  let aces = hand.filter(c=>c.startsWith("A")).length;
+  while(total>21 && aces>0){ total-=10; aces--; }
+  return total;
+}
+function bjRenderAll(hideHoleCard){
+  bjViews.forEach(v=>{
+    bjRenderCardRow(v.dealerCardsEl, bjDealer, hideHoleCard);
+    if(v.dealerValEl) v.dealerValEl.textContent = hideHoleCard ? "" : "value "+bjHandValue(bjDealer);
+    bjRenderCardRow(v.playerCardsEl, bjPlayer, false);
+    if(v.playerValEl) v.playerValEl.textContent = "value "+bjHandValue(bjPlayer);
+    if(v.balanceEl) v.balanceEl.textContent = "$"+arcadeData.blackjackBalance;
+  });
+}
+function bjSetControls({deal,hit,stand,dbl}){
+  bjViews.forEach(v=>{
+    if(v.dealBtn) v.dealBtn.disabled = !deal;
+    if(v.hitBtn) v.hitBtn.disabled = !hit;
+    if(v.standBtn) v.standBtn.disabled = !stand;
+    if(v.doubleBtn) v.doubleBtn.disabled = !dbl;
+  });
+}
+function bjSetMessage(text){
+  bjViews.forEach(v=>{ if(v.msgEl) v.msgEl.textContent = text; });
+}
+function bjEndHand(text, delta){
+  arcadeData.blackjackBalance += delta;
+  saveArcadeData();
+  bjSetMessage(text);
+  bjRenderAll(false);
+  bjSetControls({deal:true, hit:false, stand:false, dbl:false});
+  bjInHand = false;
+}
+function bjDealerPlay(){
+  while(bjHandValue(bjDealer) < 17) bjDealer.push(bjDrawCard());
+  const pv = bjHandValue(bjPlayer), dv = bjHandValue(bjDealer);
+  if(dv>21) bjEndHand("Dealer busts — you win "+bjBet, bjBet);
+  else if(dv>pv) bjEndHand("Dealer wins", -bjBet);
+  else if(dv<pv) bjEndHand("You win "+bjBet, bjBet);
+  else bjEndHand("Push", 0);
+}
+function bjStartHand(betVal){
+  bjBet = betVal;
+  arcadeData.lastBet = betVal;
+  saveArcadeData();
+  bjDealer=[bjDrawCard(),bjDrawCard()];
+  bjPlayer=[bjDrawCard(),bjDrawCard()];
+  bjInHand = true;
+  bjSetMessage("");
+  bjRenderAll(true);
+  bjSetControls({deal:false, hit:true, stand:true, dbl:true});
+  if(bjHandValue(bjPlayer)===21){
+    bjRenderAll(false);
+    bjEndHand("Blackjack! You win "+Math.floor(bjBet*1.5), Math.floor(bjBet*1.5));
+  }
+}
+function bjDeal(){
+  const raw = prompt("Bet amount:", String(arcadeData.lastBet||50));
+  if(raw===null) return; /* cancelled */
+  bjStartHand(Math.max(1, Math.floor(Number(raw)||0)));
+}
+/* clicking the "Blackjack" tab should just show cards, not make you also click Deal — but only
+   when there's genuinely nothing on the table yet (fresh state), so switching tabs back to a hand
+   already in progress doesn't blow it away and silently deal a new one out from under you. */
+function bjAutoDealIfEmpty(){
+  if(bjInHand || bjDealer.length || bjPlayer.length) return;
+  bjStartHand(Math.max(1, Math.floor(Number(arcadeData.lastBet)||50)));
+}
+function bjHit(){
+  if(!bjInHand) return;
+  bjPlayer.push(bjDrawCard());
+  bjRenderAll(true);
+  if(bjHandValue(bjPlayer)>21){
+    bjRenderAll(false);
+    bjEndHand("Bust — you lose "+bjBet, -bjBet);
+  }
+}
+function bjStand(){
+  if(!bjInHand) return;
+  bjSetControls({deal:false, hit:false, stand:false, dbl:false});
+  bjDealerPlay();
+}
+function bjDoubleDown(){
+  if(!bjInHand) return;
+  bjBet *= 2;
+  bjPlayer.push(bjDrawCard());
+  bjRenderAll(true);
+  if(bjHandValue(bjPlayer)>21){
+    bjRenderAll(false);
+    bjEndHand("Bust on double — you lose "+bjBet, -bjBet);
+  } else {
+    bjSetControls({deal:false, hit:false, stand:false, dbl:false});
+    bjDealerPlay();
+  }
+}
+function bjRestart(){
+  arcadeData.blackjackBalance = 1000;
+  saveArcadeData();
+  bjDealer=[]; bjPlayer=[]; bjInHand=false;
+  bjSetMessage("Bankroll reset to 1000.");
+  bjRenderAll(false);
+  bjSetControls({deal:true, hit:false, stand:false, dbl:false});
+}
 function setupBlackjack(scope, ids){
   ids = Object.assign({
     balance:"#bj-balance", dealerCards:"#bj-dealer-cards", dealerVal:"#bj-dealer-value",
@@ -3711,145 +4081,45 @@ function setupBlackjack(scope, ids){
     deal:"#bj-deal-btn", hit:"#bj-hit-btn", stand:"#bj-stand-btn",
     dbl:"#bj-double-btn", restart:"#bj-restart-btn"
   }, ids||{});
-  const balanceEl = scope.querySelector(ids.balance);
-  const dealerCardsEl = scope.querySelector(ids.dealerCards);
-  const dealerValEl = scope.querySelector(ids.dealerVal);
-  const playerCardsEl = scope.querySelector(ids.playerCards);
-  const playerValEl = scope.querySelector(ids.playerVal);
-  const msgEl = scope.querySelector(ids.msg);
-  const dealBtn = scope.querySelector(ids.deal);
-  const hitBtn = scope.querySelector(ids.hit);
-  const standBtn = scope.querySelector(ids.stand);
-  const doubleBtn = scope.querySelector(ids.dbl);
-  const restartBtn = scope.querySelector(ids.restart);
+  const view = {
+    balanceEl: scope.querySelector(ids.balance),
+    dealerCardsEl: scope.querySelector(ids.dealerCards),
+    dealerValEl: scope.querySelector(ids.dealerVal),
+    playerCardsEl: scope.querySelector(ids.playerCards),
+    playerValEl: scope.querySelector(ids.playerVal),
+    msgEl: scope.querySelector(ids.msg),
+    dealBtn: scope.querySelector(ids.deal),
+    hitBtn: scope.querySelector(ids.hit),
+    standBtn: scope.querySelector(ids.stand),
+    doubleBtn: scope.querySelector(ids.dbl),
+    restartBtn: scope.querySelector(ids.restart)
+  };
+  bjViews.push(view);
 
-  const SUITS = ["♠","♥","♦","♣"], RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  let dealer=[], player=[], bet=0, inHand=false;
+  if(view.dealBtn) view.dealBtn.addEventListener("click", bjDeal);
+  if(view.hitBtn) view.hitBtn.addEventListener("click", bjHit);
+  if(view.standBtn) view.standBtn.addEventListener("click", bjStand);
+  if(view.doubleBtn) view.doubleBtn.addEventListener("click", bjDoubleDown);
+  if(view.restartBtn) view.restartBtn.addEventListener("click", bjRestart);
 
-  function drawCard(){
-    const rank = RANKS[Math.floor(Math.random()*RANKS.length)];
-    const suit = SUITS[Math.floor(Math.random()*SUITS.length)];
-    return rank+suit;
-  }
-  function cardValue(card){
-    const rank = card.slice(0,-1);
-    if(rank==="A") return 11;
-    if(["J","Q","K"].includes(rank)) return 10;
-    return Number(rank);
-  }
-  function cardFrontHTML(card){
-    const rank = card.slice(0,-1), suit = card.slice(-1);
-    const isRed = suit==="♥" || suit==="♦";
-    return `<span class="playing-card${isRed?' red':''}"><span class="pc-rank">${rank}</span><span class="pc-suit">${suit}</span></span>`;
-  }
-  function cardBackHTML(){
-    return `<span class="playing-card back"></span>`;
-  }
-  function renderCardRow(el, hand, hideAfterFirst){
-    el.innerHTML = hand.map((c,i)=> (hideAfterFirst && i>0) ? cardBackHTML() : cardFrontHTML(c)).join("");
-  }
-  function handValue(hand){
-    let total = hand.reduce((s,c)=>s+cardValue(c),0);
-    let aces = hand.filter(c=>c.startsWith("A")).length;
-    while(total>21 && aces>0){ total-=10; aces--; }
-    return total;
-  }
-  function renderHands(hideHoleCard){
-    renderCardRow(dealerCardsEl, dealer, hideHoleCard);
-    dealerValEl.textContent = hideHoleCard ? "" : "value "+handValue(dealer);
-    renderCardRow(playerCardsEl, player, false);
-    playerValEl.textContent = "value "+handValue(player);
-    balanceEl.textContent = "$"+arcadeData.blackjackBalance;
-  }
-  function setControls({deal,hit,stand,dbl}){
-    dealBtn.disabled = !deal; hitBtn.disabled = !hit; standBtn.disabled = !stand; doubleBtn.disabled = !dbl;
-  }
-  function endHand(text, delta){
-    arcadeData.blackjackBalance += delta;
-    saveArcadeData();
-    msgEl.textContent = text;
-    renderHands(false);
-    setControls({deal:true, hit:false, stand:false, dbl:false});
-    inHand = false;
-  }
-  function dealerPlay(){
-    while(handValue(dealer) < 17) dealer.push(drawCard());
-    const pv = handValue(player), dv = handValue(dealer);
-    if(dv>21) endHand("Dealer busts — you win "+bet, bet);
-    else if(dv>pv) endHand("Dealer wins", -bet);
-    else if(dv<pv) endHand("You win "+bet, bet);
-    else endHand("Push", 0);
-  }
-  function deal(){
-    const raw = prompt("Bet amount:", String(arcadeData.lastBet||50));
-    if(raw===null) return; /* cancelled */
-    const betVal = Math.max(1, Math.floor(Number(raw)||0));
-    bet = betVal;
-    arcadeData.lastBet = betVal;
-    saveArcadeData();
-    dealer=[drawCard(),drawCard()];
-    player=[drawCard(),drawCard()];
-    inHand = true;
-    msgEl.textContent = "";
-    renderHands(true);
-    setControls({deal:false, hit:true, stand:true, dbl:true});
-    if(handValue(player)===21){
-      renderHands(false);
-      endHand("Blackjack! You win "+Math.floor(bet*1.5), Math.floor(bet*1.5));
-    }
-  }
-  function hit(){
-    if(!inHand) return;
-    player.push(drawCard());
-    renderHands(true);
-    if(handValue(player)>21){
-      renderHands(false);
-      endHand("Bust — you lose "+bet, -bet);
-    }
-  }
-  function stand(){
-    if(!inHand) return;
-    setControls({deal:false, hit:false, stand:false, dbl:false});
-    dealerPlay();
-  }
-  function doubleDown(){
-    if(!inHand) return;
-    bet *= 2;
-    player.push(drawCard());
-    renderHands(true);
-    if(handValue(player)>21){
-      renderHands(false);
-      endHand("Bust on double — you lose "+bet, -bet);
-    } else {
-      setControls({deal:false, hit:false, stand:false, dbl:false});
-      dealerPlay();
-    }
-  }
-  function restart(){
-    arcadeData.blackjackBalance = 1000;
-    saveArcadeData();
-    dealer=[]; player=[]; inHand=false;
-    msgEl.textContent = "Bankroll reset to 1000.";
-    dealerCardsEl.innerHTML=""; dealerValEl.textContent="";
-    playerCardsEl.innerHTML=""; playerValEl.textContent="";
-    balanceEl.textContent = "$"+arcadeData.blackjackBalance;
-    setControls({deal:true, hit:false, stand:false, dbl:false});
-  }
+  /* bring this newly-mounted view up to date with whatever's already in progress */
+  bjRenderCardRow(view.dealerCardsEl, bjDealer, bjInHand);
+  if(view.dealerValEl) view.dealerValEl.textContent = bjInHand ? "" : (bjDealer.length ? "value "+bjHandValue(bjDealer) : "");
+  bjRenderCardRow(view.playerCardsEl, bjPlayer, false);
+  if(view.playerValEl) view.playerValEl.textContent = bjPlayer.length ? "value "+bjHandValue(bjPlayer) : "";
+  if(view.balanceEl) view.balanceEl.textContent = "$"+arcadeData.blackjackBalance;
+  if(view.dealBtn) view.dealBtn.disabled = bjInHand;
+  if(view.hitBtn) view.hitBtn.disabled = !bjInHand;
+  if(view.standBtn) view.standBtn.disabled = !bjInHand;
+  if(view.doubleBtn) view.doubleBtn.disabled = !bjInHand;
 
-  dealBtn.addEventListener("click", deal);
-  hitBtn.addEventListener("click", hit);
-  standBtn.addEventListener("click", stand);
-  doubleBtn.addEventListener("click", doubleDown);
-  restartBtn.addEventListener("click", restart);
-
-  function onArcadeUpdate(){ if(!inHand) balanceEl.textContent = "$"+arcadeData.blackjackBalance; }
+  function onArcadeUpdate(){ if(!bjInHand && view.balanceEl) view.balanceEl.textContent = "$"+arcadeData.blackjackBalance; }
   window.addEventListener("arcade-data-changed", onArcadeUpdate);
-
-  balanceEl.textContent = "$"+arcadeData.blackjackBalance;
-  setControls({deal:true, hit:false, stand:false, dbl:false});
 
   return function cleanup(){
     window.removeEventListener("arcade-data-changed", onArcadeUpdate);
+    const i = bjViews.indexOf(view);
+    if(i>=0) bjViews.splice(i,1);
   };
 }
 
