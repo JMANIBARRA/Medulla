@@ -3596,7 +3596,7 @@ const WIDGET_TOPIC_INFERENCE = [
      specific "high score"/"flappy"/"blackjack" phrasing is checked first so it wins). */
   { id:"arcade", re:/\b(blackjack|flappy|my (?:cards|hand)|bankroll|dealer'?s? (?:hand|cards)|high score)\b/ },
   { id:"sports", re:/\b(score|scores|scoreboard|game|games|matchup|who(?:'s| is) playing|any games (?:on|today)|what teams|which teams|team names|my teams|sports (?:news|update)|standings|final score)\b/ },
-  { id:"market", re:/\b(stocks?|the market|indices|nasdaq|s&p|dow jones|ticker|crypto|bitcoin|ethereum|my portfolio|pinned assets?|headline wire)\b/ },
+  { id:"market", re:/\b(stocks?|the market|indices|nasdaq|s ?& ?p ?(?:500)?|sp ?500|spx|dow(?: jones)?|ticker|crypto|bitcoin|btc|ethereum|eth|dogecoin|doge|solana|sol|cardano|ada|my portfolio|pinned assets?|headline wire)\b/ },
   { id:"banking", re:/\b(my bank|banking|bank accounts?|bank login)\b/ },
   { id:"networth", re:/\b(net worth|my balances?|card due dates?|my assets)\b/ },
   { id:"fitness", re:/\b(food diary|what did i eat|biomarkers?|my routine|diet log|my workouts?)\b/, exclude:/workout.*today|today.*workout|what'?s my workout|what is my workout/ },
