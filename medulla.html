@@ -3789,6 +3789,13 @@ const SITE_SHORTCUTS = {
   imdb:"https://imdb.com", yelp:"https://yelp.com", venmo:"https://venmo.com", paypal:"https://paypal.com",
   hulu:"https://hulu.com", disneyplus:"https://disneyplus.com", "disney plus":"https://disneyplus.com",
   espn:"https://espn.com", cnn:"https://cnn.com", nytimes:"https://nytimes.com", "new york times":"https://nytimes.com",
+  /* same URLs as the Finance widget's own default bank list (bankData), for consistency */
+  chase:"https://www.chase.com",
+  "bank of america":"https://secure.bankofamerica.com", bofa:"https://secure.bankofamerica.com",
+  "wells fargo":"https://www.wellsfargo.com", wellsfargo:"https://www.wellsfargo.com",
+  citi:"https://www.citi.com", citibank:"https://www.citi.com",
+  "capital one":"https://www.capitalone.com", capitalone:"https://www.capitalone.com",
+  "us bank":"https://www.usbank.com", usbank:"https://www.usbank.com",
 };
 /* Casual acknowledgment words that should never be treated as a site-name guess ("ok" isn't a
    request to open ok.com). Only relevant to the generic .com-guess fallback — an exact
@@ -4168,6 +4175,8 @@ aiForm.addEventListener("submit", async (e)=>{
   const HOTBAR_LABELS = {
     gmail:"Gmail", claude:"Claude", chatgpt:"ChatGPT", youtube:"YouTube", google:"Google",
     amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
+    chase:"Chase", bofa:"Bank of America", wellsfargo:"Wells Fargo", citi:"Citi",
+    capitalone:"Capital One", usbank:"US Bank",
   };
   const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
   let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site]);
