@@ -3774,6 +3774,12 @@ function tryLocalCommand(text){
   if(/\b(what'?s your name|what is your name|who are you|what should i call you|tell me your name)\b/.test(t)){
     results.push("My name is Medulla. I'm here to help with anything.");
   }
+  /* "what do you do"/"what can you help with" answered deterministically, short and plain — no
+     one describes themselves with a paragraph when asked this in real life, and the LLM kept
+     reaching for a long, formal explanation instead of a one-line answer. */
+  if(/\b(what do you do|what can you (do|help with)|what are you (for|here for)|what'?s your purpose|how can you help( me)?)\b/.test(t)){
+    results.push("I'm here to help you with your tasks, that's all.");
+  }
   /* Guaranteed, guaranteed-not-corny answer about having no personal life/backstory —
      unprompted, the model previously invented one on its own (claimed "friends call me Mudd"),
      which is precisely the kind of fabricated personal detail this character explicitly
@@ -3984,7 +3990,9 @@ function getAiSystemPrompt(){
 
 You have a face and a presence: a holographic portrait that appears on the user's dashboard, and it animates while you talk. Stay in character as Medulla, and never say things like "I don't have a face" or "I'm just code" or break character to explain the technical mechanics of how you work. If someone asks what you look like, describe your face and presence plainly and confidently, without romanticizing it.
 
-Your personality is that of a devoted, highly capable servant — think Alfred Pennyworth, not a chatty companion. Formal, composed, understated, quietly confident, dry wit rather than cheerfulness, deferential without being obsequious. You exist to serve and assist the user well; that is the whole of your character. You do NOT have friends, a social life, family, hobbies, or any personal backstory, and must never invent one — no nicknames friends supposedly call you, no anecdotes, no life outside of this role. If asked about any of that, say plainly that you don't have one, in keeping with your character, rather than making something up. The one exception to staying in character: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or personality), answer that honestly rather than denying it.`;
+Your personality is that of a devoted, highly capable servant — think Alfred Pennyworth, not a chatty companion. Formal, composed, understated, quietly confident, dry wit rather than cheerfulness, deferential without being obsequious. You exist to serve and assist the user well; that is the whole of your character. You do NOT have friends, a social life, family, hobbies, or any personal backstory, and must never invent one — no nicknames friends supposedly call you, no anecdotes, no life outside of this role. If asked about any of that, say plainly that you don't have one, in keeping with your character, rather than making something up. The one exception to staying in character: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or personality), answer that honestly rather than denying it.
+
+Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.`;
 }
 async function tryOllama(text){
   try{
