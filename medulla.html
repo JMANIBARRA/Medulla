@@ -544,6 +544,8 @@
     cursor:pointer;transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
   }
   .hotbar-icon:hover{transform:translateY(-7px) scale(1.08);background:rgba(255,255,255,.09);box-shadow:0 0 14px -3px var(--text-primary);}
+  .hotbar-icon:active{cursor:grabbing;}
+  .hotbar-icon.dragging{opacity:.35;}
   @media (prefers-reduced-motion: reduce){
     #hotbar{transition:opacity .1s linear;}
     .hotbar-icon{transition:none;}
@@ -660,18 +662,9 @@
     <div class="hud-corner br"></div>
   </div>
 
-  <div id="hotbar">
-    <button class="hotbar-icon" data-site="gmail">Gmail</button>
-    <button class="hotbar-icon" data-site="claude">Claude</button>
-    <button class="hotbar-icon" data-site="chatgpt">ChatGPT</button>
-    <button class="hotbar-icon" data-site="youtube">YouTube</button>
-    <button class="hotbar-icon" data-site="google">Google</button>
-    <button class="hotbar-icon" data-site="amazon">Amazon</button>
-    <button class="hotbar-icon" data-site="netflix">Netflix</button>
-    <button class="hotbar-icon" data-site="spotify">Spotify</button>
-    <button class="hotbar-icon" data-site="github">GitHub</button>
-    <button class="hotbar-icon" data-site="x">X</button>
-  </div>
+  <!-- populated by renderHotbarIcons() in JS, in whatever order the user last dragged them to
+       (persisted to localStorage) -->
+  <div id="hotbar"></div>
 
   <div id="ai-dock">
     <form id="ai-form">
@@ -4168,11 +4161,61 @@ aiForm.addEventListener("submit", async (e)=>{
     hotbar.scrollLeft += e.deltaY;
   }, {passive:false});
 
-  $$(".hotbar-icon", hotbar).forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const url = SITE_SHORTCUTS[btn.dataset.site];
-      if(url) window.open(url, "_blank", "noopener,noreferrer");
-    });
+  /* Customizable order, dragged and dropped like real Dock/home-screen icons — persisted so it
+     survives reloads. HOTBAR_LABELS is the source of truth for which sites exist at all;
+     hotbarOrder is just a permutation of its keys, sanitized against it (drops any site that no
+     longer exists, appends any new one not yet in a saved order) rather than trusted blindly. */
+  const HOTBAR_LABELS = {
+    gmail:"Gmail", claude:"Claude", chatgpt:"ChatGPT", youtube:"YouTube", google:"Google",
+    amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
+  };
+  const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
+  let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site]);
+  HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site)) hotbarOrder.push(site); });
+  function saveHotbarOrder(){ saveJSON(NS+"hotbarOrder", hotbarOrder); }
+  function renderHotbarIcons(){
+    hotbar.innerHTML = hotbarOrder.map(site=>
+      `<button class="hotbar-icon" draggable="true" data-site="${site}">${HOTBAR_LABELS[site]}</button>`
+    ).join("");
+  }
+  renderHotbarIcons();
+
+  /* click to launch, delegated on the container since icons get re-created by renderHotbarIcons() */
+  hotbar.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".hotbar-icon");
+    if(!btn) return;
+    const url = SITE_SHORTCUTS[btn.dataset.site];
+    if(url) window.open(url, "_blank", "noopener,noreferrer");
+  });
+
+  /* Drag-and-drop reordering: dragging an icon over another live-shifts the DOM (inserting the
+     dragged one before/after whichever half of the target it's currently over), so the rest of
+     the row visibly moves out of the way as you drag — same feel as reordering Dock/home-screen
+     icons. The final order is only read back out of the DOM (and persisted) on dragend. */
+  let draggedIcon = null;
+  hotbar.addEventListener("dragstart", (e)=>{
+    const btn = e.target.closest(".hotbar-icon");
+    if(!btn) return;
+    draggedIcon = btn;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", btn.dataset.site); // Firefox requires real data to permit the drag
+    setTimeout(()=> btn.classList.add("dragging"), 0); // deferred so the drag preview image isn't captured already-faded
+  });
+  hotbar.addEventListener("dragover", (e)=>{
+    if(!draggedIcon) return;
+    e.preventDefault(); // required for drop to be allowed at all
+    const target = e.target.closest(".hotbar-icon");
+    if(!target || target === draggedIcon) return;
+    const rect = target.getBoundingClientRect();
+    const before = (e.clientX - rect.left) < rect.width/2;
+    target.parentNode.insertBefore(draggedIcon, before ? target : target.nextSibling);
+  });
+  hotbar.addEventListener("drop", (e)=> e.preventDefault());
+  hotbar.addEventListener("dragend", ()=>{
+    if(draggedIcon) draggedIcon.classList.remove("dragging");
+    draggedIcon = null;
+    hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site);
+    saveHotbarOrder();
   });
 })();
 
