@@ -172,9 +172,14 @@
     text-transform:uppercase;letter-spacing:.06em;
     font-size:clamp(11px, calc(var(--w, 270px) * 0.036), 14px);
   }
-  .widget-header .htitle{display:flex;align-items:center;gap:8px;}
+  /* min-width:0 lets this shrink below its text's natural width instead of pushing the button
+     group (.hbtns, flex:none below) out past the card's edge to be clipped by its overflow:hidden. */
+  .widget-header .htitle{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;}
+  .widget-header .htitle-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .led{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px 1px var(--accent);flex:none;}
-  .widget-header .hbtns{display:flex;gap:6px;}
+  /* flex:none — the expand/size/minimize buttons must never shrink or get clipped; the title
+     (above) absorbs all the squeeze at small widget sizes instead. */
+  .widget-header .hbtns{display:flex;gap:6px;flex:none;}
   .hbtn{
     width:22px;height:22px;display:flex;align-items:center;justify-content:center;
     border:1px solid var(--accent);border-radius:50%;color:var(--text-primary);cursor:pointer;font-size:11px;line-height:1;
@@ -184,10 +189,56 @@
   .hbtn-size{font-family:var(--font-display);font-weight:700;font-size:10px;}
   .widget-body{
     flex:1;overflow:auto;padding:10px;
+    /* flex items default to min-height/min-width:auto, which refuses to shrink below content
+       size — without this override, content taller than the widget just overflows the card's
+       overflow:hidden and gets hard-clipped instead of the overflow:auto above ever kicking in
+       as a scrollbar. */
+    min-height:0;min-width:0;
     display:flex;flex-direction:column;align-items:center;justify-content:safe center;text-align:center;gap:0.4em;
     font-size:clamp(12px, calc(min(var(--w, 270px), var(--h, 190px)) * 0.06), 26px);
   }
   .widget-body > *{max-width:100%;}
+  /* Native scrollbars render in invisible overlay mode on most setups (no space reserved,
+     nothing shown at rest), so a widget-body with more content than fits looks identical to one
+     that's hard-clipped. This fade is a scrollbar-independent "there's more, scroll for it" cue
+     that only appears while content actually extends past the visible area — see
+     updateOverflowIndicators() below, which toggles it on resize/content-change/scroll. */
+  .widget-body.has-overflow{
+    mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
+  }
+  /* ---------- cheetah sprite (8-frame running loop, real cropped/recolored art) ---------- */
+  .cheetah-sprite{position:relative;width:100%;aspect-ratio:153/92;filter:drop-shadow(0 0 6px color-mix(in srgb, var(--text-primary) 45%, transparent));}
+  .cheetah-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;animation:cheetah-run 0.8s steps(1) infinite;}
+  .cheetah-frame:nth-child(2){animation-delay:0.1s;}
+  .cheetah-frame:nth-child(3){animation-delay:0.2s;}
+  .cheetah-frame:nth-child(4){animation-delay:0.3s;}
+  .cheetah-frame:nth-child(5){animation-delay:0.4s;}
+  .cheetah-frame:nth-child(6){animation-delay:0.5s;}
+  .cheetah-frame:nth-child(7){animation-delay:0.6s;}
+  .cheetah-frame:nth-child(8){animation-delay:0.7s;}
+  @keyframes cheetah-run{
+    0%, 12.4%{opacity:1;}
+    12.6%, 100%{opacity:0;}
+  }
+  /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
+     (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
+  .yt-suggestions{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+  .yt-suggestion{cursor:pointer;display:flex;gap:8px;align-items:flex-start;padding:4px;border:1px solid transparent;transition:background .15s, border-color .15s;}
+  .yt-suggestion:hover{background:var(--bg-panel-raised);border-color:var(--line);}
+  .yt-suggestion img{flex:none;display:block;width:200px;aspect-ratio:16/9;object-fit:cover;background:#000;border:1px solid var(--line);}
+  .yt-suggestion-body{min-width:0;}
+  .yt-suggestion-title{font-size:12px;line-height:1.35;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;}
+  .yt-suggestion-channel{font-size:10.5px;color:var(--text-dim);margin-top:3px;}
+  /* mini-widget variant: fills the player box (instead of it sitting blank) until a video is
+     picked/pasted, as a scrollable list — hidden the moment a video actually starts loading,
+     uncovering the real player underneath. Smaller thumbnails, channel line dropped for space. */
+  .yt-mini-suggestions{position:absolute;inset:0;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden;padding:4px;}
+  .yt-mini-suggestions:empty{display:none;}
+  .yt-mini-suggestions .yt-suggestion img{width:130px;}
+  .yt-mini-suggestions .yt-suggestion-title{font-size:10.5px;}
+  .yt-mini-suggestions .yt-suggestion-channel{display:none;}
+  .yt-mini-suggestions-msg{text-align:center;font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--text-dim);padding:12px;}
   .hero-stat{
     font-family:var(--font-display);line-height:1;white-space:nowrap;
     font-size:clamp(20px, calc(min(var(--w, 270px), var(--h, 190px)) * 0.22), 110px);
@@ -271,6 +322,10 @@
   .tbtn.active{color:var(--bg-deep);background:var(--accent-amber);border-color:var(--accent-amber);box-shadow:0 0 12px -1px var(--accent-amber);}
   .paint-only{display:none;}
   .paint-only.shown{display:inline-block;}
+
+  /* GTA-style middle-finger cursor: the actual image is generated at runtime from the real 🖕
+     emoji glyph (full color/shading from the OS's own emoji font, not a flat vector) — see
+     applyCursorBirdie() near the bottom of the script, which injects the matching #cursor-birdie-style rule. */
 
   /* ---------- AI dock ---------- */
   #ai-dock{
@@ -362,9 +417,17 @@
       <button class="tbtn paint-only" id="redo-btn" title="Redo">↷ redo</button>
       <button class="tbtn" id="clear-canvas-btn" title="Clear drawings and notes">clear canvas</button>
       <button class="tbtn" id="settings-btn" title="Settings">settings</button>
-      <button class="tbtn" id="fit-screen-btn" title="Fit all widgets to screen">fit to screen</button>
+      <button class="tbtn" id="cursor-toggle-btn" title="Toggle middle-finger cursor">🖕 cursor</button>
+      <button class="tbtn" id="recenter-btn" title="Pan back to your apps">recenter</button>
       <button class="tbtn" id="stacks-btn" title="Arrange open widgets into a tidy grid, click again to restore their positions">▤ stacks</button>
-      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;" id="zoom-readout">100%</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;">size all</span>
+      <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small">S</button>
+      <button class="tbtn hbtn-size" id="size-all-m-btn" title="Resize every open widget to Medium">M</button>
+      <button class="tbtn hbtn-size" id="size-all-l-btn" title="Resize every open widget to Large">L</button>
+      <button class="tbtn" id="zoom-out-btn" title="Zoom out">−</button>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);" id="zoom-readout">100%</span>
+      <button class="tbtn" id="zoom-in-btn" title="Zoom in">+</button>
+      <button class="tbtn" id="zoom-reset-btn" title="Reset zoom to 100%">reset zoom</button>
     </div>
   </div>
 
@@ -433,7 +496,9 @@ const WIDGET_DEFS = [
   {id:"networth", title:"Assets", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Embeds a local app (iframe) for balances and card due dates."},
   {id:"scratchpad", title:"Scratchpad", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Multi-page free-form notebook, autosaved."},
   {id:"sports", title:"Sports", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
-  {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control."},
+  {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
+  {id:"youtubeoauth", title:"Video (Google)", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
+  {id:"cheetah", title:"Cheetah", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Running-cheetah sprite loop — 8 frames cropped from a user-supplied silhouette sheet, recolored ice-blue, cycling via CSS steps() to fake a gallop."},
 ];
 
 /* default layout coordinates */
@@ -443,6 +508,8 @@ const SIZE_OVERRIDES = {
   banking: {w:150, h:165},
   fitness: {w:280, h:260},
   youtube: {w:340, h:280},
+  youtubeoauth: {w:340, h:280},
+  cheetah: {w:280, h:170},
 };
 
 /* size presets (S/M/L) cycle relative to each widget's base size.
@@ -452,6 +519,7 @@ const SIZE_PRESET_ORDER = ["S","M","L"];
 const SIZE_PRESET_SCALE = {S:0.72, M:1, L:1.5};
 const SIZE_PRESET_ABSOLUTE = {
   youtube: {S:{w:280,h:230}, M:SIZE_OVERRIDES.youtube, L:{w:980,h:740}},
+  youtubeoauth: {S:{w:280,h:230}, M:SIZE_OVERRIDES.youtubeoauth, L:{w:980,h:740}},
 };
 /* pure size lookup, no MIN_W/MIN_H clamping here on purpose — this needs to be callable
    from defaultLayout() before MIN_W/MIN_H exist (temporal dead zone), since defaultLayout()
@@ -503,7 +571,28 @@ function defaultLayout(){
   return layout;
 }
 
-function cycleWidgetSize(def, l){
+/* Existing saved profiles predate whatever widget was most recently added to WIDGET_DEFS, so
+   their stored state.layout is missing an entry for it — everything that reads state.layout[id]
+   directly (resize, drag, cycleWidgetSize, ...) would hit undefined. Backfills a real, persisted
+   entry for any WIDGET_DEFS id not yet in layout. Call right after loadProfileState(). */
+function backfillMissingWidgetLayouts(s){
+  let added = false;
+  WIDGET_DEFS.forEach(def=>{
+    if(s.layout[def.id]) return;
+    const sz = presetSize(def.id, "L");
+    s.layout[def.id] = {x:60, y:60, w:sz.w, h:sz.h, minimized:false, visible:true, sizePreset:"L"};
+    added = true;
+  });
+  /* persist immediately rather than waiting on the next unrelated save — otherwise a session
+     that loads and closes without touching anything re-does this backfill every time. */
+  if(added) saveJSON(profileStateKey(profiles.active), s);
+}
+
+/* Resizes in place (same pattern as the drag-resize handles below) instead of calling
+   renderWidgets(), which would wipe and rebuild every widget on the canvas — including
+   destroying and recreating the YouTube iframe mid-playback, causing it to reload and glitch
+   every time the size button was clicked. */
+function cycleWidgetSize(def, l, card, header){
   const cur = SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M";
   const next = SIZE_PRESET_ORDER[(SIZE_PRESET_ORDER.indexOf(cur)+1) % SIZE_PRESET_ORDER.length];
   const sz = presetSize(def.id, next);
@@ -511,8 +600,65 @@ function cycleWidgetSize(def, l){
   l.h = Math.max(MIN_H, sz.h);
   l.sizePreset = next;
   saveProfileState();
-  renderWidgets();
+  card.style.width = l.w+"px";
+  card.style.height = l.h+"px";
+  header.querySelector(".hbtn-size").textContent = l.sizePreset;
 }
+
+/* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
+   every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
+   touching at their new size (same packWidgetsIntoGrid the Stacks button uses) — resizing without
+   repositioning would leave gaps sized for whatever the old preset was, e.g. shrinking L -> S
+   would keep the wide L-sized spacing between now-small cards. */
+function setAllWidgetSizes(preset){
+  const targets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.minimized;
+  });
+  if(!targets.length) return;
+
+  /* snapshot pre-repack positions like the Stacks button does, so it can still restore your
+     manual layout afterward — skip if already stacked so we don't clobber that snapshot. */
+  if(!state.stacked){
+    const snapshot = {};
+    targets.forEach(def=>{
+      const l = state.layout[def.id];
+      snapshot[def.id] = {x:l.x, y:l.y};
+    });
+    state.stackSnapshot = snapshot;
+  }
+
+  targets.forEach(def=>{
+    const l = state.layout[def.id];
+    const sz = presetSize(def.id, preset);
+    l.w = Math.max(MIN_W, sz.w);
+    l.h = Math.max(MIN_H, sz.h);
+    l.sizePreset = preset;
+  });
+
+  const rect = viewport.getBoundingClientRect();
+  const origin = screenToWorld(rect.left + 40, rect.top + 40);
+  const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
+  packWidgetsIntoGrid(targets, origin.x, origin.y, maxRowWidth);
+  state.stacked = true;
+  $("#stacks-btn").classList.add("active");
+
+  targets.forEach(def=>{
+    const l = state.layout[def.id];
+    const card = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`);
+    if(!card) return;
+    card.style.width = l.w+"px";
+    card.style.height = l.h+"px";
+    card.style.left = l.x+"px";
+    card.style.top = l.y+"px";
+    const sizeBtn = card.querySelector(".hbtn-size");
+    if(sizeBtn) sizeBtn.textContent = preset;
+  });
+  saveProfileState();
+}
+$("#size-all-s-btn").addEventListener("click", ()=>setAllWidgetSizes("S"));
+$("#size-all-m-btn").addEventListener("click", ()=>setAllWidgetSizes("M"));
+$("#size-all-l-btn").addEventListener("click", ()=>setAllWidgetSizes("L"));
 
 /* one-time: resize every currently open widget to Large and repack them into a tidy grid
    at the current view, so existing profiles (which already have a saved layout and thus
@@ -574,6 +720,7 @@ function saveProfileStateDebounced(){
 }
 
 let state = loadProfileState(profiles.active);
+backfillMissingWidgetLayouts(state);
 let globalTopZ = 10;
 function recalcTopZ(){
   let maxZ = 10;
@@ -588,6 +735,14 @@ let sportsData = loadJSON(NS+"sports", {teams:["Miami Heat","Miami Dolphins"]});
 let garageData = loadJSON(NS+"garage", {vehicles:[]});
 garageData.vehicles = garageData.vehicles.map(v => typeof v==="string" ? {vehicle:v, year:"", mileage:""} : v);
 let videoData = loadJSON(NS+"video", {url:"", videoId:"", volume:70, muted:false});
+let videoDataOAuth = loadJSON(NS+"videoOAuth", {url:"", videoId:"", volume:70, muted:false});
+let ytApiKey = loadJSON(NS+"ytApiKey", "");
+let googleClientId = loadJSON(NS+"googleClientId", "");
+/* the access token itself is intentionally NOT persisted to localStorage — it's short-lived
+   (~1hr) and re-requesting it each session via Google's own silent-refresh UX is simpler and
+   safer than trying to manage refresh tokens client-side (which OAuth's implicit-style token
+   client here doesn't even hand out). */
+let googleAccessToken = null;
 
 /* ================= CAMERA / CANVAS ================= */
 const viewport = $("#canvas-viewport");
@@ -607,15 +762,60 @@ function screenToWorld(clientX, clientY){
   return { x:(clientX-rect.left)/state.camera.scale, y:(clientY-rect.top)/state.camera.scale };
 }
 function zoomAtScreenPoint(screenX, screenY, factor){
-  const rect = world.getBoundingClientRect();
+  /* Reference off the viewport's own rect, which never moves — NOT world.getBoundingClientRect(),
+     whose position already bakes in the current camera pan. Deriving the new camera offset from
+     that pan-shifted rect double-counts the existing pan, so every zoom after the first one (i.e.
+     as soon as camera.x/y drift from 0) anchored on the wrong point instead of screenX/screenY. */
+  const rect = viewport.getBoundingClientRect();
   const localX = screenX-rect.left, localY = screenY-rect.top;
-  const worldX = localX/state.camera.scale, worldY = localY/state.camera.scale;
+  const worldX = (localX-state.camera.x)/state.camera.scale, worldY = (localY-state.camera.y)/state.camera.scale;
   let newScale = state.camera.scale*factor;
   newScale = Math.min(2.5, Math.max(0.3, newScale));
   state.camera.x = localX - worldX*newScale;
   state.camera.y = localY - worldY*newScale;
   state.camera.scale = newScale;
   applyCamera();
+}
+function zoomAtViewportCenter(factor){
+  const rect = viewport.getBoundingClientRect();
+  zoomAtScreenPoint(rect.left+rect.width/2, rect.top+rect.height/2, factor);
+}
+$("#zoom-in-btn").addEventListener("click", ()=>zoomAtViewportCenter(1.2));
+$("#zoom-out-btn").addEventListener("click", ()=>zoomAtViewportCenter(1/1.2));
+$("#zoom-reset-btn").addEventListener("click", ()=>{
+  zoomAtViewportCenter(1/state.camera.scale);
+});
+/* bounding box of every visible widget/capsule, in world space — used by the recenter button
+   to bring the cluster of apps back into view regardless of how far the camera has panned off. */
+function widgetsWorldBounds(){
+  const visibleDefs = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible;
+  });
+  if(!visibleDefs.length) return null;
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  visibleDefs.forEach(def=>{
+    const l = state.layout[def.id];
+    const w = l.minimized ? 160 : l.w;
+    const h = l.minimized ? 40 : l.h;
+    minX = Math.min(minX, l.x);
+    minY = Math.min(minY, l.y);
+    maxX = Math.max(maxX, l.x + w);
+    maxY = Math.max(maxY, l.y + h);
+  });
+  return {x:(minX+maxX)/2, y:(minY+maxY)/2};
+}
+/* pans (without touching zoom level) so the widgets' collective center lands in the middle of
+   the viewport — a plain "bring me back to my apps" action, distinct from zooming in/out which
+   always stays anchored on whatever's currently at screen center. */
+function recenterOnWidgets(){
+  const center = widgetsWorldBounds();
+  if(!center) return;
+  const rect = viewport.getBoundingClientRect();
+  state.camera.x = rect.width/2 - center.x*state.camera.scale;
+  state.camera.y = rect.height/2 - center.y*state.camera.scale;
+  applyCamera();
+  saveProfileState();
 }
 
 /* ================= HOLOGRAPHIC GLOBE ================= */
@@ -912,9 +1112,11 @@ viewport.addEventListener("gesturestart",(e)=>{
   e.preventDefault();
   gestureActive = true;
   gestureStartScale = state.camera.scale;
-  const rect = world.getBoundingClientRect();
+  /* viewport rect, not world's — see the comment in zoomAtScreenPoint for why the world rect
+     (which already includes the current pan) can't be used to derive a fresh anchor. */
+  const rect = viewport.getBoundingClientRect();
   gestureAnchorScreen = {x:e.clientX-rect.left, y:e.clientY-rect.top};
-  gestureAnchorWorld = {x:gestureAnchorScreen.x/state.camera.scale, y:gestureAnchorScreen.y/state.camera.scale};
+  gestureAnchorWorld = {x:(gestureAnchorScreen.x-state.camera.x)/state.camera.scale, y:(gestureAnchorScreen.y-state.camera.y)/state.camera.scale};
 });
 viewport.addEventListener("gesturechange",(e)=>{
   e.preventDefault();
@@ -1066,7 +1268,7 @@ function fitToScreen(){
   applyCamera();
   saveProfileState();
 }
-$("#fit-screen-btn").addEventListener("click", fitToScreen);
+$("#recenter-btn").addEventListener("click", recenterOnWidgets);
 
 /* Stacks — tidies every open widget into a neat row-by-row, column-by-column grid anchored
    at the current view, click again to restore each widget to where it was before. */
@@ -1137,7 +1339,57 @@ const widgetResizeObserver = new ResizeObserver(entries=>{
     el.style.setProperty("--w", box.width+"px");
     el.style.setProperty("--h", box.height+"px");
   });
+  fitWidgetsToContent();
 });
+
+/* A scrollbar is not a reliable "you're missing content" signal — on this build/OS it renders
+   in invisible overlay mode (confirmed: even a forced overflow-y:scroll reserves zero layout
+   space), so a widget that merely scrolled looked identical to one that hard-clipped. Rather
+   than lean on a scrollbar the user may never see, grow the card itself so its content actually
+   fits — capped at that widget's own "L" preset so an S/M widget with a lot of content settles
+   at "as small as its content allows," never past what L would already give it. Only if content
+   is still too tall/wide even at that cap does .has-overflow (the bottom fade, see CSS) kick in
+   as a last-resort scroll cue. Runs on: the card being resized (this observer), its content
+   changing post-mount (e.g. async data landing — overflowMutationObserver below), and scrolling
+   (the listener below, which only needs to update the fade, not re-run growth).  */
+function fitWidgetsToContent(){
+  let changed = false;
+  $$(".claustrum-widget").forEach(card=>{
+    const id = card.dataset.widgetId;
+    const l = state.layout[id];
+    const header = card.querySelector(".widget-header");
+    const body = card.querySelector(".widget-body");
+    if(!l || !header || !body) return;
+    const cap = presetSize(id, "L");
+    const neededH = Math.min(cap.h, header.offsetHeight + body.scrollHeight);
+    if(neededH > card.offsetHeight + 1){
+      card.style.height = neededH+"px";
+      l.h = neededH;
+      changed = true;
+    }
+    if(body.scrollWidth > body.clientWidth + 1){
+      const neededW = Math.min(cap.w, card.offsetWidth + (body.scrollWidth - body.clientWidth));
+      if(neededW > card.offsetWidth + 1){
+        card.style.width = neededW+"px";
+        l.w = neededW;
+        changed = true;
+      }
+    }
+    body.classList.toggle("has-overflow", body.scrollHeight - body.scrollTop > body.clientHeight + 1);
+  });
+  if(changed) saveProfileStateDebounced();
+}
+const overflowMutationObserver = new MutationObserver(()=>{
+  if(overflowMutationObserver._pending) return;
+  overflowMutationObserver._pending = true;
+  requestAnimationFrame(()=>{ overflowMutationObserver._pending = false; fitWidgetsToContent(); });
+});
+overflowMutationObserver.observe(widgetLayer, {childList:true, subtree:true, characterData:true});
+widgetLayer.addEventListener("scroll", (e)=>{
+  const body = e.target;
+  if(!(body instanceof Element) || !body.classList.contains("widget-body")) return;
+  body.classList.toggle("has-overflow", body.scrollHeight - body.scrollTop > body.clientHeight + 1);
+}, {capture:true, passive:true});
 
 function renderWidgetCard(def,l){
   const card = document.createElement("div");
@@ -1153,7 +1405,7 @@ function renderWidgetCard(def,l){
 
   const header = document.createElement("div");
   header.className="widget-header";
-  header.innerHTML = `<div class="htitle"><span class="led"></span>${def.title}</div>
+  header.innerHTML = `<div class="htitle"><span class="led"></span><span class="htitle-text">${def.title}</span></div>
     <div class="hbtns">
       <button class="hbtn" data-act="expand" title="Full view">⤢</button>
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
@@ -1176,7 +1428,7 @@ function renderWidgetCard(def,l){
   });
   header.querySelector('[data-act="size"]').addEventListener("click",(e)=>{
     e.stopPropagation();
-    cycleWidgetSize(def, l);
+    cycleWidgetSize(def, l, card, header);
   });
 
   /* drag by header — locked while paint mode is on so drawing doesn't accidentally move widgets */
@@ -1215,6 +1467,7 @@ function renderWidgetCard(def,l){
   if(def.id==="fitness") setTimeout(()=>hydrateFitnessMini(body),0);
   if(def.id==="garage") setTimeout(()=>hydrateGarageMini(body),0);
   if(def.id==="youtube") setTimeout(()=>{ const c = hydrateYouTubeMini(body); if(c) activeMiniCleanups.push(c); },0);
+  if(def.id==="youtubeoauth") setTimeout(()=>{ const c = hydrateYouTubeOAuthMini(body); if(c) activeMiniCleanups.push(c); },0);
 
   return card;
 }
@@ -1295,6 +1548,7 @@ function openModal(def){
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
     if(def.id==="garage") hydrateGarageFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
+    if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
   } else {
     modalBody.innerHTML = `<span class="placeholder-tag">not built yet</span>
       <p style="color:var(--text-dim);margin-top:10px;line-height:1.6;">${def.spec}</p>
@@ -1325,11 +1579,23 @@ function renderMini(id){
   if(id==="sports"){
     return `<div id="sport-mini-list" style="font-family:var(--font-mono);width:100%;text-align:left;"></div>`;
   }
+  if(id==="cheetah"){
+    /* Real art: 8 frames cropped from cheetah-frames/sheet.png (a user-supplied silhouette sheet),
+       recolored to the app's ice-blue with the white background made transparent — see the crop
+       script's output at cheetah-frames/frame1..8.png, sitting next to this HTML file. Only one
+       <img> is opaque at a time, cycled via CSS steps() below. */
+    const imgs = Array.from({length:8}, (_,i)=>
+      `<img class="cheetah-frame" src="cheetah-frames/frame${i+1}.png" alt="">`
+    ).join("");
+    return `
+    <div class="cheetah-sprite">${imgs}</div>`;
+  }
   if(id==="youtube"){
     return `
     <div style="display:flex;flex-direction:column;width:100%;height:100%;gap:6px;">
       <div style="flex:1;min-height:70px;background:#000;position:relative;overflow:hidden;border:1px solid var(--line);">
         <div id="yt-mini-player" style="width:100%;height:100%;"></div>
+        <div id="yt-mini-suggestions" class="yt-mini-suggestions"></div>
       </div>
       <div style="display:flex;gap:4px;flex:none;">
         <input id="yt-mini-url" type="text" placeholder="Paste YouTube link…" style="flex:1;font-size:11px;padding:4px 6px;">
@@ -1338,6 +1604,25 @@ function renderMini(id){
       <div style="display:flex;gap:6px;align-items:center;flex:none;">
         <button class="hbtn" id="yt-mini-mute-btn" title="Mute / unmute" style="width:20px;height:20px;flex:none;"></button>
         <input id="yt-mini-volume" type="range" min="0" max="100" style="flex:1;">
+        <button class="hbtn" id="yt-mini-browse-btn" title="Browse other videos" style="width:20px;height:20px;flex:none;font-size:11px;">☰</button>
+      </div>
+    </div>`;
+  }
+  if(id==="youtubeoauth"){
+    return `
+    <div style="display:flex;flex-direction:column;width:100%;height:100%;gap:6px;">
+      <div style="flex:1;min-height:70px;background:#000;position:relative;overflow:hidden;border:1px solid var(--line);">
+        <div id="ytg-mini-player" style="width:100%;height:100%;"></div>
+        <div id="ytg-mini-suggestions" class="yt-mini-suggestions"></div>
+      </div>
+      <div style="display:flex;gap:4px;flex:none;">
+        <input id="ytg-mini-url" type="text" placeholder="Paste YouTube link…" style="flex:1;font-size:11px;padding:4px 6px;">
+        <button class="btn primary" id="ytg-mini-load-btn" style="padding:4px 8px;font-size:11px;flex:none;">▶</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:none;">
+        <button class="hbtn" id="ytg-mini-mute-btn" title="Mute / unmute" style="width:20px;height:20px;flex:none;"></button>
+        <input id="ytg-mini-volume" type="range" min="0" max="100" style="flex:1;">
+        <button class="hbtn" id="ytg-mini-browse-btn" title="Browse other videos" style="width:20px;height:20px;flex:none;font-size:11px;">☰</button>
       </div>
     </div>`;
   }
@@ -1500,6 +1785,35 @@ function renderFull(id){
         <input id="yt-full-volume" type="range" min="0" max="100" style="flex:1;">
         <span id="yt-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
       </div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions</h3>
+      <div style="display:flex;gap:6px;">
+        <input id="yt-full-search" type="text" placeholder="Search YouTube… (empty = trending)" style="flex:1;"/>
+        <button class="btn" id="yt-full-search-btn">Search</button>
+      </div>
+      <div id="yt-full-suggestions" class="yt-suggestions"></div>
+    </div>`;
+  }
+  if(id==="youtubeoauth"){
+    return `
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="width:100%;aspect-ratio:16/9;background:#000;position:relative;overflow:hidden;border:1px solid var(--line);">
+        <div id="ytg-full-player" style="width:100%;height:100%;"></div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input id="ytg-full-url" type="text" placeholder="Paste a YouTube link or video ID…" style="flex:1;"/>
+        <button class="btn primary" id="ytg-full-load-btn">Load</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="btn" id="ytg-full-mute-btn">Mute</button>
+        <input id="ytg-full-volume" type="range" min="0" max="100" style="flex:1;">
+        <span id="ytg-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions (from your Google account)</h3>
+      <div style="display:flex;gap:6px;">
+        <input id="ytg-full-search" type="text" placeholder="Search YouTube… (empty = your home feed)" style="flex:1;"/>
+        <button class="btn" id="ytg-full-search-btn">Search</button>
+      </div>
+      <div id="ytg-full-suggestions" class="yt-suggestions"></div>
     </div>`;
   }
   if(id==="garage"){
@@ -2177,6 +2491,115 @@ function extractYouTubeId(input){
 const YT_ICON_VOLUME = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:60%;height:60%;"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/></svg>`;
 const YT_ICON_MUTE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:60%;height:60%;"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>`;
 
+/* Trending/search suggestions — separate from playback (which uses the embeddable iframe
+   Player API above): this hits the YouTube Data API v3 REST endpoints directly with the user's
+   own key from Settings. Unlike the player iframe, these are plain cross-origin fetch() calls,
+   so — unlike playback — they work fine even when this file is opened directly as file://. */
+async function fetchYouTubeJSON(url){
+  if(!ytApiKey) return {error:"no-key"};
+  try{
+    const res = await fetch(url + "&key=" + encodeURIComponent(ytApiKey));
+    if(!res.ok){
+      const body = await res.json().catch(()=>null);
+      return {error: body?.error?.message || ("HTTP "+res.status)};
+    }
+    return {data: await res.json()};
+  }catch(e){
+    return {error: e.message || "network error"};
+  }
+}
+function ytVideoItemsFromSearch(data){
+  return (data.items||[]).filter(it=>it.id && it.id.videoId).map(it=>({
+    id: it.id.videoId, title: it.snippet.title, channel: it.snippet.channelTitle,
+    thumb: it.snippet.thumbnails?.medium?.url || it.snippet.thumbnails?.default?.url
+  }));
+}
+function ytVideoItemsFromList(data){
+  return (data.items||[]).map(it=>({
+    id: it.id, title: it.snippet.title, channel: it.snippet.channelTitle,
+    thumb: it.snippet.thumbnails?.medium?.url || it.snippet.thumbnails?.default?.url
+  }));
+}
+async function fetchYouTubeTrending(){
+  const r = await fetchYouTubeJSON("https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=50&regionCode=US");
+  if(r.error) return r;
+  return {items: ytVideoItemsFromList(r.data)};
+}
+async function fetchYouTubeSearch(q){
+  const r = await fetchYouTubeJSON("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q="+encodeURIComponent(q));
+  if(r.error) return r;
+  return {items: ytVideoItemsFromSearch(r.data)};
+}
+
+/* ================= GOOGLE SIGN-IN (OAuth alternative to the API key above) =================
+   Loads Google Identity Services lazily, same lazy-script pattern as loadYouTubeAPI(), and uses
+   the browser-only "token client" flow (no backend, no client secret — appropriate for a static
+   HTML file). The resulting access token is used as a Bearer header on the exact same YouTube
+   Data API endpoints the API-key path calls, just reading the signed-in user's own data instead
+   of a fixed shared key's generic trending. */
+let gisApiPromise = null;
+function loadGoogleIdentityServices(){
+  if(window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve(window.google);
+  if(gisApiPromise) return gisApiPromise;
+  gisApiPromise = new Promise((resolve, reject)=>{
+    const tag = document.createElement("script");
+    tag.src = "https://accounts.google.com/gsi/client";
+    tag.onload = ()=> resolve(window.google);
+    tag.onerror = ()=> reject(new Error("failed to load accounts.google.com/gsi/client"));
+    document.head.appendChild(tag);
+  });
+  return gisApiPromise;
+}
+function googleSignIn(){
+  if(!googleClientId) return Promise.reject(new Error("no Google OAuth Client ID set in Settings"));
+  return loadGoogleIdentityServices().then(google=> new Promise((resolve, reject)=>{
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: googleClientId,
+      scope: "https://www.googleapis.com/auth/youtube.readonly",
+      callback: (resp)=>{
+        if(resp.error){ reject(new Error(resp.error)); return; }
+        googleAccessToken = resp.access_token;
+        resolve(googleAccessToken);
+      }
+    });
+    client.requestAccessToken();
+  }));
+}
+async function fetchYouTubeOAuthJSON(url){
+  if(!googleAccessToken) return {error:"not-signed-in"};
+  try{
+    const res = await fetch(url, {headers:{Authorization:"Bearer "+googleAccessToken}});
+    if(res.status===401){ googleAccessToken=null; return {error:"not-signed-in"}; }
+    if(!res.ok){
+      const body = await res.json().catch(()=>null);
+      return {error: body?.error?.message || ("HTTP "+res.status)};
+    }
+    return {data: await res.json()};
+  }catch(e){
+    return {error: e.message || "network error"};
+  }
+}
+/* activities.list?home=true is the closest public-API analog to "what you'd see landing on
+   youtube.com" for the signed-in user — recent uploads from subscriptions, not a generic
+   trending chart. There's no public endpoint for YouTube's actual ML-personalized home feed;
+   this is the nearest real substitute. */
+async function fetchYouTubeOAuthHomeFeed(){
+  const r = await fetchYouTubeOAuthJSON("https://www.googleapis.com/youtube/v3/activities?part=snippet,contentDetails&home=true&maxResults=25");
+  if(r.error) return r;
+  const items = (r.data.items||[])
+    .filter(it=> it.contentDetails && it.contentDetails.upload && it.contentDetails.upload.videoId)
+    .map(it=>({
+      id: it.contentDetails.upload.videoId, title: it.snippet.title, channel: it.snippet.channelTitle,
+      thumb: it.snippet.thumbnails?.medium?.url || it.snippet.thumbnails?.default?.url
+    }));
+  return {items};
+}
+async function fetchYouTubeOAuthSearch(q){
+  const r = await fetchYouTubeOAuthJSON("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=25&q="+encodeURIComponent(q));
+  if(r.error) return r;
+  return {items: ytVideoItemsFromSearch(r.data)};
+}
+
 function setupYouTubePlayer(scope, sel){
   const wrap = scope.querySelector(sel.player);
   const urlInp = scope.querySelector(sel.url);
@@ -2184,29 +2607,85 @@ function setupYouTubePlayer(scope, sel){
   const muteBtn = scope.querySelector(sel.mute);
   const volInp = scope.querySelector(sel.volume);
   const volLabel = sel.volumeLabel ? scope.querySelector(sel.volumeLabel) : null;
+  /* sel.videoData/videoDataKey — each YouTube widget (API-key vs Google Sign-In) gets its own
+     persisted video state so loading something in one doesn't bleed into the other; they're
+     meant to be compared side by side, not mirror each other. */
+  const vd = sel.videoData;
 
-  if(isFileOrigin()){
-    wrap.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-family:var(--font-mono);font-size:11px;color:var(--text-primary);line-height:1.6;">
-      Video playback needs this file served over http(s) — the YouTube player can't connect when the page is opened directly as file://.<br><br>
-      Run <code>python3 -m http.server</code> in this folder, then open <code>http://localhost:8000</code> instead.
-    </div>`;
-    loadBtn.disabled = true;
-    return function cleanup(){};
-  }
-
-  urlInp.value = videoData.url || "";
-  volInp.value = videoData.volume;
-  function updateMuteLabel(){ muteBtn.innerHTML = videoData.muted ? sel.mutedLabel : sel.unmutedLabel; }
-  function updateVolLabel(){ if(volLabel) volLabel.textContent = videoData.volume + "%"; }
+  urlInp.value = vd.url || "";
+  volInp.value = vd.volume;
+  function updateMuteLabel(){ muteBtn.innerHTML = vd.muted ? sel.mutedLabel : sel.unmutedLabel; }
+  function updateVolLabel(){ if(volLabel) volLabel.textContent = vd.volume + "%"; }
   updateMuteLabel(); updateVolLabel();
 
   let player = null, destroyed = false;
   function applyVolumeState(){
     if(!player || !player.setVolume) return;
     player.setVolume(Number(volInp.value));
-    if(videoData.muted) player.mute(); else player.unMute();
+    if(vd.muted) player.mute(); else player.unMute();
   }
+  /* file:// blocks the embedded PLAYER specifically (YouTube won't connect to a local-file embed)
+     — but that's not true of the plain fetch() calls the suggestions grid makes below, so the
+     check lives here rather than gating the whole widget like it used to. */
+  /* mini-widget only (sel.suggestionsInPlayer set): fills the otherwise-blank player box with a
+     thumbnail strip until a video is actually loaded. Previously this got cleared for good the
+     moment a video started and never came back — no way to browse/switch afterward. Now it's a
+     toggleable overlay (via the ☰ browse button, or automatically when the video ends) that sits
+     on top of the still-playing player, so picking a new one is always possible without losing
+     your place or needing the expand view. */
+  /* fetchDefault/readyCheck/notReadyMsg/notReadyAction are pluggable so this same function serves
+     both the API-key widget (fetchYouTubeTrending, gated on ytApiKey) and the Google Sign-In
+     widget (fetchYouTubeOAuthHomeFeed, gated on googleAccessToken, with an inline "Sign in"
+     button via notReadyAction) without duplicating this whole block. */
+  const suggestEl = sel.suggestionsInPlayer ? scope.querySelector(sel.suggestionsInPlayer) : null;
+  let browseOpen = false;
+  function hideMiniSuggestions(){ browseOpen = false; if(suggestEl) suggestEl.innerHTML = ""; }
+  function showMiniSuggestions(){
+    if(!suggestEl) return;
+    browseOpen = true;
+    if(sel.readyCheck && !sel.readyCheck()){
+      suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-mini-signin">${sel.notReadyActionLabel}</button>` : ""}</div>`;
+      const btn = suggestEl.querySelector("#__yt-mini-signin");
+      if(btn) btn.addEventListener("click", async ()=>{
+        btn.disabled = true; btn.textContent = "Signing in…";
+        try{ await sel.notReadyAction(); showMiniSuggestions(); }
+        catch(e){ suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Sign-in failed — ${e.message}</div>`; }
+      });
+      return;
+    }
+    suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Loading suggestions…</div>`;
+    sel.fetchDefault().then(result=>{
+      if(destroyed || !browseOpen) return; // dismissed (or superseded) while this fetch was in flight
+      if(result.error){
+        suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Couldn't load suggestions — ${result.error}</div>`;
+        return;
+      }
+      if(!result.items || !result.items.length){
+        suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">No results.</div>`;
+        return;
+      }
+      suggestEl.innerHTML = result.items.map(ytSuggestionCard).join("");
+      suggestEl.querySelectorAll(".yt-suggestion").forEach(card=>{
+        card.addEventListener("click", ()=>{ urlInp.value = card.dataset.id; load(); });
+      });
+    });
+  }
+  function toggleMiniSuggestions(){ if(browseOpen) hideMiniSuggestions(); else showMiniSuggestions(); }
+
   function makePlayer(id){
+    if(isFileOrigin()){
+      /* the message is wrapped in one single <p>, not left as bare text/<br>/<code> directly
+         inside the flex container — some browsers split unwrapped inline content like that into
+         multiple anonymous flex items and lay them out side-by-side instead of stacked, which
+         reads as garbled/interleaved text. One wrapping block sidesteps that entirely. */
+      wrap.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px;">
+        <p style="margin:0;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--text-primary);line-height:1.6;">
+          Video playback needs this file served over http(s) — the YouTube player can't connect when the page is opened directly as file://.<br><br>
+          Double-click <code>Launch Medulla.command</code> on your Desktop instead of opening this file directly.
+        </p>
+      </div>`;
+      return;
+    }
     loadYouTubeAPI().then(YT=>{
       if(destroyed) return;
       if(player){ player.loadVideoById(id); applyVolumeState(); return; }
@@ -2214,33 +2693,46 @@ function setupYouTubePlayer(scope, sel){
         width:"100%", height:"100%",
         videoId:id,
         playerVars:{rel:0, modestbranding:1},
-        events:{ onReady:()=>applyVolumeState() }
+        events:{
+          onReady:()=>applyVolumeState(),
+          /* auto-surface "what's next" once a video finishes, matching the "when it's over" case
+             specifically called out — same overlay as the manual browse button, just triggered
+             automatically. Full view doesn't need this: its suggestions list is already always
+             visible, never hidden in the first place. */
+          onStateChange:(e)=>{ if(e.data===YT.PlayerState.ENDED && sel.suggestionsInPlayer) showMiniSuggestions(); }
+        }
       });
     });
   }
+
   function load(){
     const id = extractYouTubeId(urlInp.value);
     if(!id) return;
-    videoData.url = urlInp.value.trim();
-    videoData.videoId = id;
-    saveJSON(NS+"video", videoData);
+    vd.url = urlInp.value.trim();
+    vd.videoId = id;
+    saveJSON(sel.videoDataKey, vd);
+    hideMiniSuggestions();
     makePlayer(id);
   }
-  if(videoData.videoId) makePlayer(videoData.videoId);
+  if(vd.videoId) makePlayer(vd.videoId);
+  else showMiniSuggestions();
+
+  const browseBtn = sel.browse ? scope.querySelector(sel.browse) : null;
+  if(browseBtn) browseBtn.addEventListener("click", toggleMiniSuggestions);
 
   loadBtn.addEventListener("click", load);
   urlInp.addEventListener("keydown", e=>{ if(e.key==="Enter") load(); });
   muteBtn.addEventListener("click", ()=>{
-    videoData.muted = !videoData.muted;
-    saveJSON(NS+"video", videoData);
+    vd.muted = !vd.muted;
+    saveJSON(sel.videoDataKey, vd);
     updateMuteLabel();
     applyVolumeState();
   });
   volInp.addEventListener("input", ()=>{
-    videoData.volume = Number(volInp.value);
+    vd.volume = Number(volInp.value);
     updateVolLabel();
-    if(videoData.muted){ videoData.muted = false; updateMuteLabel(); }
-    saveJSON(NS+"video", videoData);
+    if(vd.muted){ vd.muted = false; updateMuteLabel(); }
+    saveJSON(sel.videoDataKey, vd);
     applyVolumeState();
   });
 
@@ -2253,15 +2745,132 @@ function hydrateYouTubeMini(scope){
   return setupYouTubePlayer(scope, {
     player:"#yt-mini-player", url:"#yt-mini-url", load:"#yt-mini-load-btn",
     mute:"#yt-mini-mute-btn", volume:"#yt-mini-volume",
-    mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME
+    mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
+    suggestionsInPlayer:"#yt-mini-suggestions", browse:"#yt-mini-browse-btn",
+    fetchDefault:fetchYouTubeTrending, readyCheck:()=>!!ytApiKey,
+    notReadyMsg:"Add a YouTube Data API key in Settings to see suggestions here.",
+    videoData:videoData, videoDataKey:NS+"video"
   });
 }
-function hydrateYouTubeFull(scope){
+function hydrateYouTubeOAuthMini(scope){
   return setupYouTubePlayer(scope, {
+    player:"#ytg-mini-player", url:"#ytg-mini-url", load:"#ytg-mini-load-btn",
+    mute:"#ytg-mini-mute-btn", volume:"#ytg-mini-volume",
+    mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
+    suggestionsInPlayer:"#ytg-mini-suggestions", browse:"#ytg-mini-browse-btn",
+    fetchDefault:fetchYouTubeOAuthHomeFeed, readyCheck:()=>!!googleAccessToken,
+    notReadyMsg:"Sign in with Google to see your subscriptions/home feed here.",
+    notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google",
+    videoData:videoDataOAuth, videoDataKey:NS+"videoOAuth"
+  });
+}
+function ytSuggestionCard(item){
+  const safeTitle = item.title.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+  const safeChannel = (item.channel||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  return `<div class="yt-suggestion" data-id="${item.id}" title="${safeTitle}">
+    <img src="${item.thumb||""}" loading="lazy" alt=""/>
+    <div class="yt-suggestion-body">
+      <div class="yt-suggestion-title">${safeTitle}</div>
+      <div class="yt-suggestion-channel">${safeChannel}</div>
+    </div>
+  </div>`;
+}
+/* Wires the search box + trending/results grid in the full modal view. Independent of
+   setupYouTubePlayer above (playback) — a fetch() to the Data API works from file:// even though
+   the embedded player doesn't, so this stays enabled regardless of how the page was opened. */
+/* pluggable the same way setupYouTubePlayer's mini suggestions are — one implementation shared
+   by the API-key widget's full view and the Google Sign-In widget's full view. */
+function setupYouTubeSuggestions(scope, sel){
+  const listEl = scope.querySelector(sel.list);
+  const searchInp = scope.querySelector(sel.search);
+  const searchBtn = scope.querySelector(sel.searchBtn);
+  const urlInp = scope.querySelector(sel.url);
+  const loadBtn = scope.querySelector(sel.load);
+  let destroyed = false;
+  let requestSeq = 0;
+
+  function renderMessage(msg){
+    if(destroyed) return;
+    listEl.style.display = "block";
+    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:12px;padding:8px;line-height:1.6;">${msg}</div>`;
+  }
+  function renderItems(items){
+    if(destroyed) return;
+    if(!items.length){ renderMessage("No results."); return; }
+    listEl.style.display = "grid";
+    listEl.innerHTML = items.map(ytSuggestionCard).join("");
+    listEl.querySelectorAll(".yt-suggestion").forEach(card=>{
+      card.addEventListener("click", ()=>{
+        urlInp.value = card.dataset.id;
+        loadBtn.click();
+      });
+    });
+  }
+  function renderNotReady(){
+    if(destroyed) return;
+    listEl.style.display = "block";
+    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:12px;padding:8px;line-height:1.6;">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-full-signin">${sel.notReadyActionLabel}</button>` : ""}</div>`;
+    const btn = listEl.querySelector("#__yt-full-signin");
+    if(btn) btn.addEventListener("click", async ()=>{
+      btn.disabled = true; btn.textContent = "Signing in…";
+      try{ await sel.notReadyAction(); doSearch(); }
+      catch(e){ renderMessage("Sign-in failed — "+e.message); }
+    });
+  }
+  async function run(fetchFn){
+    const seq = ++requestSeq;
+    if(sel.readyCheck && !sel.readyCheck()){ renderNotReady(); return; }
+    renderMessage("Loading…");
+    const result = await fetchFn();
+    if(destroyed || seq !== requestSeq) return; // a newer search superseded this one
+    if(result.error){
+      renderMessage(`Couldn't load suggestions — ${result.error}`);
+      return;
+    }
+    renderItems(result.items);
+  }
+  function doSearch(){
+    const q = searchInp.value.trim();
+    run(q ? ()=>sel.fetchSearch(q) : sel.fetchDefault);
+  }
+  searchBtn.addEventListener("click", doSearch);
+  searchInp.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
+  doSearch();
+
+  return function cleanup(){ destroyed = true; };
+}
+function hydrateYouTubeFull(scope){
+  const cleanupPlayer = setupYouTubePlayer(scope, {
     player:"#yt-full-player", url:"#yt-full-url", load:"#yt-full-load-btn",
     mute:"#yt-full-mute-btn", volume:"#yt-full-volume", volumeLabel:"#yt-full-volume-label",
-    mutedLabel:"Unmute", unmutedLabel:"Mute"
+    mutedLabel:"Unmute", unmutedLabel:"Mute",
+    videoData:videoData, videoDataKey:NS+"video"
   });
+  const cleanupSuggestions = setupYouTubeSuggestions(scope, {
+    list:"#yt-full-suggestions", search:"#yt-full-search", searchBtn:"#yt-full-search-btn",
+    url:"#yt-full-url", load:"#yt-full-load-btn",
+    fetchDefault:fetchYouTubeTrending, fetchSearch:fetchYouTubeSearch,
+    readyCheck:()=>!!ytApiKey,
+    notReadyMsg:"Add a free YouTube Data API key in Settings to see trending/search results here."
+  });
+  return function cleanup(){ cleanupPlayer(); cleanupSuggestions(); };
+}
+function hydrateYouTubeOAuthFull(scope){
+  const cleanupPlayer = setupYouTubePlayer(scope, {
+    player:"#ytg-full-player", url:"#ytg-full-url", load:"#ytg-full-load-btn",
+    mute:"#ytg-full-mute-btn", volume:"#ytg-full-volume", volumeLabel:"#ytg-full-volume-label",
+    mutedLabel:"Unmute", unmutedLabel:"Mute",
+    videoData:videoDataOAuth, videoDataKey:NS+"videoOAuth"
+  });
+  const cleanupSuggestions = setupYouTubeSuggestions(scope, {
+    list:"#ytg-full-suggestions", search:"#ytg-full-search", searchBtn:"#ytg-full-search-btn",
+    url:"#ytg-full-url", load:"#ytg-full-load-btn",
+    fetchDefault:fetchYouTubeOAuthHomeFeed, fetchSearch:fetchYouTubeOAuthSearch,
+    readyCheck:()=>!!googleAccessToken,
+    notReadyMsg:"Sign in with Google to see your subscriptions/home feed here.",
+    notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google"
+  });
+  return function cleanup(){ cleanupPlayer(); cleanupSuggestions(); };
 }
 
 /* ================= PROFILES ================= */
@@ -2276,6 +2885,7 @@ function switchProfile(name){
   profiles.active = name;
   saveJSON(NS+"profiles", profiles);
   state = loadProfileState(name);
+  backfillMissingWidgetLayouts(state);
   recalcTopZ();
   applyCamera();
   renderStrokes(); renderTexts(); renderWidgets();
@@ -2293,6 +2903,54 @@ $("#add-profile-btn").addEventListener("click", ()=>{
   switchProfile(key);
 });
 
+/* ================= CURSOR TOGGLE ================= */
+/* Renders the real 🖕 emoji glyph onto a canvas and uses THAT bitmap as the cursor image, instead
+   of a hand-drawn vector shape — this way it's the OS's own full-color, shaded emoji artwork
+   (Apple Color Emoji on macOS, etc.), which actually looks like a real cursor rather than a flat
+   icon. Built once and cached, since canvas.toDataURL() isn't free to call repeatedly. */
+let cursorBirdie = loadJSON(NS+"cursorBirdie", false);
+let cursorBirdieDataURL = null;
+function buildEmojiCursorDataURL(emoji, size, color){
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.font = `${Math.round(size*0.82)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emoji, size/2, size/2+size*0.04);
+  if(color){
+    /* emoji are full-color bitmap glyphs — fillStyle has no effect on them while drawing, so
+       recolor after the fact: "source-in" keeps only the alpha (the emoji's exact silhouette)
+       and replaces every opaque pixel with a flat fill, same trick as a colored icon mask. */
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+  }
+  return canvas.toDataURL("image/png");
+}
+function applyCursorBirdie(){
+  if(cursorBirdie && !cursorBirdieDataURL){
+    cursorBirdieDataURL = buildEmojiCursorDataURL("🖕", 26, "#ffffff");
+    let styleEl = document.getElementById("cursor-birdie-style");
+    if(!styleEl){
+      styleEl = document.createElement("style");
+      styleEl.id = "cursor-birdie-style";
+      document.head.appendChild(styleEl);
+    }
+    /* hotspot near the fingertip (upper-middle of the glyph), !important + wildcard so it wins
+       over every element's own explicit cursor style (buttons, inputs, drag handles, etc). */
+    styleEl.textContent = `body.cursor-birdie, body.cursor-birdie *{ cursor: url("${cursorBirdieDataURL}") 12 2, auto !important; }`;
+  }
+  document.body.classList.toggle("cursor-birdie", cursorBirdie);
+  $("#cursor-toggle-btn").classList.toggle("active", cursorBirdie);
+}
+applyCursorBirdie();
+$("#cursor-toggle-btn").addEventListener("click", ()=>{
+  cursorBirdie = !cursorBirdie;
+  saveJSON(NS+"cursorBirdie", cursorBirdie);
+  applyCursorBirdie();
+});
+
 /* ================= SETTINGS (theme / backup) ================= */
 const THEME_SWATCHES = ["#020304","#000000","#02080a","#04080a","#050505","#000a08","#02040a"];
 $("#settings-btn").addEventListener("click", ()=>{
@@ -2303,6 +2961,29 @@ $("#settings-btn").addEventListener("click", ()=>{
     <div style="display:flex;gap:8px;margin:10px 0 18px;">
       ${THEME_SWATCHES.map(c=>`<div class="swatch" data-c="${c}" style="background:${c}"></div>`).join("")}
     </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">YouTube Data API key</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Needed for trending/search suggestions in the Video widget's full view — free from
+      <span style="color:var(--text-primary);">console.cloud.google.com</span>. Not needed just to paste-and-play a link.
+      If you're opening this file directly (file://) rather than through a local server, leave the key
+      unrestricted — a file:// page sends no HTTP referrer, so a referrer-restricted key will be rejected.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <input type="text" id="yt-api-key-input" placeholder="AIza…" style="flex:1;" value="${ytApiKey}"/>
+      <button class="btn primary" id="yt-api-key-save-btn">Save</button>
+    </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Google Sign-In (Video (Google) widget)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      An OAuth Client ID from the same Google Cloud project, under "APIs & Services → Credentials
+      → Create Credentials → OAuth client ID → Web application." Add
+      <span style="color:var(--text-primary);">http://localhost:8934</span> under "Authorized JavaScript origins."
+      While your OAuth consent screen is in "Testing" mode, add your own Google account under "Test users" —
+      otherwise sign-in will be rejected before you even see the consent screen.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <input type="text" id="google-client-id-input" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;" value="${googleClientId}"/>
+      <button class="btn primary" id="google-client-id-save-btn">Save</button>
+    </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Backup & restore</h3>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="btn primary" id="export-btn">Export backup (.json)</button>
@@ -2310,6 +2991,18 @@ $("#settings-btn").addEventListener("click", ()=>{
       <input type="file" id="import-file" accept="application/json" style="display:none;">
     </div>
   `;
+  $("#yt-api-key-save-btn").addEventListener("click", ()=>{
+    ytApiKey = $("#yt-api-key-input").value.trim();
+    saveJSON(NS+"ytApiKey", ytApiKey);
+    $("#yt-api-key-save-btn").textContent = "Saved";
+    setTimeout(()=>{ $("#yt-api-key-save-btn").textContent = "Save"; }, 1200);
+  });
+  $("#google-client-id-save-btn").addEventListener("click", ()=>{
+    googleClientId = $("#google-client-id-input").value.trim();
+    saveJSON(NS+"googleClientId", googleClientId);
+    $("#google-client-id-save-btn").textContent = "Saved";
+    setTimeout(()=>{ $("#google-client-id-save-btn").textContent = "Save"; }, 1200);
+  });
   $$(".swatch",modalBody).forEach(sw=>{
     sw.addEventListener("click", ()=>{
       state.theme = sw.dataset.c;
