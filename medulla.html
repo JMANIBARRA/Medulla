@@ -276,27 +276,6 @@
     pointer-events:none;
     animation:holo-scan-move 5s linear infinite; /* slow drift at rest so the feed never looks paused; talking speeds this up (see below) */
   }
-  /* .holo-portrait__blink — a small window over the eyes, same static-window trick as the brow
-     twitch below: at rest it's fully transparent/zero-height, and every few seconds (see
-     scheduleHoloBlink) it briefly scales up to a thin dark band and back, reading as a blink.
-     Runs continuously — idle or talking — on its own randomized schedule, independent of the
-     mouth-flap beats. */
-  .holo-portrait__blink{
-    position:absolute;left:0;top:29%;width:100%;height:13%;
-    background:#000;
-    mix-blend-mode:multiply;
-    pointer-events:none;
-    transform:scaleY(0);
-    transform-origin:center;
-    opacity:0;
-    -webkit-mask-image:linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
-    mask-image:linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
-  }
-  .holo-portrait.blinking .holo-portrait__blink{ animation:holo-blink .2s ease-in-out; }
-  @keyframes holo-blink{
-    0%,100%{ transform:scaleY(0); opacity:0; }
-    45%,55%{ transform:scaleY(1); opacity:.8; }
-  }
   /* .holo-portrait.glitching — a brief holographic "signal blip" (see scheduleHoloGlitch),
      every 8-18s at random, on the outer element so it never fights the mouth-beat scale that
      lives on .holo-portrait__stage. The 1-2px translate can peek a sliver of the card's own
@@ -359,7 +338,6 @@
     .holo-portrait__stage,
     .holo-portrait__tint,
     .holo-portrait__scan,
-    .holo-portrait__blink,
     .holo-portrait__browmask,
     .holo-portrait__browimg{ transition:none; animation:none; }
     .holo-portrait.mouth-open .holo-portrait__stage{ transform:none; }
@@ -1900,7 +1878,6 @@ function renderMini(id){
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
         <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
-        <div class="holo-portrait__blink"></div>
         <div class="holo-portrait__scan"></div>
       </div>
     </div>`;
@@ -2319,7 +2296,6 @@ function renderFull(id){
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
         <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
-        <div class="holo-portrait__blink"></div>
         <div class="holo-portrait__scan"></div>
       </div>
     </div>`;
@@ -3421,23 +3397,15 @@ function setHoloTalking(active){
 function startTalking(){ setHoloTalking(true); }
 function stopTalking(){ setHoloTalking(false); }
 
-/* ================= HOLOGRAPHIC PORTRAIT — idle-life loops (blink + glitch) =================
+/* ================= HOLOGRAPHIC PORTRAIT — idle-life loop (glitch) =================
    Runs continuously on every mounted .holo-portrait, independent of talking state, so she
-   isn't a frozen photo when nothing's being said. Each loop is a self-rescheduling setTimeout
-   (same pattern as scheduleHoloFlap) that stops rescheduling once its element is no longer in
-   the DOM (el.isConnected), so old widget instances from a profile switch/resize don't leak.
-   Since widgets mount/unmount dynamically and there's no single "widget mounted" hook, a
-   lightweight interval just re-scans for any new .holo-portrait that doesn't have loops running
-   yet and starts them — cheap, and at most a ~2.5s delay before a freshly-mounted copy blinks. */
+   isn't a frozen photo when nothing's being said. Self-rescheduling setTimeout (same pattern
+   as scheduleHoloFlap) that stops rescheduling once its element is no longer in the DOM
+   (el.isConnected), so old widget instances from a profile switch/resize don't leak. Since
+   widgets mount/unmount dynamically and there's no single "widget mounted" hook, a lightweight
+   interval just re-scans for any new .holo-portrait that doesn't have a loop running yet and
+   starts one — cheap, and at most a ~2.5s delay before a freshly-mounted copy joins in. */
 const holoIdleLoopsStarted = new WeakSet();
-function scheduleHoloBlink(el){
-  const gap = 2200 + Math.random()*4200;
-  setTimeout(()=>{
-    if(!el.isConnected) return;
-    el.classList.add("blinking");
-    setTimeout(()=>{ el.classList.remove("blinking"); scheduleHoloBlink(el); }, 220);
-  }, gap);
-}
 function scheduleHoloGlitch(el){
   const gap = 8000 + Math.random()*10000;
   setTimeout(()=>{
@@ -3451,7 +3419,6 @@ function ensureHoloIdleLoops(){
   $$(".holo-portrait").forEach(el=>{
     if(holoIdleLoopsStarted.has(el)) return;
     holoIdleLoopsStarted.add(el);
-    scheduleHoloBlink(el);
     scheduleHoloGlitch(el);
   });
 }
