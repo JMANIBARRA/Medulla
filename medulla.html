@@ -3529,6 +3529,11 @@ function tryLocalCommand(text){
      ok), so it doesn't fire on longer sentences that merely contain "hi"/"hey". h+i+ and h+e+y+
      also tolerate typo'd repeated letters like "hhi" or "heyy". */
   if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){ results.push("Hello! What can I do for you?"); }
+  if(/forget (everything|our conversation|what we talked about)|clear (my )?memory|reset (the )?conversation|start (a )?(fresh|new) conversation/.test(t)){
+    aiConversation = [];
+    saveAiConversation();
+    results.push("Cleared — starting fresh, I won't remember what we talked about before this.");
+  }
   if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
   if(/switch to entertainment|load.*entertainment/.test(t)){ switchProfile("entertainment"); profileSelect.value="entertainment"; results.push("Switched to Entertainment Profile."); }
   if(/zoom out|wide view/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 0.7); saveProfileState(); results.push("Zoomed out."); }
@@ -3594,20 +3599,35 @@ function tryLocalCommand(text){
   return results.length ? results.join(" ") : null;
 }
 
+/* Conversation memory — persisted so it survives reloads, capped so a long-running chat doesn't
+   balloon the prompt sent to a small local model every turn (older messages just age out).
+   Only Ollama-routed exchanges go in here; local commands (zoom, profile switching, etc.) are
+   deterministic one-offs and don't need conversational context. "forget"/"clear memory" (see
+   tryLocalCommand) resets this back to empty. */
+let aiConversation = loadJSON(NS+"aiConversation", []);
+const AI_SYSTEM_PROMPT = "Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. Answer briefly and helpfully.";
+const AI_HISTORY_MAX_MESSAGES = 16; // ~8 exchanges of context kept
+function saveAiConversation(){ saveJSON(NS+"aiConversation", aiConversation); }
 async function tryOllama(text){
   try{
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const messages = [
+      {role:"system", content: AI_SYSTEM_PROMPT},
+      ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
+      {role:"user", content: text}
+    ];
+    const res = await fetch("http://localhost:11434/api/chat", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        model:"llama3.2:1b",
-        prompt: `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. Answer briefly and helpfully. User: ${text}`,
-        stream:false
-      })
+      body: JSON.stringify({ model:"llama3.2:1b", messages, stream:false })
     });
     if(!res.ok) throw new Error("no ollama");
     const data = await res.json();
-    return data.response || "(empty response)";
+    const reply = data.message && data.message.content;
+    if(!reply) return "(empty response)";
+    aiConversation.push({role:"user", content:text}, {role:"assistant", content:reply});
+    if(aiConversation.length > AI_HISTORY_MAX_MESSAGES) aiConversation = aiConversation.slice(-AI_HISTORY_MAX_MESSAGES);
+    saveAiConversation();
+    return reply;
   }catch(e){
     return null;
   }
