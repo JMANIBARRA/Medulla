@@ -3564,6 +3564,9 @@ const aiLog = $("#ai-log");
 function logAI(msg){ aiLog.textContent = msg; }
 
 const FIT_DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function findWidgetDefByName(name){
+  return WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
+}
 function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
@@ -3651,12 +3654,39 @@ function tryLocalCommand(text){
   const openWindowMatch = t.match(/^(?:open|show(?: me)?|pull up|bring up)(?: the| my)? ([a-z0-9 ]+?)(?:\s*(?:window|widget|full view|detail view|panel|screen))?$/);
   if(openWindowMatch){
     const name = openWindowMatch[1].trim();
-    const def = WIDGET_DEFS.find(w=> w.title.toLowerCase()===name || w.title.toLowerCase().includes(name) || name.includes(w.title.toLowerCase()) || w.id===name);
+    const def = findWidgetDefByName(name);
     if(def){
       openModal(def);
       results.push(`Opening ${def.title}.`);
     } else {
       results.push(`Couldn't find a widget called "${name}".`);
+    }
+  }
+
+  /* generic "what does it say on <widget>" / "what's on <widget>" / "read me <widget>" — reads
+     the ACTUAL live text currently rendered on that widget's card and returns it verbatim,
+     instead of routing to the LLM (which has no access to the page and would just make up
+     plausible-sounding content — exactly the hallucination problem the rest of this file's
+     local commands exist to avoid). Only reads the mini widget's mounted DOM, since that's the
+     literal on-dashboard "tab" the phrasing refers to; the modal/full view isn't checked. */
+  let readWidgetName = null, m;
+  if((m = t.match(/^what(?:'?s| is| does it say) (?:on|in) (?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))?[?.\s]*$/))) readWidgetName = m[1];
+  else if((m = t.match(/^read (?:me )?(?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))?( to me)?[?.\s]*$/))) readWidgetName = m[1];
+  else if((m = t.match(/^what does (?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))? say[?.\s]*$/))) readWidgetName = m[1];
+  if(readWidgetName){
+    const name = readWidgetName.trim();
+    const def = findWidgetDefByName(name);
+    if(!def){
+      results.push(`Couldn't find a widget called "${name}".`);
+    } else {
+      const card = document.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`);
+      const body = card ? card.querySelector(".widget-body") : null;
+      if(!body){
+        results.push(`I can't see the ${def.title} widget on your dashboard right now — it may be minimized or on a different profile. Try "open ${def.title.toLowerCase()}" first, then ask again.`);
+      } else {
+        const content = body.innerText.replace(/\n{3,}/g,"\n\n").trim();
+        results.push(content ? `${def.title}: ${content}` : `The ${def.title} widget is open but there's nothing showing on it right now.`);
+      }
     }
   }
 
