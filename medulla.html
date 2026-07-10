@@ -4205,6 +4205,7 @@ function setupFlappy(scope, ids){
    every render/control-state change fans out to all of them at once. */
 const SUITS = ["♠","♥","♦","♣"], RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 let bjDealer=[], bjPlayer=[], bjBet=0, bjInHand=false;
+let bjAutoDealTimer = null;
 const bjViews = [];
 function bjDrawCard(){
   const rank = RANKS[Math.floor(Math.random()*RANKS.length)];
@@ -4260,6 +4261,14 @@ function bjEndHand(text, delta){
   bjRenderAll(false);
   bjSetControls({deal:true, hit:false, stand:false, dbl:false});
   bjInHand = false;
+  /* auto-deal the next hand after a beat so the outcome is readable but you don't have to
+     click Deal (and re-enter a bet) after every single round — same bet as last time, same
+     path bjAutoDealIfEmpty already uses. Cancelled in bjStartHand/bjRestart so a manual Deal
+     (or Restart) during the pause can't collide with this and start two hands at once. */
+  bjAutoDealTimer = setTimeout(()=>{
+    bjAutoDealTimer = null;
+    bjStartHand(Math.max(1, Math.floor(Number(arcadeData.lastBet)||50)));
+  }, 1800);
 }
 function bjDealerPlay(){
   while(bjHandValue(bjDealer) < 17) bjDealer.push(bjDrawCard());
@@ -4270,6 +4279,7 @@ function bjDealerPlay(){
   else bjEndHand("Push", 0);
 }
 function bjStartHand(betVal){
+  if(bjAutoDealTimer){ clearTimeout(bjAutoDealTimer); bjAutoDealTimer=null; }
   bjBet = betVal;
   arcadeData.lastBet = betVal;
   saveArcadeData();
@@ -4324,6 +4334,7 @@ function bjDoubleDown(){
   }
 }
 function bjRestart(){
+  if(bjAutoDealTimer){ clearTimeout(bjAutoDealTimer); bjAutoDealTimer=null; }
   arcadeData.blackjackBalance = 1000;
   saveArcadeData();
   bjDealer=[]; bjPlayer=[]; bjInHand=false;
