@@ -3261,23 +3261,28 @@ $("#settings-btn").addEventListener("click", ()=>{
 /* ================= HOLOGRAPHIC PORTRAIT — "talking"/active state =================
    Toggles .is-talking on every currently-mounted .holo-portrait (there can be both a mini
    widget and an expanded-modal copy live at once — this hits all of them), and while active
-   flaps .mouth-open on/off on an interval to crossfade between the idle (mouth closed) and
-   talk (mouth open) photo frames, simulating speech from just two source images. Only opacity
+   flaps .mouth-open on/off to crossfade between the idle (mouth closed) and talk (mouth open)
+   photo frames, simulating speech from just two source images. Each flap re-schedules itself
+   with a randomized hold time (open holds shorter than closed, like real syllables/consonants)
+   instead of a fixed-interval blink, so it reads as speech rather than a strobe. Only opacity
    and background-position ever animate (see the CSS), so this never causes layout shift.
-   Each .holo-portrait instance gets its own interval (tracked in holoMouthTimers) so mini and
-   modal copies flap independently and are cleaned up independently. */
+   Each .holo-portrait instance gets its own timer chain (tracked in holoMouthTimers) so mini
+   and modal copies flap independently and are cleaned up independently. */
 const holoMouthTimers = new WeakMap();
-const HOLO_MOUTH_FLAP_MS = 130;
+function scheduleHoloFlap(el){
+  const open = el.classList.toggle("mouth-open");
+  const holdMs = open ? 90 + Math.random()*90 : 110 + Math.random()*140;
+  holoMouthTimers.set(el, setTimeout(()=>scheduleHoloFlap(el), holdMs));
+}
 function setHoloTalking(active){
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   $$(".holo-portrait").forEach(el=>{
     el.classList.toggle("is-talking", active);
     const existing = holoMouthTimers.get(el);
-    if(existing) clearInterval(existing);
+    if(existing) clearTimeout(existing);
     holoMouthTimers.delete(el);
     if(active && !reduceMotion){
-      const id = setInterval(()=>{ el.classList.toggle("mouth-open"); }, HOLO_MOUTH_FLAP_MS);
-      holoMouthTimers.set(el, id);
+      scheduleHoloFlap(el);
     } else {
       el.classList.remove("mouth-open");
     }
@@ -3393,10 +3398,11 @@ aiForm.addEventListener("submit", async (e)=>{
      animation early on a slow response or leave it running forever after an error. Swap the body
      of the `work` async function below for your own request if you're wiring in a real backend;
      call stopTalking() (or just let this finally block run) whenever that response actually
-     lands. The minDisplay floor just keeps the animation from flashing and vanishing before it's
-     even visible on a local command, which resolves synchronously/near-instantly — it never
-     delays the actual response, only how long the animation stays up afterward. */
-  const minDisplay = new Promise(r=>setTimeout(r, 500));
+     lands. The minDisplay floor keeps the animation up long enough to read as a spoken reply
+     (several mouth flaps) instead of a single quick flash, on a local command that resolves
+     synchronously/near-instantly — it never delays the actual response, only how long the
+     animation stays up afterward. */
+  const minDisplay = new Promise(r=>setTimeout(r, 1400));
   try{
     const work = (async ()=>{
       const local = tryLocalCommand(text);
