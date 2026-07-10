@@ -331,6 +331,12 @@
   .holo-portrait.mouth-open.emphasis .holo-portrait__browimg{ transform:translateY(-4px); }
   .holo-portrait.is-talking.mouth-open{ box-shadow:0 0 22px -4px var(--text-primary); }
   .holo-portrait.is-talking.mouth-open.emphasis{ box-shadow:0 0 36px -2px var(--text-primary); }
+  /* real photo blink (see scheduleHoloBlink) — a third stacked frame with eyes closed, same
+     crossfade as the mouth-open/idle swap. Placed after the .mouth-open rules above so it wins
+     on equal specificity and overrides whichever of idle/talk is currently showing. */
+  .holo-portrait.blinking .holo-portrait__img--idle,
+  .holo-portrait.blinking .holo-portrait__img--talk{ opacity:0; }
+  .holo-portrait.blinking .holo-portrait__img--blink{ opacity:1; }
   @keyframes holo-scan-move{ from{background-position:0 0;} to{background-position:0 4px;} }
   @keyframes holo-idle-breathe{ 0%,100%{opacity:.78;} 50%{opacity:.94;} }
   @media (prefers-reduced-motion: reduce){
@@ -1876,6 +1882,7 @@ function renderMini(id){
       <div class="holo-portrait__stage">
         <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
+        <img class="holo-portrait__img holo-portrait__img--blink" src="portrait-blink.png" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
         <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
         <div class="holo-portrait__scan"></div>
@@ -2294,6 +2301,7 @@ function renderFull(id){
       <div class="holo-portrait__stage">
         <img class="holo-portrait__img holo-portrait__img--idle" src="portrait.jpg" alt="Holographic portrait">
         <img class="holo-portrait__img holo-portrait__img--talk" src="portrait-talk.jpg" alt="" aria-hidden="true">
+        <img class="holo-portrait__img holo-portrait__img--blink" src="portrait-blink.png" alt="" aria-hidden="true">
         <div class="holo-portrait__tint"></div>
         <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="portrait.jpg" alt=""></div>
         <div class="holo-portrait__scan"></div>
@@ -3397,15 +3405,25 @@ function setHoloTalking(active){
 function startTalking(){ setHoloTalking(true); }
 function stopTalking(){ setHoloTalking(false); }
 
-/* ================= HOLOGRAPHIC PORTRAIT — idle-life loop (glitch) =================
-   Runs continuously on every mounted .holo-portrait, independent of talking state, so she
-   isn't a frozen photo when nothing's being said. Self-rescheduling setTimeout (same pattern
-   as scheduleHoloFlap) that stops rescheduling once its element is no longer in the DOM
+/* ================= HOLOGRAPHIC PORTRAIT — idle-life loops (blink + glitch) =================
+   Run continuously on every mounted .holo-portrait, independent of talking state, so she isn't
+   a frozen photo when nothing's being said. Each is a self-rescheduling setTimeout (same
+   pattern as scheduleHoloFlap) that stops rescheduling once its element is no longer in the DOM
    (el.isConnected), so old widget instances from a profile switch/resize don't leak. Since
    widgets mount/unmount dynamically and there's no single "widget mounted" hook, a lightweight
-   interval just re-scans for any new .holo-portrait that doesn't have a loop running yet and
-   starts one — cheap, and at most a ~2.5s delay before a freshly-mounted copy joins in. */
+   interval just re-scans for any new .holo-portrait that doesn't have loops running yet and
+   starts them — cheap, and at most a ~2.5s delay before a freshly-mounted copy joins in.
+   The blink is a real third photo (eyes closed) crossfaded in/out via the .blinking class,
+   same quick opacity transition as the mouth-flap frames — not a CSS mask trick. */
 const holoIdleLoopsStarted = new WeakSet();
+function scheduleHoloBlink(el){
+  const gap = 2200 + Math.random()*4200;
+  setTimeout(()=>{
+    if(!el.isConnected) return;
+    el.classList.add("blinking");
+    setTimeout(()=>{ el.classList.remove("blinking"); scheduleHoloBlink(el); }, 180);
+  }, gap);
+}
 function scheduleHoloGlitch(el){
   const gap = 8000 + Math.random()*10000;
   setTimeout(()=>{
@@ -3419,6 +3437,7 @@ function ensureHoloIdleLoops(){
   $$(".holo-portrait").forEach(el=>{
     if(holoIdleLoopsStarted.has(el)) return;
     holoIdleLoopsStarted.add(el);
+    scheduleHoloBlink(el);
     scheduleHoloGlitch(el);
   });
 }
