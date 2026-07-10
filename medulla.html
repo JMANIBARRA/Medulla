@@ -3536,13 +3536,22 @@ function tryLocalCommand(text){
   }
   /* Direct time/date questions answered exactly, in code, instead of leaving them to the LLM.
      A 1B local model will happily hallucinate a plausible-but-wrong date/time despite the
-     correct one being right there in its system prompt (see getAiSystemPrompt) — and once it
-     says something wrong, that wrong answer gets saved into aiConversation and keeps
-     reinforcing itself in later replies. This is zero-hallucination-risk by construction. */
-  if(/^(what(?:'?s| is) (?:the )?(?:current )?time( (is )?it)?|what time is it|current time)[?.\s]*$/.test(t)){
+     correct one being right there in its system prompt (see getAiSystemPrompt) — confirmed
+     repeatedly: it invented "August 7, 2026" once and "July 24, 2026" another time, both wrong.
+     And once it says something wrong, that answer gets saved into aiConversation and keeps
+     reinforcing itself in later replies. This is zero-hallucination-risk by construction.
+     Deliberately broad (word-boundary "time"/"date" + a question cue, minus an exclusion list
+     of common non-clock phrases) rather than a handful of exact phrases — an earlier, stricter
+     version of this still let "what's your current time" slip through to the LLM. A false-
+     positive here just states the correct time in response to a time-adjacent sentence, which
+     is harmless; a false NEGATIVE means real misinformation reaches the user, so this
+     deliberately errs toward over-matching. */
+  const NOT_CLOCK_TIME = /timezone|time zone|bedtime|halftime|overtime|sometime|anytime|time out|timer|time limit|on time|in time|took time|spend time|spent time|waste time|wasted time|long time|short time|first time|last time|next time|good time|hard time|free time|save time|no time/;
+  const asksQuestion = /\?\s*$/.test(text.trim()) || /^(what|when|do you know|can you tell|tell me|current|the current)\b/.test(t) || /\bcurrent (time|date)\b/.test(t);
+  if(/\btime\b/.test(t) && asksQuestion && !NOT_CLOCK_TIME.test(t)){
     results.push("It's " + new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"}) + ".");
   }
-  if(/^(what(?:'?s| is) (?:today'?s|the) date|what day is (?:it|today)|current date)[?.\s]*$/.test(t)){
+  if((/\bdate\b/.test(t) || /what day is (it|today)/.test(t)) && asksQuestion && !/update|dating|candidate|mandate|validate|outdated|to date/.test(t)){
     results.push("Today is " + new Date().toLocaleDateString("en-US", {timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric"}) + ".");
   }
   if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
