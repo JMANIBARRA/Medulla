@@ -3394,6 +3394,10 @@ function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
 
+  /* greeting — matches only when the WHOLE message is just a greeting (trailing punctuation
+     ok), so it doesn't fire on longer sentences that merely contain "hi"/"hey". h+i+ and h+e+y+
+     also tolerate typo'd repeated letters like "hhi" or "heyy". */
+  if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){ results.push("Hello! What can I do for you?"); }
   if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
   if(/switch to entertainment|load.*entertainment/.test(t)){ switchProfile("entertainment"); profileSelect.value="entertainment"; results.push("Switched to Entertainment Profile."); }
   if(/zoom out|wide view/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 0.7); saveProfileState(); results.push("Zoomed out."); }
