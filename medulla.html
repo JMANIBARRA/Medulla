@@ -2470,7 +2470,9 @@ function shortTeamName(fullName){
 /* single-line game score, used in the compact mini widget — inline day label, one line that
    shrinks to fit the widget's current width instead of getting cut off */
 function formatScoreLine(ev){
-  return `<div style="white-space:nowrap;font-size:clamp(9px, calc(var(--w, 270px) * 0.034), 13px);">▸ ${shortTeamName(ev.strHomeTeam)} ${ev.intHomeScore ?? "?"}–${ev.intAwayScore ?? "?"} ${shortTeamName(ev.strAwayTeam)} <span style="color:var(--text-dim);">· ${relativeDayLabel(ev.dateEvent)}</span></div>`;
+  /* readable at a glance on the mini dashboard widget without opening the full view — the old
+     clamp(9px, ..., 13px) topped out tiny even at typical widget widths. */
+  return `<div style="white-space:nowrap;font-size:clamp(13px, calc(var(--w, 270px) * 0.052), 19px);line-height:1.5;">▸ ${shortTeamName(ev.strHomeTeam)} ${ev.intHomeScore ?? "?"}–${ev.intAwayScore ?? "?"} ${shortTeamName(ev.strAwayTeam)} <span style="color:var(--text-dim);">· ${relativeDayLabel(ev.dateEvent)}</span></div>`;
 }
 /* schedule-style game line for the full view, grouped under a day heading (no inline date) */
 function formatGameLine(ev){
