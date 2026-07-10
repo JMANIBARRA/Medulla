@@ -1651,11 +1651,17 @@ function fitWidgetsToContent(){
     const body = card.querySelector(".widget-body");
     if(!l || !header || !body) return;
     const cap = presetSize(id, "L");
-    const neededH = Math.min(cap.h, header.offsetHeight + body.scrollHeight);
-    if(neededH > card.offsetHeight + 1){
-      card.style.height = neededH+"px";
-      l.h = neededH;
-      changed = true;
+    /* arcade's height is entirely managed by bjFitMiniWidgetToCards/bjResetMiniWidgetHeight
+       instead (blackjack needs a taller cap than "L" for a long hand, and needs to shrink back
+       down between hands, which this grow-only function never does) — letting both systems
+       drive the same element's height fights itself, so this one sits out for arcade. */
+    if(id !== "arcade"){
+      const neededH = Math.min(cap.h, header.offsetHeight + body.scrollHeight);
+      if(neededH > card.offsetHeight + 1){
+        card.style.height = neededH+"px";
+        l.h = neededH;
+        changed = true;
+      }
     }
     if(body.scrollWidth > body.clientWidth + 1){
       const neededW = Math.min(cap.w, card.offsetWidth + (body.scrollWidth - body.clientWidth));
@@ -4231,6 +4237,46 @@ function bjRenderAll(hideHoleCard){
     if(v.playerValEl) v.playerValEl.textContent = "value "+bjHandValue(bjPlayer);
     if(v.balanceEl) v.balanceEl.textContent = "$"+arcadeData.blackjackBalance;
   });
+  bjFitMiniWidgetToCards();
+}
+/* Grows the mini Arcade widget's own height on the dashboard canvas as a hand picks up more
+   cards (hit/double/a long dealer draw), instead of leaving extra cards to wrap/scroll inside
+   a fixed-size card — the generic per-widget "grow to fit content" system (fitWidgetsToContent)
+   already exists but only grows when content actually overflows, and small flex-wrapped cards
+   can quietly fit without ever tripping that (so nothing visibly grows even after several
+   hits). Here growth is driven directly by card count instead, so every hit gives a clearly
+   bigger table, not just "big enough to avoid a scrollbar".
+   bjMiniBaseHeight is the floor to grow up from and shrink back down to. It's read fresh off
+   the widget's current S/M/L size preset each time a new hand starts (bjResetMiniWidgetHeight)
+   rather than snapshotted once, so it stays correct even if the user changes the widget's size
+   via the size-cycle button between hands instead of going stale. */
+let bjMiniBaseHeight = null;
+function bjFitMiniWidgetToCards(){
+  const card = document.querySelector('.claustrum-widget[data-widget-id="arcade"]');
+  if(!card) return;
+  const header = card.querySelector(".widget-header");
+  const body = card.querySelector(".widget-body");
+  if(!header || !body) return;
+  if(bjMiniBaseHeight === null) bjMiniBaseHeight = card.offsetHeight;
+  const CARD_GROWTH_PX = 34; // per card beyond the opening 2+2 deal
+  const extraCards = Math.max(0, (bjDealer.length + bjPlayer.length) - 4);
+  const grownByCards = bjMiniBaseHeight + extraCards*CARD_GROWTH_PX;
+  const contentNeeded = header.offsetHeight + body.scrollHeight + 2;
+  const MAX_H = 640; // a generous ceiling well past the normal "L" cap so a long hand never gets cut off
+  const target = Math.min(MAX_H, Math.max(bjMiniBaseHeight, contentNeeded, grownByCards));
+  if(Math.abs(target - card.offsetHeight) > 1){
+    card.style.height = target+"px";
+    if(state.layout.arcade){ state.layout.arcade.h = target; saveProfileStateDebounced(); }
+  }
+}
+function bjResetMiniWidgetHeight(){
+  const card = document.querySelector('.claustrum-widget[data-widget-id="arcade"]');
+  if(!card) return;
+  const l = state.layout.arcade;
+  const preset = (l && SIZE_PRESET_ORDER.includes(l.sizePreset)) ? l.sizePreset : "M";
+  bjMiniBaseHeight = presetSize("arcade", preset).h;
+  card.style.height = bjMiniBaseHeight+"px";
+  if(l){ l.h = bjMiniBaseHeight; saveProfileStateDebounced(); }
 }
 function bjSetControls({deal,hit,stand,dbl}){
   bjViews.forEach(v=>{
@@ -4269,6 +4315,7 @@ function bjDealerPlay(){
 }
 function bjStartHand(betVal){
   if(bjAutoDealTimer){ clearTimeout(bjAutoDealTimer); bjAutoDealTimer=null; }
+  bjResetMiniWidgetHeight();
   bjBet = betVal;
   arcadeData.lastBet = betVal;
   saveArcadeData();
