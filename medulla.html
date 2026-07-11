@@ -4205,7 +4205,19 @@ function getAiSystemPrompt(){
     timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric",
     hour:"numeric", minute:"2-digit", timeZoneName:"short"
   });
+  /* Isolated separately from the full date/time sentence below and repeated as its own blunt
+     rule — confirmed by direct testing that embedding the correct time in prose ALONE isn't
+     enough: this 1B model has stated a different, invented clock time even with the real one
+     sitting right there earlier in the very same prompt (e.g. asked to reconcile the weather
+     widget's UV reading against "it's currently 11:15pm", it answered as though it were 9pm).
+     Deterministic local commands (see tryLocalCommand) still handle the common, cleanly-phrased
+     "what time is it" case without ever involving the model at all; this is the fallback for
+     when a time reference shows up folded into a longer, less clean-cut message that falls
+     through to the model anyway. */
+  const timeOnly = new Date().toLocaleTimeString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
   return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
+
+The time right now, and ONLY this time, is ${timeOnly}. If the user states, questions, or references any clock time — including to dispute something, e.g. "it's actually 11pm" — you must treat ${timeOnly} as the one true value and never state, confirm, or imply any other specific time, even approximately.
 
 You have a face and a presence: a holographic portrait that appears on the user's dashboard, and it animates while you talk. Stay in character as Medulla, and never say things like "I don't have a face" or "I'm just code" or break character to explain the technical mechanics of how you work. If someone asks what you look like, describe your face and presence plainly and confidently, without romanticizing it.
 
@@ -4495,7 +4507,7 @@ async function fetchWeatherData(){
   const loc = await fetchApproxLocation();
   if(!loc) return null;
   try{
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,uv_index_max&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,weather_code,is_day,uv_index&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
     const data = await res.json();
     const cw = data.current;
     if(!cw) return null;
@@ -4504,7 +4516,6 @@ async function fetchWeatherData(){
       date,
       high: Math.round(daily.temperature_2m_max[i]),
       low: Math.round(daily.temperature_2m_min[i]),
-      uv: daily.uv_index_max ? Math.round(daily.uv_index_max[i]) : null,
     }));
     cachedWeatherData = {
       temp: Math.round(cw.temperature_2m),
@@ -4516,7 +4527,7 @@ async function fetchWeatherData(){
       cloudCover: Math.round(cw.cloud_cover),
       windSpeed: Math.round(cw.wind_speed_10m),
       precipitation: cw.precipitation,
-      uvIndex: forecast[0] ? forecast[0].uv : null, // today's max — the usual convention for "the UV index" in weather apps
+      uvIndex: cw.uv_index != null ? Math.round(cw.uv_index) : null, // the LIVE current value, not the day's max — reads 0 at night instead of implying midday sun is still out
       forecast, // forecast[0] is today
     };
     cachedWeatherDataTime = Date.now();
