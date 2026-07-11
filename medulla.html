@@ -4225,7 +4225,13 @@ aiForm.addEventListener("submit", async (e)=>{
     if(hotbar.scrollWidth <= hotbar.clientWidth) return;
     if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
     e.preventDefault();
-    hotbar.scrollLeft += e.deltaY;
+    /* deltaMode 1 ("line" units, what a plain mouse's scroll wheel typically reports) gives tiny
+       numbers like 3 per click — technically converts to horizontal scroll same as a trackpad's
+       pixel-based deltas (mode 0), but moves so little it can feel like nothing happened.
+       Scaled up so a regular mouse wheel is just as usable as a trackpad swipe, not just
+       "technically functional". */
+    const scale = e.deltaMode === 1 ? 40 : 1;
+    hotbar.scrollLeft += e.deltaY * scale;
   }, {passive:false});
 
   const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
