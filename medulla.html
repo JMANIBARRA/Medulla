@@ -197,7 +197,16 @@
     background:rgba(2,3,4,.55);
   }
   .hbtn:hover{color:var(--bg-deep);background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px var(--accent);}
+  .hbtn.active{color:var(--bg-deep);background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px var(--accent);}
   .hbtn-size{font-family:var(--font-display);font-weight:700;font-size:10px;}
+  /* ---------- pinned widgets — anchored to the viewport instead of #canvas-world, so panning/
+     zooming the camera never moves them (see togglePinWidget). A dashed accent border is the
+     only visual difference on the card itself; #pinned-layer sits directly over the canvas,
+     un-transformed, with pointer-events off everywhere except the widgets themselves so empty
+     space around a pinned card still lets you pan/click through to the canvas underneath. */
+  #pinned-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:10;}
+  #pinned-layer > .claustrum-widget, #pinned-layer > .capsule{pointer-events:auto;}
+  .claustrum-widget.pinned{border-style:dashed;}
   .widget-body{
     flex:1;overflow:auto;padding:10px;
     /* flex items default to min-height/min-width:auto, which refuses to shrink below content
@@ -741,6 +750,9 @@
       <div id="text-layer"></div>
       <div id="widget-layer"></div>
     </div>
+    <!-- pinned widgets live here instead of inside #canvas-world, so panning/zooming the
+         camera (which only transforms #canvas-world) never moves them — see togglePinWidget. -->
+    <div id="pinned-layer"></div>
     <div class="hud-corner tl"></div>
     <div class="hud-corner tr"></div>
     <div class="hud-corner bl"></div>
@@ -913,6 +925,42 @@ function cycleWidgetSize(def, l, card, header){
   header.querySelector(".hbtn-size").textContent = l.sizePreset;
 }
 
+/* Pinning moves a widget out of #canvas-world (which pans/zooms with the camera) into
+   #pinned-layer (a sibling that never gets that transform), so it stays put at the same spot
+   on your actual screen no matter how far you pan or zoom afterward. l.x/l.y/l.w/l.h always
+   just mean "position/size in whatever space this widget currently lives in" — world units
+   when unpinned, raw screen pixels when pinned — converted once, right here, at the moment of
+   toggling, using the camera's transform at that instant. Moves the existing card node itself
+   (not a renderWidgets() rebuild) so anything stateful inside it — a playing YouTube iframe,
+   an in-progress blackjack hand — survives the switch untouched. */
+function togglePinWidget(l, card, header){
+  const cam = state.camera;
+  if(!l.pinned){
+    l.x = l.x*cam.scale + cam.x;
+    l.y = l.y*cam.scale + cam.y;
+    l.w = l.w*cam.scale;
+    l.h = l.h*cam.scale;
+    l.pinned = true;
+    pinnedLayer.appendChild(card);
+  } else {
+    l.x = (l.x - cam.x)/cam.scale;
+    l.y = (l.y - cam.y)/cam.scale;
+    l.w = l.w/cam.scale;
+    l.h = l.h/cam.scale;
+    l.pinned = false;
+    widgetLayer.appendChild(card);
+  }
+  card.style.left = l.x+"px"; card.style.top = l.y+"px";
+  card.style.width = l.w+"px"; card.style.height = l.h+"px";
+  card.style.setProperty("--w", l.w+"px");
+  card.style.setProperty("--h", l.h+"px");
+  card.classList.toggle("pinned", l.pinned);
+  const pinBtn = header.querySelector('[data-act="pin"]');
+  pinBtn.classList.toggle("active", l.pinned);
+  pinBtn.title = l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)";
+  saveProfileState();
+}
+
 /* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
    touching at their new size (same packWidgetsIntoGrid the Stacks button uses) — resizing without
@@ -921,7 +969,9 @@ function cycleWidgetSize(def, l, card, header){
 function setAllWidgetSizes(preset){
   const targets = widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
-    return l && l.visible && !l.minimized;
+    /* pinned widgets are excluded — this repacks into a world-space grid, and a pinned
+       widget's x/y are screen coordinates, not world ones (see togglePinWidget) */
+    return l && l.visible && !l.minimized && !l.pinned;
   });
   if(!targets.length) return;
 
@@ -1172,6 +1222,7 @@ applyThemeAccent();
 const viewport = $("#canvas-viewport");
 const world = $("#canvas-world");
 const widgetLayer = $("#widget-layer");
+const pinnedLayer = $("#pinned-layer");
 const textLayer = $("#text-layer");
 const drawCanvas = $("#draw-canvas");
 const ctx = drawCanvas.getContext("2d");
@@ -1214,7 +1265,8 @@ $("#zoom-reset-btn").addEventListener("click", ()=>{
 function widgetsWorldBounds(){
   const visibleDefs = widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
-    return l && l.visible;
+    // pinned widgets' x/y are screen coordinates, not world ones — excluded from a world-space bound
+    return l && l.visible && !l.pinned;
   });
   if(!visibleDefs.length) return null;
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
@@ -1652,13 +1704,18 @@ function renderWidgets(){
   activeMiniCleanups.forEach(fn=>{ try{ fn(); }catch(e){} });
   activeMiniCleanups = [];
   widgetLayer.innerHTML="";
+  pinnedLayer.innerHTML="";
   widgetsForActiveProfile().forEach(def=>{
     const l = state.layout[def.id] || {x:60,y:60,w:270,h:190,minimized:false,visible:true};
     if(!l.visible) return;
+    /* pinned widgets render into #pinned-layer (a sibling of #canvas-world that never gets the
+       camera's pan/zoom transform) instead of #widget-layer, using screen-space coordinates —
+       see togglePinWidget for the world<->screen conversion done at the moment of pinning. */
+    const layer = l.pinned ? pinnedLayer : widgetLayer;
     if(l.minimized){
-      widgetLayer.appendChild(renderCapsule(def,l));
+      layer.appendChild(renderCapsule(def,l));
     } else {
-      widgetLayer.appendChild(renderWidgetCard(def,l));
+      layer.appendChild(renderWidgetCard(def,l));
     }
   });
 }
@@ -1666,7 +1723,8 @@ function renderWidgets(){
 function fitToScreen(){
   const visibleDefs = widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
-    return l && l.visible;
+    // pinned widgets' x/y are screen coordinates, not world ones — excluded from the fit calc
+    return l && l.visible && !l.pinned;
   });
   if(!visibleDefs.length) return;
   let minX=Infinity, minY=Infinity, maxX=-Infinity;
@@ -1701,7 +1759,8 @@ function toggleStacks(){
   if(!state.stacked){
     const targets = widgetsForActiveProfile().filter(def=>{
       const l = state.layout[def.id];
-      return l && l.visible && !l.minimized;
+      // pinned widgets' x/y are screen coordinates, not world ones — left out of the repack
+      return l && l.visible && !l.minimized && !l.pinned;
     });
     if(!targets.length) return;
 
@@ -1823,7 +1882,7 @@ widgetLayer.addEventListener("scroll", (e)=>{
 
 function renderWidgetCard(def,l){
   const card = document.createElement("div");
-  card.className="claustrum-widget";
+  card.className="claustrum-widget"+(l.pinned ? " pinned" : "");
   card.style.left=l.x+"px"; card.style.top=l.y+"px"; card.style.width=l.w+"px"; card.style.height=l.h+"px";
   card.style.zIndex = l.z || 1;
   card.style.setProperty("--accent", def.accent || "var(--accent-teal)");
@@ -1839,6 +1898,7 @@ function renderWidgetCard(def,l){
     <div class="hbtns">
       <button class="hbtn" data-act="expand" title="Full view">⤢</button>
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
+      <button class="hbtn hbtn-pin${l.pinned ? " active" : ""}" data-act="pin" title="${l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)"}">⌖</button>
       <button class="hbtn" data-act="min" title="Minimize">—</button>
     </div>`;
   card.appendChild(header);
@@ -1860,8 +1920,15 @@ function renderWidgetCard(def,l){
     e.stopPropagation();
     cycleWidgetSize(def, l, card, header);
   });
+  header.querySelector('[data-act="pin"]').addEventListener("click",(e)=>{
+    e.stopPropagation();
+    togglePinWidget(l, card, header);
+  });
 
-  /* drag by header — locked while paint mode is on so drawing doesn't accidentally move widgets */
+  /* drag by header — locked while paint mode is on so drawing doesn't accidentally move widgets.
+     Pinned widgets live in the un-transformed #pinned-layer, so their drag deltas are used as
+     raw screen pixels; everyone else lives inside the scaled #canvas-world and still needs the
+     old camera.scale division to convert a screen-pixel drag into the right world-space move. */
   header.addEventListener("pointerdown",(e)=>{
     if(paintMode) return;
     if(e.target.closest(".hbtn")) return;
@@ -1869,7 +1936,8 @@ function renderWidgetCard(def,l){
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     card.classList.add("dragging");
     function onMove(ev){
-      const dx=(ev.clientX-startX)/state.camera.scale, dy=(ev.clientY-startY)/state.camera.scale;
+      const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
+      const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
       l.x=ox+dx; l.y=oy+dy;
       card.style.left=l.x+"px"; card.style.top=l.y+"px";
     }
@@ -1927,8 +1995,10 @@ function attachResizeHandles(card, l){
       const ox=l.x, oy=l.y, ow=l.w, oh=l.h;
       card.classList.add("resizing");
       function onMove(ev){
-        const dx=(ev.clientX-startClientX)/state.camera.scale;
-        const dy=(ev.clientY-startClientY)/state.camera.scale;
+        /* same un-transformed-vs-scaled split as the drag handler above — pinned widgets read
+           raw screen-pixel deltas, everyone else still divides by the camera's zoom. */
+        const dx=l.pinned ? (ev.clientX-startClientX) : (ev.clientX-startClientX)/state.camera.scale;
+        const dy=l.pinned ? (ev.clientY-startClientY) : (ev.clientY-startClientY)/state.camera.scale;
         let newW = ow + spec.w*dx;
         let newH = oh + spec.h*dy;
         let newX = ox + (spec.x!==0 ? dx : 0);
