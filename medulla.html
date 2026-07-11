@@ -399,7 +399,7 @@
      associations that shouldn't shift with an arbitrary UI accent pick. Only opacity/transform/
      background-position ever animate, so none of this risks a layout shift. ---------- */
   .weather-widget{position:relative;width:100%;overflow:hidden;border-radius:6px;}
-  .weather-scene{position:absolute;inset:0;transition:background 1s ease;}
+  .weather-scene{position:absolute;inset:0;transition:background 1s ease;box-shadow:inset 0 0 70px 14px rgba(0,0,0,.55);}
   .weather-content{position:relative;z-index:1;text-shadow:0 1px 6px rgba(0,0,0,.7);}
   .wscene-clear-day{background:radial-gradient(circle at 50% 28%, rgba(255,196,102,.35), transparent 60%), linear-gradient(to bottom, #1b2a3d, #0b1420);}
   .wscene-clear-day::before{
@@ -423,24 +423,22 @@
       radial-gradient(1px 1px at 30% 45%, #fff, transparent),
       radial-gradient(1.5px 1.5px at 60% 55%, #fff, transparent);
   }
-  .wscene-clouds{background:linear-gradient(to bottom, #3b4757, #232d3a);}
-  .wscene-clouds-night{background:linear-gradient(to bottom, #1c232e, #12161d);}
-  .wscene-clouds::before, .wscene-clouds-night::before,
-  .wscene-clouds::after, .wscene-clouds-night::after{
-    content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.14);filter:blur(1px);
-  }
-  .wscene-clouds::before, .wscene-clouds-night::before{width:32%;height:13%;top:20%;left:12%;}
-  .wscene-clouds::after, .wscene-clouds-night::after{width:40%;height:15%;top:40%;left:48%;}
+  /* soft overlapping blurred masses (percentage-sized so they scale properly between the small
+     mini widget and the much larger full view) instead of a couple of flat ellipses — closer to
+     the moody, photographic layered-cloud look this is meant to evoke. Shared across
+     clouds/rain/storm since they're all some version of "cloudy", just tinted/lit differently. */
+  .wscene-clouds{background:radial-gradient(ellipse 55% 30% at 22% 28%, rgba(255,255,255,.12), transparent 70%), radial-gradient(ellipse 65% 34% at 68% 18%, rgba(255,255,255,.08), transparent 70%), radial-gradient(ellipse 60% 32% at 48% 52%, rgba(255,255,255,.10), transparent 70%), linear-gradient(to bottom, #3b4757, #232d3a);}
+  .wscene-clouds-night{background:radial-gradient(ellipse 55% 30% at 22% 28%, rgba(255,255,255,.07), transparent 70%), radial-gradient(ellipse 65% 34% at 68% 18%, rgba(255,255,255,.05), transparent 70%), radial-gradient(ellipse 60% 32% at 48% 52%, rgba(255,255,255,.06), transparent 70%), linear-gradient(to bottom, #1c232e, #12161d);}
   .wscene-fog{background:linear-gradient(to bottom, #3c434c, #262b31);}
   .wscene-fog::before{
     content:"";position:absolute;inset:0;
     background:repeating-linear-gradient(to bottom, rgba(255,255,255,.08) 0px, rgba(255,255,255,.08) 6px, transparent 6px, transparent 18px);
     animation:wscene-drift 12s linear infinite;
   }
-  .wscene-rain{background:linear-gradient(to bottom, #232c3d, #161b26);}
+  .wscene-rain{background:radial-gradient(ellipse 60% 32% at 25% 22%, rgba(30,40,55,.55), transparent 70%), radial-gradient(ellipse 65% 34% at 65% 15%, rgba(30,40,55,.5), transparent 70%), linear-gradient(to bottom, #232c3d, #161b26);}
   .wscene-rain::before{
     content:"";position:absolute;inset:-20px 0 0 0;
-    background-image:repeating-linear-gradient(115deg, rgba(160,200,240,.5) 0px, rgba(160,200,240,.5) 1px, transparent 1px, transparent 14px);
+    background-image:repeating-linear-gradient(115deg, rgba(160,200,240,.45) 0px, rgba(160,200,240,.45) 1px, transparent 1px, transparent 14px);
     background-size:100% 40px;
     animation:wscene-rain-fall .5s linear infinite;
   }
@@ -457,7 +455,7 @@
     background-size:100% 120px;
     animation:wscene-snow-fall 6s linear infinite;
   }
-  .wscene-storm{background:linear-gradient(to bottom, #1c1830, #0d0b18);}
+  .wscene-storm{background:radial-gradient(ellipse 60% 32% at 30% 20%, rgba(20,15,35,.6), transparent 70%), radial-gradient(ellipse 65% 34% at 68% 18%, rgba(20,15,35,.55), transparent 70%), linear-gradient(to bottom, #1c1830, #0d0b18);}
   .wscene-storm::before{
     content:"";position:absolute;inset:-20px 0 0 0;
     background-image:repeating-linear-gradient(115deg, rgba(160,180,240,.4) 0px, rgba(160,180,240,.4) 1px, transparent 1px, transparent 14px);
@@ -482,6 +480,28 @@
   @media (prefers-reduced-motion: reduce){
     .weather-scene, .weather-scene::before, .weather-scene::after{animation:none !important;}
   }
+  /* ---------- Weather full-view layout — a photo-card-style hero (big temp + city/date/
+     condition, bottom-left, like a real weather app's cover) alongside a translucent "Weather
+     Details" glass panel, instead of plain stacked centered text. ---------- */
+  .weather-full-layout{display:flex;height:100%;}
+  .weather-hero{position:relative;z-index:1;flex:1.4;display:flex;flex-direction:column;justify-content:flex-end;padding:22px;min-width:0;}
+  .weather-hero-temp{font-family:var(--font-display);font-size:clamp(40px, 7vw, 72px);line-height:1;}
+  .weather-hero-city{font-family:var(--font-display);font-size:clamp(20px, 3vw, 30px);margin-top:2px;}
+  .weather-hero-date{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin-top:8px;}
+  .weather-hero-cond{font-family:var(--font-mono);font-size:13px;margin-top:4px;text-transform:capitalize;}
+  .weather-details-panel{
+    position:relative;z-index:1;flex:1;min-width:180px;
+    background:rgba(4,10,14,.55);backdrop-filter:blur(10px);
+    border-left:1px solid var(--line);
+    padding:20px;overflow-y:auto;
+  }
+  .weather-details-title, .weather-forecast-title{
+    font-family:var(--font-display);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);
+  }
+  .weather-forecast-title{margin-top:20px;}
+  .weather-detail-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-family:var(--font-mono);font-size:13px;}
+  .weather-detail-row:last-of-type{border-bottom:none;}
+  .weather-forecast-row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-family:var(--font-mono);font-size:12.5px;color:var(--text-dim);}
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
   .yt-suggestions{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
@@ -2245,10 +2265,23 @@ function renderFull(id){
     return `
     <div class="weather-widget" style="height:60vh;max-height:520px;">
       <div class="weather-scene" id="weather-full-scene"></div>
-      <div class="weather-content" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
-        <div id="weather-full-current" style="font-family:var(--font-mono);">Loading weather…</div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-top:18px;">Next Few Days</h3>
-        <div id="weather-full-forecast" style="font-family:var(--font-mono);font-size:13px;color:var(--text-dim);line-height:1.8;margin-top:6px;"></div>
+      <div class="weather-full-layout">
+        <div class="weather-hero">
+          <div class="weather-hero-temp" id="weather-hero-temp">--°</div>
+          <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
+          <div class="weather-hero-date" id="weather-hero-date"></div>
+          <div class="weather-hero-cond" id="weather-hero-cond"></div>
+        </div>
+        <div class="weather-details-panel">
+          <div class="weather-details-title">Weather Details</div>
+          <div class="weather-detail-row"><span>Cloud Cover</span><span id="wd-cloud">–</span></div>
+          <div class="weather-detail-row"><span>Humidity</span><span id="wd-humidity">–</span></div>
+          <div class="weather-detail-row"><span>Wind</span><span id="wd-wind">–</span></div>
+          <div class="weather-detail-row"><span>Rain</span><span id="wd-rain">–</span></div>
+          <div class="weather-detail-row"><span>UV Index</span><span id="wd-uv">–</span></div>
+          <div class="weather-forecast-title">Next Few Days</div>
+          <div id="weather-full-forecast"></div>
+        </div>
       </div>
     </div>`;
   }
@@ -4486,9 +4519,9 @@ async function fetchWeatherData(){
   const loc = await fetchApproxLocation();
   if(!loc) return null;
   try{
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,uv_index_max&temperature_unit=fahrenheit&timezone=auto`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,uv_index_max&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
     const data = await res.json();
-    const cw = data.current_weather;
+    const cw = data.current;
     if(!cw) return null;
     const daily = data.daily || {};
     const forecast = (daily.time || []).map((date,i)=>({
@@ -4498,11 +4531,15 @@ async function fetchWeatherData(){
       uv: daily.uv_index_max ? Math.round(daily.uv_index_max[i]) : null,
     }));
     cachedWeatherData = {
-      temp: Math.round(cw.temperature),
-      code: cw.weathercode,
+      temp: Math.round(cw.temperature_2m),
+      code: cw.weather_code,
       isDay: cw.is_day !== 0,
-      description: WEATHER_CODE_TEXT[cw.weathercode] || "mild",
+      description: WEATHER_CODE_TEXT[cw.weather_code] || "mild",
       city: loc.city || "",
+      humidity: Math.round(cw.relative_humidity_2m),
+      cloudCover: Math.round(cw.cloud_cover),
+      windSpeed: Math.round(cw.wind_speed_10m),
+      precipitation: cw.precipitation,
       uvIndex: forecast[0] ? forecast[0].uv : null, // today's max — the usual convention for "the UV index" in weather apps
       forecast, // forecast[0] is today
     };
@@ -4596,25 +4633,37 @@ function hydrateWeatherMini(scope){
 }
 function hydrateWeatherFull(scope){
   async function refresh(){
-    const curEl = scope.querySelector("#weather-full-current");
-    const fcEl = scope.querySelector("#weather-full-forecast");
-    if(!curEl || !fcEl) return;
+    const cityEl = scope.querySelector("#weather-hero-city");
+    if(!cityEl) return;
     const data = await fetchWeatherData();
-    const curEl2 = scope.querySelector("#weather-full-current");
-    const fcEl2 = scope.querySelector("#weather-full-forecast");
+    const tempEl = scope.querySelector("#weather-hero-temp");
+    const cityEl2 = scope.querySelector("#weather-hero-city");
+    const dateEl = scope.querySelector("#weather-hero-date");
+    const condEl = scope.querySelector("#weather-hero-cond");
+    const fcEl = scope.querySelector("#weather-full-forecast");
     const sceneEl = scope.querySelector("#weather-full-scene");
-    if(!curEl2 || !fcEl2) return;
-    if(!data){ curEl2.textContent = "Weather unavailable right now."; fcEl2.innerHTML = ""; return; }
+    if(!cityEl2) return;
+    if(!data){ cityEl2.textContent = "Weather unavailable right now."; return; }
     applyWeatherScene(sceneEl, data.code, data.isDay);
-    curEl2.innerHTML = `
-      <div style="font-size:clamp(28px, 6vw, 44px);font-family:var(--font-display);">${data.temp}°F</div>
-      <div style="color:var(--text-dim);text-transform:capitalize;">${data.description}${data.city?` · ${data.city}`:""}</div>
-      ${data.uvIndex!=null?`<div style="margin-top:6px;font-size:12px;color:var(--text-dim);">UV Index: ${data.uvIndex} (${uvCategory(data.uvIndex)})</div>`:""}
-    `;
-    fcEl2.innerHTML = data.forecast.slice(0,5).map((d,i)=>{
-      const label = i===0 ? "Today" : new Date(d.date+"T00:00:00").toLocaleDateString("en-US",{weekday:"short"});
-      return `<div>${label}: H ${d.high}° / L ${d.low}°${d.uv!=null?` · UV ${d.uv}`:""}</div>`;
-    }).join("");
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
+    const timeStr = now.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"});
+    tempEl.textContent = `${data.temp}°`;
+    cityEl2.textContent = data.city || "—";
+    dateEl.textContent = `${timeStr} · ${dateStr}`;
+    condEl.textContent = data.description;
+    const set = (sel, val)=>{ const el = scope.querySelector(sel); if(el) el.textContent = val; };
+    set("#wd-cloud", data.cloudCover!=null ? `${data.cloudCover}%` : "–");
+    set("#wd-humidity", data.humidity!=null ? `${data.humidity}%` : "–");
+    set("#wd-wind", data.windSpeed!=null ? `${data.windSpeed} mph` : "–");
+    set("#wd-rain", data.precipitation!=null ? `${data.precipitation} mm` : "–");
+    set("#wd-uv", data.uvIndex!=null ? `${data.uvIndex} (${uvCategory(data.uvIndex)})` : "–");
+    if(fcEl){
+      fcEl.innerHTML = data.forecast.slice(0,5).map((d,i)=>{
+        const label = i===0 ? "Today" : new Date(d.date+"T00:00:00").toLocaleDateString("en-US",{weekday:"short"});
+        return `<div class="weather-forecast-row"><span>${label}</span><span>H ${d.high}° / L ${d.low}°</span></div>`;
+      }).join("");
+    }
   }
   refresh();
   const intervalId = setInterval(refresh, WEATHER_REFRESH_MS);
