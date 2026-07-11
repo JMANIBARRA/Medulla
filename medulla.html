@@ -546,10 +546,11 @@
   .hotbar-icon:hover{transform:translateY(-7px) scale(1.08);background:rgba(255,255,255,.09);box-shadow:0 0 14px -3px var(--text-primary);}
   .hotbar-icon:active{cursor:grabbing;}
   .hotbar-icon.dragging{opacity:.35;}
-  /* small flyout for the "Banks" group icon — same visual language as the hot bar itself, just
-     a wrapping panel instead of a single scrollable row since it only ever holds a handful of
-     items. Positioned above the hot bar (JS measures its real height each time it opens). */
-  #bank-popover{
+  /* small flyout for a hot bar "group" icon (Banks, AI) — same visual language as the hot bar
+     itself, just a wrapping panel instead of a single scrollable row since each only ever holds
+     a handful of items. Positioned above the hot bar (JS measures its real height each time one
+     opens). Shared rule for both since they're otherwise identical. */
+  #bank-popover, #ai-popover{
     position:fixed;left:50%;bottom:0;
     transform:translateX(-50%) translateY(10px);
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
@@ -562,12 +563,12 @@
     transition:opacity .14s ease, transform .14s ease;
     z-index:46;
   }
-  #bank-popover.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  #bank-popover.visible, #ai-popover.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
   @media (prefers-reduced-motion: reduce){
     #hotbar{transition:opacity .1s linear;}
     .hotbar-icon{transition:none;}
     .hotbar-icon:hover{transform:none;}
-    #bank-popover{transition:opacity .1s linear;}
+    #bank-popover, #ai-popover{transition:opacity .1s linear;}
   }
 
   /* ---------- modal (full view) ---------- */
@@ -685,6 +686,8 @@
   <div id="hotbar"></div>
   <!-- populated by renderBankPopover() in JS; opened by clicking "Banks" in the hot bar -->
   <div id="bank-popover"></div>
+  <!-- populated by the same group-popover setup as bank-popover; opened by clicking "AI" -->
+  <div id="ai-popover"></div>
 
   <div id="ai-dock">
     <form id="ai-form">
@@ -3803,6 +3806,7 @@ const SITE_SHORTCUTS = {
   twitch:"https://twitch.tv", pinterest:"https://pinterest.com",
   claude:"https://claude.ai", chatgpt:"https://chatgpt.com", "chat gpt":"https://chatgpt.com",
   openai:"https://openai.com", gemini:"https://gemini.google.com", bard:"https://gemini.google.com",
+  grok:"https://grok.com", perplexity:"https://www.perplexity.ai",
   wikipedia:"https://wikipedia.org", notion:"https://notion.so", figma:"https://figma.com",
   canva:"https://canva.com", zoom:"https://zoom.us", dropbox:"https://dropbox.com",
   ebay:"https://ebay.com", walmart:"https://walmart.com", target:"https://target.com",
@@ -4147,12 +4151,40 @@ aiForm.addEventListener("submit", async (e)=>{
 (function setupHotbar(){
   const hotbar = $("#hotbar");
   const dock = $("#ai-dock");
-  const bankPopover = $("#bank-popover");
   if(!hotbar || !dock) return;
   const REVEAL_MARGIN = 16; // small buffer above the hotbar/dock — leaving that band hides it almost immediately
   const HIDE_DELAY_MS = 120;
   let hideTimer = null;
-  let toggleBankPopover = function(){}; // reassigned below once bank-popover setup runs; declared here so scheduleHide (defined before that setup) can still call it by reference
+
+  /* Customizable order, dragged and dropped like real Dock/home-screen icons — persisted so it
+     survives reloads. HOTBAR_LABELS is the source of truth for which sites exist at all;
+     hotbarOrder is just a permutation of its keys, sanitized against it (drops any site that no
+     longer exists, appends any new one not yet in a saved order) rather than trusted blindly. */
+  const HOTBAR_LABELS = {
+    gmail:"Gmail", youtube:"YouTube", google:"Google",
+    amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
+    banks:"Banks", ai:"AI",
+  };
+  /* "group" icons (Banks, AI) open a small popover with a handful of related sites instead of
+     launching a URL directly — keeps the hot bar itself from having one icon per bank/AI tool. */
+  const GROUPS = [
+    { key:"banks", el:$("#bank-popover"), items:[
+      {site:"chase", label:"Chase"},
+      {site:"bofa", label:"Bank of America"},
+      {site:"wellsfargo", label:"Wells Fargo"},
+      {site:"citi", label:"Citi"},
+      {site:"capitalone", label:"Capital One"},
+      {site:"usbank", label:"US Bank"},
+    ]},
+    { key:"ai", el:$("#ai-popover"), items:[
+      {site:"grok", label:"Grok"},
+      {site:"claude", label:"Claude"},
+      {site:"chatgpt", label:"ChatGPT"},
+      {site:"gemini", label:"Gemini"},
+      {site:"perplexity", label:"Perplexity"},
+    ]},
+  ];
+  const groupToggles = {}; // populated below, keyed by group.key — declared here so scheduleHide/mousemove (defined next) can reference them by name before the popovers are actually wired up
 
   function positionAboveDock(){
     const rect = dock.getBoundingClientRect();
@@ -4167,28 +4199,23 @@ aiForm.addEventListener("submit", async (e)=>{
     clearTimeout(hideTimer);
     hideTimer = setTimeout(()=>{
       hotbar.classList.remove("visible");
-      toggleBankPopover(false); // an orphaned popover with no hot bar under it would look broken
+      // an orphaned popover with no hot bar under it would look broken
+      Object.values(groupToggles).forEach(toggle=> toggle(false));
     }, HIDE_DELAY_MS);
   }
   window.addEventListener("mousemove", (e)=>{
     const dockRect = dock.getBoundingClientRect();
     const hotbarRect = hotbar.getBoundingClientRect();
-    const popoverRect = bankPopover ? bankPopover.getBoundingClientRect() : null;
     /* Math.min(...) so the zone hugs whichever sits highest — the hot bar itself once it's
-       shown, or the bank popover while that's open — instead of a fixed margin off the dock
-       that could sit below their top edge and cause them to hide while the mouse is still
-       over them. */
+       shown, or any open group popover — instead of a fixed margin off the dock that could sit
+       below their top edge and cause them to hide while the mouse is still over them. */
     const tops = [dockRect.top, hotbarRect.top];
-    if(popoverRect && bankPopover.classList.contains("visible")) tops.push(popoverRect.top);
+    GROUPS.forEach(g=>{ if(g.el && g.el.classList.contains("visible")) tops.push(g.el.getBoundingClientRect().top); });
     const nearChatBar = e.clientY >= Math.min(...tops) - REVEAL_MARGIN;
     if(nearChatBar) show(); else scheduleHide();
   }, {passive:true});
   hotbar.addEventListener("mouseenter", show);
   hotbar.addEventListener("mouseleave", scheduleHide);
-  if(bankPopover){
-    bankPopover.addEventListener("mouseenter", show);
-    bankPopover.addEventListener("mouseleave", scheduleHide);
-  }
   window.addEventListener("resize", ()=>{ if(hotbar.classList.contains("visible")) positionAboveDock(); });
   /* lets a plain vertical mouse wheel scroll it side to side too, not just shift+wheel/trackpad
      swipe — only takes over when there's actually somewhere to scroll (scrollWidth > clientWidth)
@@ -4201,25 +4228,6 @@ aiForm.addEventListener("submit", async (e)=>{
     hotbar.scrollLeft += e.deltaY;
   }, {passive:false});
 
-  /* Customizable order, dragged and dropped like real Dock/home-screen icons — persisted so it
-     survives reloads. HOTBAR_LABELS is the source of truth for which sites exist at all;
-     hotbarOrder is just a permutation of its keys, sanitized against it (drops any site that no
-     longer exists, appends any new one not yet in a saved order) rather than trusted blindly. */
-  const HOTBAR_LABELS = {
-    gmail:"Gmail", claude:"Claude", chatgpt:"ChatGPT", youtube:"YouTube", google:"Google",
-    amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
-    banks:"Banks",
-  };
-  /* clicking "Banks" opens a small popover with these instead of launching a URL directly —
-     keeps the hot bar itself from being crowded with one icon per bank. */
-  const BANK_SITES = [
-    {site:"chase", label:"Chase"},
-    {site:"bofa", label:"Bank of America"},
-    {site:"wellsfargo", label:"Wells Fargo"},
-    {site:"citi", label:"Citi"},
-    {site:"capitalone", label:"Capital One"},
-    {site:"usbank", label:"US Bank"},
-  ];
   const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
   let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site]);
   HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site)) hotbarOrder.push(site); });
@@ -4231,50 +4239,56 @@ aiForm.addEventListener("submit", async (e)=>{
   }
   renderHotbarIcons();
 
-  /* "Banks" opens the popover instead of a URL directly — everything else launches as normal.
-     Delegated on the container since icons get re-created by renderHotbarIcons(). */
+  /* a group icon (Banks/AI) opens its popover instead of a URL directly — everything else
+     launches as normal. Delegated on the container since icons get re-created by
+     renderHotbarIcons(). */
   hotbar.addEventListener("click", (e)=>{
     const btn = e.target.closest(".hotbar-icon");
     if(!btn) return;
-    if(btn.dataset.site === "banks"){
-      toggleBankPopover(!bankPopover.classList.contains("visible"));
+    const site = btn.dataset.site;
+    if(groupToggles[site]){
+      const group = GROUPS.find(g=>g.key===site);
+      const isOpen = group.el.classList.contains("visible");
+      Object.entries(groupToggles).forEach(([key,toggle])=>{ if(key !== site) toggle(false); }); // only one group open at a time
+      groupToggles[site](!isOpen);
       return;
     }
-    const url = SITE_SHORTCUTS[btn.dataset.site];
+    const url = SITE_SHORTCUTS[site];
     if(url) window.open(url, "_blank", "noopener,noreferrer");
   });
 
-  if(bankPopover){
-    bankPopover.innerHTML = BANK_SITES.map(b=>
+  GROUPS.forEach(({key, el, items})=>{
+    if(!el) return;
+    el.innerHTML = items.map(b=>
       `<button class="hotbar-icon" data-site="${b.site}">${b.label}</button>`
     ).join("");
-    function positionBankPopover(){
+    function position(){
       const rect = hotbar.getBoundingClientRect();
-      bankPopover.style.bottom = Math.max(0, window.innerHeight - rect.top + 10) + "px";
+      el.style.bottom = Math.max(0, window.innerHeight - rect.top + 10) + "px";
     }
-    /* assigns the outer `let toggleBankPopover` (declared up near scheduleHide) rather than
-       shadowing it with a block-scoped redeclaration — scheduleHide needs to see this exact
-       function once it's ready, not a separate same-named one it can never reach. */
-    toggleBankPopover = function(open){
-      if(open){ positionBankPopover(); bankPopover.classList.add("visible"); }
-      else{ bankPopover.classList.remove("visible"); }
-    };
-    bankPopover.addEventListener("click", (e)=>{
+    function toggle(open){
+      if(open){ position(); el.classList.add("visible"); }
+      else{ el.classList.remove("visible"); }
+    }
+    groupToggles[key] = toggle;
+    el.addEventListener("mouseenter", show);
+    el.addEventListener("mouseleave", scheduleHide);
+    el.addEventListener("click", (e)=>{
       const btn = e.target.closest(".hotbar-icon");
       if(!btn) return;
       const url = SITE_SHORTCUTS[btn.dataset.site];
       if(url) window.open(url, "_blank", "noopener,noreferrer");
-      toggleBankPopover(false);
+      toggle(false);
     });
     document.addEventListener("click", (e)=>{
-      if(!bankPopover.classList.contains("visible")) return;
-      if(bankPopover.contains(e.target) || e.target.closest('.hotbar-icon[data-site="banks"]')) return;
-      toggleBankPopover(false);
+      if(!el.classList.contains("visible")) return;
+      if(el.contains(e.target) || e.target.closest(`.hotbar-icon[data-site="${key}"]`)) return;
+      toggle(false);
     });
     document.addEventListener("keydown", (e)=>{
-      if(e.key === "Escape") toggleBankPopover(false);
+      if(e.key === "Escape") toggle(false);
     });
-  }
+  });
 
   /* Drag-and-drop reordering: dragging an icon over another live-shifts the DOM (inserting the
      dragged one before/after whichever half of the target it's currently over), so the rest of
