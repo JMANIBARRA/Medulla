@@ -3836,20 +3836,29 @@ function topicMatchesText(t, topic){
   return false;
 }
 const WIDGET_TOPIC_INFERENCE = [
-  /* order matters — earlier entries win when a phrase could plausibly match more than one
-     (e.g. "flappy high score" contains "score", which sports also claims; arcade's more
-     specific "high score"/"flappy"/"blackjack" phrasing is checked first so it wins).
+  /* Every topic that matches gets answered — a message can name several at once ("what's the
+     weather and what's the market doing" answers both), not just the first one found. Array
+     order no longer decides a winner; it's only relevant to reading these for maintenance.
      `phrases`: exact multi-word substrings (not fuzzed — phrase-level typo tolerance isn't
      worth the false-positive risk). `words`: single tokens, fuzzy-matched per-word so typos
-     of anything 5+ letters still resolve. */
+     of anything 5+ letters still resolve. `exclude`, where present, stops a topic from firing
+     on its own generic words when the message is clearly about a DIFFERENT topic that happens
+     to share vocabulary with it (see sports' exclude below for why this exists). */
   { id:"arcade", phrases:["high score","dealer's hand","dealer's cards","double down"],
     words:["blackjack","flappy","bankroll","dealer","casino","wager"] },
   { id:"sports", phrases:["who's playing","who is playing","any games on","any games today","what teams","which teams","team names","final score","today's game","tonight's game"],
     /* bare "game"/"games" deliberately excluded even as an exact word — "let's play a game
        later" is far too common a sentence to hijack; needs "score(s)" or one of the phrases
-       above (which already require "game" alongside other sports-specific context). */
+       above (which already require "game" alongside other sports-specific context).
+       exclude: "flappy high score"/"blackjack" also contain "score", which this topic would
+       otherwise also claim — since every matching topic now answers (not just the first),
+       without this exclude a pure arcade question would incorrectly ALSO read out Sports. */
     exactWords:["score","scores"],
-    words:["scoreboard","matchup","matches","standings","league","roster","teams"] },
+    words:["scoreboard","matchup","matches","standings","league","roster","teams"],
+    exclude:/high score|flappy|blackjack|dealer|bankroll|casino|wager|double down/ },
+  { id:"weather", phrases:["what's the weather","what is the weather","how's the weather","how is the weather","weather forecast","is it raining","is it going to rain","is it cold outside","is it hot outside","what's it like outside","what is it like outside","how hot is it","how cold is it","do i need an umbrella","do i need a jacket"],
+    exactWords:["weather","forecast","raining","snowing","overcast","humidity"],
+    words:["sunny","cloudy","foggy","temperature"] },
   { id:"market", phrases:["s&p","s & p","sp500","sp 500","spx","dow jones","headline wire","pinned assets"],
     exactWords:["stock","stocks","shares"],
     words:["market","indices","nasdaq","dow","ticker","crypto","bitcoin","btc","ethereum","eth","dogecoin","doge","solana","sol","cardano","ada","portfolio","investments","equities"] },
@@ -4124,12 +4133,15 @@ function tryLocalCommand(text){
     if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
   }
   if(!widgetHandled){
-    /* no widget resolved by name yet — check if the question's SUBJECT clearly implies one */
+    /* no widget resolved by name yet — check if the question's SUBJECT clearly implies one.
+       Every topic that matches gets its own answer appended (no break on first match), so
+       "what's the weather and what's the market doing" reads out both instead of just
+       whichever topic happened to be checked first — each topic's own `exclude` (see sports
+       above) is what keeps genuinely single-topic questions from over-triggering. */
     for(const topic of WIDGET_TOPIC_INFERENCE){
       if(topicMatchesText(t, topic) && !(topic.exclude && topic.exclude.test(t))){
         const def = findWidgetDefByName(topic.id);
         if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
-        break;
       }
     }
   }
