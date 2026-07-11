@@ -734,6 +734,7 @@ const WIDGET_DEFS = [
   {id:"networth", title:"Assets", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Embeds a local app (iframe) for balances and card due dates."},
   {id:"scratchpad", title:"Scratchpad", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Multi-page free-form notebook, autosaved."},
   {id:"sports", title:"Sports", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
+  {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
   {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
   {id:"youtubeoauth", title:"Video (Google)", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
   {id:"cheetah", title:"Cheetah", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Running-cheetah sprite loop — 8 frames cropped from a user-supplied silhouette sheet, recolored ice-blue, cycling via CSS steps() to fake a gallop."},
@@ -743,6 +744,7 @@ const WIDGET_DEFS = [
 /* default layout coordinates */
 const SIZE_OVERRIDES = {
   arcade: {w:270, h:320},
+  weather: {w:270, h:240},
   mail: {w:150, h:165},
   banking: {w:150, h:165},
   fitness: {w:280, h:260},
@@ -1819,6 +1821,7 @@ function renderWidgetCard(def,l){
 
   if(def.id==="market") setTimeout(()=>hydrateMarketMini(body),0);
   if(def.id==="sports") setTimeout(()=>{ const c = hydrateSportsMini(body); if(c) activeMiniCleanups.push(c); },0);
+  if(def.id==="weather") setTimeout(()=>{ const c = hydrateWeatherMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="mail") setTimeout(()=>hydrateMailMini(body),0);
   if(def.id==="chrono") setTimeout(()=>hydrateChronoMini(body),0);
   if(def.id==="quicklinks") setTimeout(()=>hydrateQuickLinksMini(body),0);
@@ -1901,6 +1904,7 @@ function openModal(def){
     modalBody.innerHTML = renderFull(def.id);
     if(def.id==="market") hydrateMarketFull(modalBody);
     if(def.id==="sports") modalCloseCleanup = hydrateSportsFull(modalBody);
+    if(def.id==="weather") modalCloseCleanup = hydrateWeatherFull(modalBody);
     if(def.id==="mail") hydrateMailFull(modalBody);
     if(def.id==="chrono") modalCloseCleanup = hydrateChronoFull(modalBody);
     if(def.id==="quicklinks") hydrateQuickLinksFull(modalBody);
@@ -1941,6 +1945,9 @@ function renderMini(id){
   }
   if(id==="sports"){
     return `<div id="sport-mini-list" style="font-family:var(--font-mono);width:100%;text-align:left;"></div>`;
+  }
+  if(id==="weather"){
+    return `<div id="weather-mini" style="font-family:var(--font-mono);width:100%;text-align:center;font-size:clamp(12px, calc(var(--w, 270px) * 0.045), 17px);">Loading weather…</div>`;
   }
   if(id==="cheetah"){
     /* Real art: 8 frames cropped from cheetah-frames/sheet.png (a user-supplied silhouette sheet),
@@ -2139,6 +2146,14 @@ function renderFull(id){
         <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Scoreboard & News</h3>
         <div id="sport-events" style="font-size:12px;color:var(--text-dim);line-height:1.7;">Loading…</div>
       </div>
+    </div>`;
+  }
+  if(id==="weather"){
+    return `
+    <div style="text-align:center;">
+      <div id="weather-full-current" style="font-family:var(--font-mono);">Loading weather…</div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-top:18px;">Next Few Days</h3>
+      <div id="weather-full-forecast" style="font-family:var(--font-mono);font-size:13px;color:var(--text-dim);line-height:1.8;margin-top:6px;"></div>
     </div>`;
   }
   if(id==="youtube"){
@@ -4365,24 +4380,42 @@ const WEATHER_CODE_TEXT = {
   85:"snow showers", 86:"heavy snow showers",
   95:"thunderstorms", 96:"thunderstorms", 99:"thunderstorms",
 };
-let cachedWeather = null, cachedWeatherTime = 0;
+/* Structured weather data — shared by the proactive idle check-in (fetchWeatherSummary, below)
+   and the Weather widget, so there's one fetch/cache path instead of two. Includes a short
+   daily forecast (Open-Meteo gives 7 days by default) alongside current conditions. */
+let cachedWeatherData = null, cachedWeatherDataTime = 0;
 const WEATHER_CACHE_TTL = 30*60000;
-async function fetchWeatherSummary(){
-  if(cachedWeather && (Date.now()-cachedWeatherTime) < WEATHER_CACHE_TTL) return cachedWeather;
+async function fetchWeatherData(){
+  if(cachedWeatherData && (Date.now()-cachedWeatherDataTime) < WEATHER_CACHE_TTL) return cachedWeatherData;
   const loc = await fetchApproxLocation();
   if(!loc) return null;
   try{
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current_weather=true&temperature_unit=fahrenheit`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto`);
     const data = await res.json();
     const cw = data.current_weather;
     if(!cw) return null;
-    const desc = WEATHER_CODE_TEXT[cw.weathercode] || "mild";
-    const temp = Math.round(cw.temperature);
-    const place = loc.city ? ` in ${loc.city}` : "";
-    cachedWeather = `It's ${temp}°F and ${desc}${place} right now.`;
-    cachedWeatherTime = Date.now();
-    return cachedWeather;
+    const daily = data.daily || {};
+    const forecast = (daily.time || []).map((date,i)=>({
+      date,
+      high: Math.round(daily.temperature_2m_max[i]),
+      low: Math.round(daily.temperature_2m_min[i]),
+    }));
+    cachedWeatherData = {
+      temp: Math.round(cw.temperature),
+      code: cw.weathercode,
+      description: WEATHER_CODE_TEXT[cw.weathercode] || "mild",
+      city: loc.city || "",
+      forecast, // forecast[0] is today
+    };
+    cachedWeatherDataTime = Date.now();
+    return cachedWeatherData;
   }catch(e){ return null; }
+}
+async function fetchWeatherSummary(){
+  const data = await fetchWeatherData();
+  if(!data) return null;
+  const place = data.city ? ` in ${data.city}` : "";
+  return `It's ${data.temp}°F and ${data.description}${place} right now.`;
 }
 const PROACTIVE_GENERIC = [
   "Ready to start your day?",
@@ -4410,6 +4443,49 @@ function scheduleProactiveMedulla(){
   }, gap);
 }
 scheduleProactiveMedulla();
+
+/* ================= WEATHER WIDGET =================
+   Reuses fetchWeatherData() (defined above alongside the idle check-in feature) instead of a
+   separate fetch/cache path — same 30-min-cached current conditions + forecast either way. */
+function formatWeatherLine(data){
+  const place = data.city ? ` in ${data.city}` : "";
+  const today = data.forecast[0];
+  return `${data.temp}°F, ${data.description}${place}` + (today ? ` · H:${today.high}° L:${today.low}°` : "");
+}
+const WEATHER_REFRESH_MS = 15*60000;
+function hydrateWeatherMini(scope){
+  async function refresh(){
+    const el = scope.querySelector("#weather-mini");
+    if(!el) return; /* widget torn down mid-fetch */
+    const data = await fetchWeatherData();
+    const el2 = scope.querySelector("#weather-mini");
+    if(!el2) return;
+    el2.textContent = data ? formatWeatherLine(data) : "Weather unavailable right now.";
+  }
+  refresh();
+  const intervalId = setInterval(refresh, WEATHER_REFRESH_MS);
+  return function cleanup(){ clearInterval(intervalId); };
+}
+function hydrateWeatherFull(scope){
+  async function refresh(){
+    const curEl = scope.querySelector("#weather-full-current");
+    const fcEl = scope.querySelector("#weather-full-forecast");
+    if(!curEl || !fcEl) return;
+    const data = await fetchWeatherData();
+    const curEl2 = scope.querySelector("#weather-full-current");
+    const fcEl2 = scope.querySelector("#weather-full-forecast");
+    if(!curEl2 || !fcEl2) return;
+    if(!data){ curEl2.textContent = "Weather unavailable right now."; fcEl2.innerHTML = ""; return; }
+    curEl2.innerHTML = `<div style="font-size:clamp(28px, 6vw, 44px);font-family:var(--font-display);">${data.temp}°F</div><div style="color:var(--text-dim);text-transform:capitalize;">${data.description}${data.city?` · ${data.city}`:""}</div>`;
+    fcEl2.innerHTML = data.forecast.slice(0,5).map((d,i)=>{
+      const label = i===0 ? "Today" : new Date(d.date+"T00:00:00").toLocaleDateString("en-US",{weekday:"short"});
+      return `<div>${label}: H ${d.high}° / L ${d.low}°</div>`;
+    }).join("");
+  }
+  refresh();
+  const intervalId = setInterval(refresh, WEATHER_REFRESH_MS);
+  return function cleanup(){ clearInterval(intervalId); };
+}
 
 /* ================= WELCOME MESSAGE =================
    A short, time-of-day-aware greeting on every load/refresh — not just the first time ever.
