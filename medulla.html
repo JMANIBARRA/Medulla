@@ -4019,7 +4019,14 @@ function tryLocalCommand(text){
     results.push("My underlying model (Llama 3.2) has a training data cutoff of December 2023, per Meta's official model card — I don't have reliable knowledge of anything after that, and current date/time questions are answered separately, not from training data.");
   }
   const NOT_CLOCK_TIME = /timezone|time zone|bedtime|halftime|overtime|sometime|anytime|time out|timer|time limit|on time|in time|took time|spend time|spent time|waste time|wasted time|long time|short time|first time|last time|next time|good time|hard time|free time|save time|no time/;
-  const asksQuestion = /\?\s*$/.test(text.trim()) || /^(what|when|do you know|can you tell|tell me|current|the current)\b/.test(t) || /\bcurrent (time|date)\b/.test(t);
+  /* Anchored to the WHOLE message before ("^(what|...)"), so a compound ask like "give me the
+     scores and the time" — which doesn't happen to start with one of these cue words — silently
+     dropped the time half even though it's unambiguously being asked for. Checking anywhere in
+     the message (word-boundary, not "^") instead, plus a few more request phrasings ("give me",
+     "can i get"), so every clause of a multi-part question gets its own answer instead of only
+     whichever one led the sentence. NOT_CLOCK_TIME above still filters out the idioms this could
+     otherwise false-positive on ("no time", "sometime", etc). */
+  const asksQuestion = /\?\s*$/.test(text.trim()) || /\b(what|when|do you know|can you tell|tell me|give me|can i get|can i have|let me know|current|the current)\b/.test(t) || /\bcurrent (time|date)\b/.test(t);
   if(/\btime\b/.test(t) && asksQuestion && !NOT_CLOCK_TIME.test(t) && !CUTOFF_RE.test(t)){
     results.push("It's " + new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"}) + ".");
   }
