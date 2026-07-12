@@ -806,9 +806,10 @@
       <button class="tbtn" id="zoom-in-btn" title="Zoom in">+</button>
       <button class="tbtn" id="zoom-reset-btn" title="Reset zoom to 100%">reset zoom</button>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;">memory</span>
-      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Click: jump to Memory 1 · Hold: save the current view here">1</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Click: jump to Memory 2 · Hold: save the current view here">2</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Click: jump to Memory 3 · Hold: save the current view here">3</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Select Memory 1 — jumps there if it's already saved">1</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Select Memory 2 — jumps there if it's already saved">2</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Select Memory 3 — jumps there if it's already saved">3</button>
+      <button class="tbtn" id="mem-save-btn" title="Save the current pan/zoom into the selected memory slot">save config</button>
     </div>
   </div>
 
@@ -1439,46 +1440,42 @@ $("#zoom-reset-btn").addEventListener("click", ()=>{
 });
 
 /* ---------- camera "memory seats" — save the current pan/zoom into one of 3 slots and jump
-   straight back to it later, same idea as a car's memory seat buttons: hold the button to save
-   your current position into it, tap it to recall. A tap only recalls (never overwrites) so
-   idly clicking a slot to jump to it can't accidentally wipe out what you saved there — the
-   hold is a deliberate, unmistakably-different gesture from a quick click. Per-profile (each
-   profile's state.cameraMemories is its own 3-slot array), since a saved camera position only
-   makes sense relative to that profile's own widget layout. */
-const CAMERA_MEMORY_HOLD_MS = 650;
+   straight back to it later, same idea as a car's memory seat buttons. Clicking a numbered
+   slot SELECTS it (and jumps there right away if it already has something saved); "save
+   config" then saves the current view into whichever slot is selected. Splitting select and
+   save into two separate, explicit actions rather than overloading the number buttons
+   themselves means there's no ambiguous gesture (a hold, a long-vs-short click) to get wrong.
+   Per-profile (each profile's state.cameraMemories is its own 3-slot array), since a saved
+   camera position only makes sense relative to that profile's own widget layout; which slot
+   is selected is deliberately NOT persisted — reselecting slot 1 on every load is a saner
+   default than picking up on whatever was selected last session. */
+let activeMemSlot = 0;
 function refreshCameraMemoryButtons(){
   $$(".mem-btn").forEach(btn=>{
     const slot = Number(btn.dataset.slot);
     btn.classList.toggle("has-memory", !!(state.cameraMemories && state.cameraMemories[slot]));
+    btn.classList.toggle("active", slot === activeMemSlot);
   });
 }
 function setupCameraMemoryButtons(){
   $$(".mem-btn").forEach(btn=>{
     const slot = Number(btn.dataset.slot);
-    let holdTimer = null, saved = false;
-    btn.addEventListener("pointerdown", (e)=>{
-      e.preventDefault();
-      saved = false;
-      holdTimer = setTimeout(()=>{
-        saved = true;
-        state.cameraMemories[slot] = {x:state.camera.x, y:state.camera.y, scale:state.camera.scale};
-        saveProfileState();
-        refreshCameraMemoryButtons();
-        btn.classList.remove("mem-flash"); void btn.offsetWidth; btn.classList.add("mem-flash");
-      }, CAMERA_MEMORY_HOLD_MS);
-    });
-    function cancelHold(){ clearTimeout(holdTimer); }
-    btn.addEventListener("pointerup", ()=>{
-      cancelHold();
-      if(saved) return; // the hold already saved — a tap here should never also recall
+    btn.addEventListener("click", ()=>{
+      activeMemSlot = slot;
+      refreshCameraMemoryButtons();
       const mem = state.cameraMemories && state.cameraMemories[slot];
       if(!mem) return;
       state.camera.x = mem.x; state.camera.y = mem.y; state.camera.scale = mem.scale;
       applyCamera();
       saveProfileState();
     });
-    btn.addEventListener("pointerleave", cancelHold);
-    btn.addEventListener("pointercancel", cancelHold);
+  });
+  $("#mem-save-btn").addEventListener("click", ()=>{
+    state.cameraMemories[activeMemSlot] = {x:state.camera.x, y:state.camera.y, scale:state.camera.scale};
+    saveProfileState();
+    refreshCameraMemoryButtons();
+    const btn = $(`.mem-btn[data-slot="${activeMemSlot}"]`);
+    if(btn){ btn.classList.remove("mem-flash"); void btn.offsetWidth; btn.classList.add("mem-flash"); }
   });
   refreshCameraMemoryButtons();
 }
@@ -3878,6 +3875,7 @@ function switchProfile(name){
   applyCamera();
   renderStrokes(); renderTexts(); renderWidgets();
   $("#stacks-btn").classList.toggle("active", !!state.stacked);
+  activeMemSlot = 0;
   refreshCameraMemoryButtons();
   maybeApplyLargeDefaultMigration();
 }
