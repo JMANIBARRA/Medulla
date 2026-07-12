@@ -896,6 +896,7 @@ const WIDGET_DEFS = [
   {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Plain launcher cards to official bank login portals, opened in a new isolated tab. No scraping."},
   {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
   {id:"garage", title:"Garage", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Add vehicles you own, keep a running garage list."},
+  {id:"phone", title:"Phone", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Saved contacts you can call with one click via tel: links — add a name and number, tap to dial."},
   {id:"career", title:"Career", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Resume/cover letter editor, salary target tracker, and job feed deep-links."},
   {id:"fitness", title:"Fitness", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Age/gender setup, routine + food diary journaling, and a biomarker notes panel."},
   {id:"market", title:"Market", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Live indices + pinned assets, headline wire."},
@@ -1281,6 +1282,7 @@ let tickerData = loadJSON(NS+"tickers", {pinned:["bitcoin","ethereum"]});
 let sportsData = loadJSON(NS+"sports", {teams:["Miami Heat","Miami Dolphins"]});
 let garageData = loadJSON(NS+"garage", {vehicles:[]});
 garageData.vehicles = garageData.vehicles.map(v => typeof v==="string" ? {vehicle:v, year:"", mileage:""} : v);
+let phoneData = loadJSON(NS+"phone", {contacts:[]});
 let videoData = loadJSON(NS+"video", {url:"", videoId:"", volume:70, muted:false});
 let videoDataOAuth = loadJSON(NS+"videoOAuth", {url:"", videoId:"", volume:70, muted:false});
 /* events keyed by local "YYYY-MM-DD" (see calendarDateKey) rather than a Date object or ISO
@@ -2239,6 +2241,7 @@ function renderWidgetCard(def,l){
   if(def.id==="claudeprojects") setTimeout(()=>hydrateClaudeProjectsMini(body),0);
   if(def.id==="fitness") setTimeout(()=>hydrateFitnessMini(body),0);
   if(def.id==="garage") setTimeout(()=>hydrateGarageMini(body),0);
+  if(def.id==="phone") setTimeout(()=>hydratePhoneMini(body),0);
   if(def.id==="calendar") setTimeout(()=>hydrateCalendarMini(body),0);
   if(def.id==="youtube") setTimeout(()=>{ const c = hydrateYouTubeMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="youtubeoauth") setTimeout(()=>{ const c = hydrateYouTubeOAuthMini(body); if(c) activeMiniCleanups.push(c); },0);
@@ -2325,6 +2328,7 @@ function openModal(def){
     if(def.id==="claudeprojects") hydrateClaudeProjectsFull(modalBody);
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
     if(def.id==="garage") hydrateGarageFull(modalBody);
+    if(def.id==="phone") hydratePhoneFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
     if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
@@ -2445,6 +2449,19 @@ function renderMini(id){
           <input id="garage-mini-year" type="text" placeholder="Year" style="flex:1;min-width:0;">
           <input id="garage-mini-mileage" type="text" placeholder="Mileage" style="flex:1;min-width:0;">
           <button class="btn primary" id="garage-mini-add-btn" style="flex:none;padding:0 0.6em;">+</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(id==="phone"){
+    return `
+    <div style="display:flex;flex-direction:column;gap:0.5em;width:100%;height:100%;text-align:left;">
+      <div id="phone-mini-list" style="flex:1;overflow:auto;font-family:var(--font-mono);"></div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:none;">
+        <input id="phone-mini-name" type="text" placeholder="Name e.g. Mom" style="width:100%;">
+        <div style="display:flex;gap:4px;">
+          <input id="phone-mini-number" type="tel" placeholder="Phone number" style="flex:1;min-width:0;">
+          <button class="btn primary" id="phone-mini-add-btn" style="flex:none;padding:0 0.6em;">+</button>
         </div>
       </div>
     </div>`;
@@ -2678,6 +2695,16 @@ function renderFull(id){
       <input id="garage-year-input" type="text" placeholder="Year" style="flex:1;min-width:70px;"/>
       <input id="garage-mileage-input" type="text" placeholder="Mileage" style="flex:1;min-width:90px;"/>
       <button class="btn primary" id="garage-add-btn">Add</button>
+    </div>`;
+  }
+  if(id==="phone"){
+    return `
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Saved Contacts</h3>
+    <div id="phone-list" style="margin:10px 0;"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+      <input id="phone-name-input" type="text" placeholder="Name e.g. Mom" style="flex:1;min-width:140px;"/>
+      <input id="phone-number-input" type="tel" placeholder="Phone number" style="flex:1;min-width:140px;"/>
+      <button class="btn primary" id="phone-add-btn">Add</button>
     </div>`;
   }
   if(id==="mail"){
@@ -3369,6 +3396,102 @@ function hydrateGarageMini(scope){
   scope.addEventListener("click", (e)=>{
     if(e.target.closest("input") || e.target.closest("button")) return;
     const def = WIDGET_DEFS.find(w=>w.id==="garage");
+    if(def) openModal(def);
+  });
+}
+
+/* ================= PHONE WIDGET ================= */
+/* Contacts are just a name + number pair — no per-vehicle-style "type" needed like Garage's
+   icon, since the point here is a single click-to-dial affordance rather than a browsable list.
+   Calling is a real <a href="tel:..."> link (native browser/OS handling — FaceTime, a paired
+   phone via Handoff, whatever's actually registered for tel:) rather than a JS-driven action,
+   so it behaves like any other tel: link on the page and needs no extra wiring. */
+function telHref(number){
+  return `tel:${number.replace(/[^\d+]/g,"")}`;
+}
+function renderPhoneList(container){
+  container.innerHTML = phoneData.contacts.map((c,i)=>`
+    <div class="list-row">
+      <a href="${telHref(c.number)}" style="display:flex;flex-direction:column;overflow:hidden;text-decoration:none;color:inherit;min-width:0;flex:1;">
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name}</span>
+        <span style="font-size:.85em;color:var(--text-dim);">${c.number}</span>
+      </a>
+      <button class="hbtn" data-i="${i}">✕</button>
+    </div>
+  `).join("") || `<div style="color:var(--text-dim);">No contacts saved yet.</div>`;
+  $$("[data-i]",container).forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      phoneData.contacts.splice(Number(btn.dataset.i),1);
+      saveJSON(NS+"phone", phoneData);
+      renderPhoneList(container);
+      renderWidgets();
+    });
+  });
+}
+function addPhoneContact(scope){
+  const nameInp = scope.querySelector("#phone-name-input");
+  const numberInp = scope.querySelector("#phone-number-input");
+  const name = nameInp.value.trim(), number = numberInp.value.trim();
+  if(!name || !number) return;
+  phoneData.contacts.push({name, number});
+  saveJSON(NS+"phone", phoneData);
+  nameInp.value = ""; numberInp.value = "";
+  renderPhoneList(scope.querySelector("#phone-list"));
+  renderWidgets();
+  nameInp.focus();
+}
+function hydratePhoneFull(scope){
+  renderPhoneList(scope.querySelector("#phone-list"));
+  scope.querySelector("#phone-add-btn").addEventListener("click", ()=>addPhoneContact(scope));
+  ["#phone-name-input","#phone-number-input"].forEach(sel=>{
+    scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addPhoneContact(scope); });
+  });
+}
+function refreshPhoneMiniList(scope){
+  const el = scope.querySelector("#phone-mini-list");
+  el.innerHTML = phoneData.contacts.length
+    ? phoneData.contacts.map((c,i)=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <a href="${telHref(c.number)}" style="display:flex;flex-direction:column;overflow:hidden;text-decoration:none;color:inherit;min-width:0;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name}</span>
+            <span style="font-size:.85em;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.number}</span>
+          </a>
+          <button class="hbtn" data-i="${i}" style="flex:none;width:16px;height:16px;font-size:9px;">✕</button>
+        </div>`).join("")
+    : `<div style="color:var(--text-dim);">No contacts saved.</div>`;
+}
+function hydratePhoneMini(scope){
+  refreshPhoneMiniList(scope);
+
+  scope.querySelector("#phone-mini-list").addEventListener("click", e=>{
+    const btn = e.target.closest("[data-i]");
+    if(!btn) return;
+    phoneData.contacts.splice(Number(btn.dataset.i),1);
+    saveJSON(NS+"phone", phoneData);
+    refreshPhoneMiniList(scope);
+  });
+
+  const nameInp = scope.querySelector("#phone-mini-name");
+  const numberInp = scope.querySelector("#phone-mini-number");
+  function submitMini(){
+    const name = nameInp.value.trim(), number = numberInp.value.trim();
+    if(!name || !number) return;
+    phoneData.contacts.push({name, number});
+    saveJSON(NS+"phone", phoneData);
+    nameInp.value = ""; numberInp.value = "";
+    refreshPhoneMiniList(scope);
+    nameInp.focus();
+  }
+  scope.querySelector("#phone-mini-add-btn").addEventListener("click", submitMini);
+  [nameInp, numberInp].forEach(inp=>{
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submitMini(); });
+  });
+
+  /* clicking anywhere else on the widget opens the full pop-up view directly — excludes
+     the tel: links too, so tapping a contact dials instead of just opening the modal */
+  scope.addEventListener("click", (e)=>{
+    if(e.target.closest("input") || e.target.closest("button") || e.target.closest("a")) return;
+    const def = WIDGET_DEFS.find(w=>w.id==="phone");
     if(def) openModal(def);
   });
 }
@@ -4381,6 +4504,8 @@ const WIDGET_TOPIC_INFERENCE = [
     exclude:/workout.*today|today.*workout|what'?s my workout|what is my workout/ },
   { id:"garage", phrases:["what cars do i have","what cars do i own","what vehicles do i have","what vehicles do i own","my cars","my vehicles"],
     words:["garage","vehicle","vehicles","motorcycle","truck"] },
+  { id:"phone", phrases:["my contacts","saved contacts","my saved numbers","who's in my phone","who's in my contacts"],
+    words:["contact","contacts"] },
   { id:"career", phrases:["cover letter","job feed","salary target","job applications","my resume"],
     words:["resume","cv","job","jobs","salary","application","applications","interview","linkedin"] },
   { id:"mail", phrases:["check my mail","check mail","any new mail","new mail","mail links"],
@@ -4422,7 +4547,7 @@ const SITE_SHORTCUTS = {
   reddit:"https://reddit.com", instagram:"https://instagram.com", insta:"https://instagram.com", ig:"https://instagram.com",
   facebook:"https://facebook.com", fb:"https://facebook.com",
   linkedin:"https://linkedin.com", tiktok:"https://tiktok.com",
-  whatsapp:"https://web.whatsapp.com", discord:"https://discord.com", slack:"https://slack.com",
+  whatsapp:"https://web.whatsapp.com", telegram:"https://web.telegram.org", discord:"https://discord.com", slack:"https://slack.com",
   twitch:"https://twitch.tv", pinterest:"https://pinterest.com",
   claude:"https://claude.ai", chatgpt:"https://chatgpt.com", "chat gpt":"https://chatgpt.com",
   openai:"https://openai.com", gemini:"https://gemini.google.com", bard:"https://gemini.google.com",
@@ -4800,6 +4925,7 @@ aiForm.addEventListener("submit", async (e)=>{
   const HOTBAR_LABELS = {
     gmail:"Gmail", youtube:"YouTube", google:"Google",
     amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
+    telegram:"Telegram",
     banks:"Banks", ai:"AI",
   };
   /* "group" icons (Banks, AI) open a small popover with a handful of related sites instead of
