@@ -421,9 +421,24 @@
   .weather-scene{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;transition:background-image .3s ease, filter .3s ease;}
   .weather-scene::before{
     content:"";position:absolute;inset:0;
-    background:linear-gradient(to top, rgba(0,0,0,.65) 0%, rgba(0,0,0,.22) 55%, rgba(0,0,0,.45) 100%);
+    /* the old middle stop dipped to .22 opacity — barely any darkening exactly where the mini
+       widget's text sits (vertically centered), so a bright scene (clear sky, snow) could show
+       through almost undimmed there. Never dips below .42 now, so the mini widget's own dark
+       panel (see .weather-mini-panel) isn't the only thing standing between the text and a
+       bright photo — this scrim alone should already keep things readable. */
+    background:linear-gradient(to top, rgba(0,0,0,.7) 0%, rgba(0,0,0,.42) 50%, rgba(0,0,0,.55) 100%);
   }
   .weather-content{position:relative;z-index:1;text-shadow:0 1px 6px rgba(0,0,0,.85);}
+  /* Belt-and-suspenders for the mini widget specifically: its text sits centered over whatever
+     part of the photo happens to be there, so unlike the full view's hero (anchored to the
+     bottom, where the scrim above is darkest) it can't rely on position alone. A solid-ish dark
+     panel guarantees legibility regardless of how bright the underlying photo is (blue sky,
+     snow) instead of hoping text-shadow alone is enough. */
+  .weather-mini-panel{
+    background:rgba(2,6,10,.62);backdrop-filter:blur(5px);
+    border-radius:8px;padding:8px 16px;max-width:92%;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
   .wscene-clear-day{background-image:var(--wphoto-clear-day);}
   .wscene-clear-night{background-image:var(--wphoto-clear-night);}
   .wscene-clouds{background-image:var(--wphoto-clouds);}
@@ -4679,9 +4694,11 @@ function hydrateWeatherMini(scope){
     applyWeatherScene(sceneEl, data.code, data.isDay);
     const today = data.forecast[0];
     el2.innerHTML = `
-      <div style="font-size:1.3em;font-family:var(--font-display);">${data.temp}°F</div>
-      <div style="text-transform:capitalize;">${data.description}${data.city?` · ${data.city}`:""}</div>
-      <div style="font-size:.85em;color:var(--text-dim);">${today?`H:${today.high}° L:${today.low}°`:""}${data.uvIndex!=null?` · UV ${data.uvIndex} (${uvCategory(data.uvIndex)})`:""}</div>
+      <div class="weather-mini-panel">
+        <div style="font-size:1.3em;font-family:var(--font-display);">${data.temp}°F</div>
+        <div style="text-transform:capitalize;">${data.description}${data.city?` · ${data.city}`:""}</div>
+        <div style="font-size:.85em;color:var(--text-dim);">${today?`H:${today.high}° L:${today.low}°`:""}${data.uvIndex!=null?` · UV ${data.uvIndex} (${uvCategory(data.uvIndex)})`:""}</div>
+      </div>
     `;
   }
   refresh();
