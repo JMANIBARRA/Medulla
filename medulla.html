@@ -946,16 +946,48 @@ function defaultLayout(){
    directly (resize, drag, cycleWidgetSize, ...) would hit undefined. Backfills a real, persisted
    entry for any WIDGET_DEFS id not yet in layout. Call right after loadProfileState(). */
 function backfillMissingWidgetLayouts(s){
-  let added = false;
-  WIDGET_DEFS.forEach(def=>{
-    if(s.layout[def.id]) return;
+  const missing = WIDGET_DEFS.filter(def=>!s.layout[def.id]);
+  if(!missing.length) return;
+  missing.forEach(def=>{
     const sz = presetSize(def.id, "L");
     s.layout[def.id] = {x:60, y:60, w:sz.w, h:sz.h, minimized:false, visible:true, sizePreset:"L"};
-    added = true;
   });
-  /* persist immediately rather than waiting on the next unrelated save — otherwise a session
-     that loads and closes without touching anything re-does this backfill every time. */
-  if(added) saveJSON(profileStateKey(profiles.active), s);
+  /* (60,60) above is only ever a placeholder now — every newly-backfilled widget used to land
+     at that exact same fixed spot, which for any profile that already existed is almost
+     certainly sitting right on top of/behind whatever widget was first in WIDGET_DEFS at the
+     time (Mail), so a widget added later (e.g. Calendar) would render but be completely hidden
+     underneath it and go unnoticed. Repacked into a fresh row below everything already in the
+     layout instead, using the same row-packing helper the Stacks button uses, so a newly-added
+     widget always lands somewhere visible and non-overlapping. */
+  let maxY = 40;
+  Object.keys(s.layout).forEach(id=>{
+    if(missing.some(def=>def.id===id)) return;
+    const l = s.layout[id];
+    if(l && l.visible && !l.minimized && !l.pinned) maxY = Math.max(maxY, l.y + l.h);
+  });
+  packWidgetsIntoGrid(missing, 60, maxY+24, 1400);
+  /* Non-overlapping isn't the same as "the user will actually see it" — on a long-running
+     profile the whole layout can already span thousands of pixels, so the new row could still
+     sit far outside wherever the camera currently happens to be, same problem as before just
+     one level up. Pointing the camera straight at the new widget(s) fixes that, but only worth
+     doing because this runs at most once per new widget id ever (the "if(s.layout[def.id])
+     return" check above means it's a no-op every time after) — a one-time nudge toward
+     something that just appeared, not a recurring surprise jump on every reload.
+     Queried directly off the DOM (not the `viewport`/`world`/`applyCamera` bindings) since this
+     can run before those consts exist yet — see the very first call site, before line ~1330. */
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxYNew=-Infinity;
+  missing.forEach(def=>{
+    const l = s.layout[def.id];
+    minX = Math.min(minX, l.x); minY = Math.min(minY, l.y);
+    maxX = Math.max(maxX, l.x+l.w); maxYNew = Math.max(maxYNew, l.y+l.h);
+  });
+  const vp = document.getElementById("canvas-viewport");
+  if(vp){
+    const rect = vp.getBoundingClientRect();
+    s.camera.x = rect.width/2 - (minX+maxX)/2*s.camera.scale;
+    s.camera.y = rect.height/2 - (minY+maxYNew)/2*s.camera.scale;
+  }
+  saveJSON(profileStateKey(profiles.active), s);
 }
 
 /* Resizes in place (same pattern as the drag-resize handles below) instead of calling
