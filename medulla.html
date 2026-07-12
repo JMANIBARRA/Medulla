@@ -485,12 +485,19 @@
   .weather-forecast-row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-family:var(--font-mono);font-size:12.5px;color:var(--text-dim);}
   /* ---------- Calendar widget — mini view is deliberately just "today + today's events", read
      only, click-anywhere-to-open (same convention as the Garage mini card); the full month grid
-     with add/edit/delete only lives in the modal. ---------- */
-  .calendar-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;cursor:pointer;text-align:center;gap:2px;}
-  .calendar-mini-weekday{font-family:var(--font-mono);font-size:.8em;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
-  .calendar-mini-month{font-family:var(--font-mono);font-size:.8em;color:var(--text-dim);}
-  .calendar-mini-events{margin-top:6px;width:100%;font-family:var(--font-mono);font-size:.78em;display:flex;flex-direction:column;gap:2px;}
-  .calendar-mini-event{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+     with add/edit/delete only lives in the modal. Layout modeled on iOS's own Calendar widget:
+     weekday + day number pinned top-left, events filling the middle with a colored accent bar
+     per event (bold title, time below) — rather than the app's usual centered-hero treatment. ---------- */
+  .calendar-mini{display:flex;flex-direction:column;width:100%;height:100%;cursor:pointer;padding:4px 2px;gap:10px;text-align:left;}
+  .calendar-mini-header{flex:none;}
+  .calendar-mini-weekday{font-family:var(--font-display);font-size:.8em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;}
+  .calendar-mini-daynum{font-family:var(--font-display);font-weight:700;line-height:1;margin-top:1px;font-size:clamp(24px, calc(min(var(--w, 220px), var(--h, 220px)) * 0.2), 52px);}
+  .calendar-mini-events{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;}
+  .calendar-mini-event{display:flex;gap:8px;align-items:stretch;min-width:0;}
+  .calendar-mini-event-bar{width:3px;border-radius:2px;background:var(--accent);flex:none;}
+  .calendar-mini-event-body{min-width:0;overflow:hidden;}
+  .calendar-mini-event-title{font-weight:700;font-size:.85em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .calendar-mini-event-time{font-size:.78em;color:var(--text-dim);margin-top:1px;}
   .calendar-full-layout{display:flex;gap:0;height:100%;min-height:420px;}
   .calendar-cal-panel{flex:1.3;padding:18px;min-width:0;display:flex;flex-direction:column;}
   .calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -1223,6 +1230,19 @@ let videoDataOAuth = loadJSON(NS+"videoOAuth", {url:"", videoId:"", volume:70, m
 let calendarData = loadJSON(NS+"calendar", {events:{}});
 function calendarDateKey(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+/* The time field is a free-typed string ("9:30 PM", "9:30 – 10:30 PM", ...), not a normalized
+   value, so plain string comparison sorts "10:30" before "9:30" (lexicographic, not
+   chronological) — parses the FIRST clock time out of it into minutes-since-midnight for a
+   real chronological sort instead, falling back to sorting last (Infinity) for anything
+   unparseable or blank rather than throwing those off elsewhere in the list. */
+function calendarTimeSortKey(timeStr){
+  if(!timeStr) return Infinity;
+  const m = timeStr.match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+  if(!m) return Infinity;
+  let h = parseInt(m[1],10) % 12;
+  if((m[3]||"").toUpperCase()==="PM") h += 12;
+  return h*60 + parseInt(m[2],10);
 }
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
@@ -2230,9 +2250,10 @@ function renderMini(id){
   if(id==="calendar"){
     return `
     <div class="calendar-mini" id="calendar-mini">
-      <div class="calendar-mini-weekday" id="calendar-mini-weekday"></div>
-      <div class="hero-stat compact" id="calendar-mini-daynum"></div>
-      <div class="calendar-mini-month" id="calendar-mini-month"></div>
+      <div class="calendar-mini-header">
+        <div class="calendar-mini-weekday" id="calendar-mini-weekday"></div>
+        <div class="calendar-mini-daynum" id="calendar-mini-daynum"></div>
+      </div>
       <div class="calendar-mini-events" id="calendar-mini-events"></div>
     </div>`;
   }
@@ -3239,10 +3260,16 @@ function hydrateCalendarMini(scope){
   const today = new Date();
   scope.querySelector("#calendar-mini-weekday").textContent = today.toLocaleDateString("en-US",{weekday:"long"});
   scope.querySelector("#calendar-mini-daynum").textContent = today.getDate();
-  scope.querySelector("#calendar-mini-month").textContent = today.toLocaleDateString("en-US",{month:"long", year:"numeric"});
-  const events = (calendarData.events[calendarDateKey(today)] || []).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const events = (calendarData.events[calendarDateKey(today)] || []).slice().sort((a,b)=>calendarTimeSortKey(a.time)-calendarTimeSortKey(b.time));
   scope.querySelector("#calendar-mini-events").innerHTML = events.length
-    ? events.map(ev=>`<div class="calendar-mini-event">${ev.time?`${ev.time} — `:""}${ev.title}</div>`).join("")
+    ? events.map(ev=>`
+        <div class="calendar-mini-event">
+          <div class="calendar-mini-event-bar"></div>
+          <div class="calendar-mini-event-body">
+            <div class="calendar-mini-event-title">${ev.title}</div>
+            ${ev.time ? `<div class="calendar-mini-event-time">${ev.time}</div>` : ""}
+          </div>
+        </div>`).join("")
     : `<div style="color:var(--text-dim);">No events today.</div>`;
   scope.querySelector("#calendar-mini").addEventListener("click", ()=>{
     const def = WIDGET_DEFS.find(w=>w.id==="calendar");
@@ -3294,7 +3321,7 @@ function renderCalendarEventsPanel(scope){
   scope.querySelector("#cal-selected-label").textContent = (isToday ? "Today — " : "")
     + dateObj.toLocaleDateString("en-US",{weekday:"long", month:"long", day:"numeric", year: isToday?undefined:"numeric"});
 
-  const events = (calendarData.events[calSelectedKey] || []).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const events = (calendarData.events[calSelectedKey] || []).slice().sort((a,b)=>calendarTimeSortKey(a.time)-calendarTimeSortKey(b.time));
   const list = scope.querySelector("#cal-events-list");
   list.innerHTML = events.length
     ? events.map((ev,i)=>`
