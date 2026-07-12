@@ -1839,7 +1839,12 @@ function toggleStacks(){
     const snapshot = state.stackSnapshot || {};
     Object.keys(snapshot).forEach(id=>{
       const l = state.layout[id];
-      if(l){ l.x = snapshot[id].x; l.y = snapshot[id].y; }
+      /* skip a widget that got pinned WHILE stacked — its x/y now mean screen pixels (see
+         togglePinWidget), not the world coordinates this snapshot captured, so restoring them
+         would overwrite a valid on-screen position with garbage, moving it off-screen. Pinned
+         widgets are excluded from the pack itself (above) for the same reason; a widget that
+         became pinned mid-stack just needs the same exclusion applied here too. */
+      if(l && !l.pinned){ l.x = snapshot[id].x; l.y = snapshot[id].y; }
     });
     state.stackSnapshot = null;
     state.stacked = false;
