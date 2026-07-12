@@ -483,6 +483,38 @@
   .weather-detail-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-family:var(--font-mono);font-size:13px;}
   .weather-detail-row:last-of-type{border-bottom:none;}
   .weather-forecast-row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-family:var(--font-mono);font-size:12.5px;color:var(--text-dim);}
+  /* ---------- Calendar widget — mini view is deliberately just "today + today's events", read
+     only, click-anywhere-to-open (same convention as the Garage mini card); the full month grid
+     with add/edit/delete only lives in the modal. ---------- */
+  .calendar-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;cursor:pointer;text-align:center;gap:2px;}
+  .calendar-mini-weekday{font-family:var(--font-mono);font-size:.8em;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
+  .calendar-mini-month{font-family:var(--font-mono);font-size:.8em;color:var(--text-dim);}
+  .calendar-mini-events{margin-top:6px;width:100%;font-family:var(--font-mono);font-size:.78em;display:flex;flex-direction:column;gap:2px;}
+  .calendar-mini-event{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .calendar-full-layout{display:flex;gap:0;height:100%;min-height:420px;}
+  .calendar-cal-panel{flex:1.3;padding:18px;min-width:0;display:flex;flex-direction:column;}
+  .calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .calendar-month-label{font-family:var(--font-display);font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+  .calendar-weekday-row{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:6px;}
+  .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:3px;flex:1;}
+  .calendar-day-cell{
+    position:relative;display:flex;align-items:flex-start;justify-content:flex-end;
+    padding:5px;font-family:var(--font-mono);font-size:12px;border:1px solid transparent;
+    cursor:pointer;min-height:38px;color:var(--text-primary);
+  }
+  .calendar-day-cell.other-month{color:var(--text-dim);opacity:.4;}
+  .calendar-day-cell:hover{background:var(--bg-panel-raised);}
+  .calendar-day-cell.is-today{border-color:var(--accent-violet);color:var(--accent-violet);font-weight:700;}
+  .calendar-day-cell.is-selected{background:var(--accent-violet);color:var(--bg-deep);font-weight:700;}
+  .calendar-day-cell.is-selected.is-today{border-color:var(--accent-violet);}
+  .calendar-day-dot{position:absolute;left:6px;bottom:5px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.75;}
+  .calendar-events-panel{
+    flex:1;min-width:200px;background:rgba(4,10,14,.55);border-left:1px solid var(--line);
+    padding:18px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;
+  }
+  .calendar-events-title{font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+  .calendar-events-list{display:flex;flex-direction:column;}
+  .calendar-add-event{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft);}
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
   .yt-suggestions{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
@@ -829,6 +861,7 @@ const WIDGET_DEFS = [
   {id:"scratchpad", title:"Scratchpad", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Multi-page free-form notebook, autosaved."},
   {id:"sports", title:"Sports", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
   {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
+  {id:"calendar", title:"Calendar", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Today's date and whatever events you've added for it — click through to a full month view to browse other days and add events."},
   {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
   {id:"youtubeoauth", title:"Video (Google)", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
   {id:"cheetah", title:"Cheetah", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Running-cheetah sprite loop — 8 frames cropped from a user-supplied silhouette sheet, recolored ice-blue, cycling via CSS steps() to fake a gallop."},
@@ -846,6 +879,7 @@ const SIZE_OVERRIDES = {
   youtubeoauth: {w:340, h:280},
   cheetah: {w:280, h:170},
   holoportrait: {w:260, h:320},
+  calendar: {w:220, h:220},
 };
 
 /* size presets (S/M/L) cycle relative to each widget's base size.
@@ -1151,6 +1185,13 @@ let garageData = loadJSON(NS+"garage", {vehicles:[]});
 garageData.vehicles = garageData.vehicles.map(v => typeof v==="string" ? {vehicle:v, year:"", mileage:""} : v);
 let videoData = loadJSON(NS+"video", {url:"", videoId:"", volume:70, muted:false});
 let videoDataOAuth = loadJSON(NS+"videoOAuth", {url:"", videoId:"", volume:70, muted:false});
+/* events keyed by local "YYYY-MM-DD" (see calendarDateKey) rather than a Date object or ISO
+   timestamp — dead simple lookup for "does today have anything", and sidesteps timezone/DST
+   edge cases entirely since it's just three plain numbers, never re-interpreted as an instant. */
+let calendarData = loadJSON(NS+"calendar", {events:{}});
+function calendarDateKey(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
 /* the access token itself is intentionally NOT persisted to localStorage — it's short-lived
@@ -2028,6 +2069,7 @@ function renderWidgetCard(def,l){
   if(def.id==="claudeprojects") setTimeout(()=>hydrateClaudeProjectsMini(body),0);
   if(def.id==="fitness") setTimeout(()=>hydrateFitnessMini(body),0);
   if(def.id==="garage") setTimeout(()=>hydrateGarageMini(body),0);
+  if(def.id==="calendar") setTimeout(()=>hydrateCalendarMini(body),0);
   if(def.id==="youtube") setTimeout(()=>{ const c = hydrateYouTubeMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="youtubeoauth") setTimeout(()=>{ const c = hydrateYouTubeOAuthMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="cheetah") setTimeout(()=>recolorCheetahFrames(),0);
@@ -2113,6 +2155,7 @@ function openModal(def){
     if(def.id==="claudeprojects") hydrateClaudeProjectsFull(modalBody);
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
     if(def.id==="garage") hydrateGarageFull(modalBody);
+    if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
     if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
   } else {
@@ -2150,6 +2193,15 @@ function renderMini(id){
     <div class="weather-widget" style="flex:1;">
       <div class="weather-scene" id="weather-mini-scene"></div>
       <div class="weather-content" id="weather-mini" style="font-family:var(--font-mono);width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:clamp(11px, calc(var(--w, 270px) * 0.042), 16px);padding:10px;">Loading weather…</div>
+    </div>`;
+  }
+  if(id==="calendar"){
+    return `
+    <div class="calendar-mini" id="calendar-mini">
+      <div class="calendar-mini-weekday" id="calendar-mini-weekday"></div>
+      <div class="hero-stat compact" id="calendar-mini-daynum"></div>
+      <div class="calendar-mini-month" id="calendar-mini-month"></div>
+      <div class="calendar-mini-events" id="calendar-mini-events"></div>
     </div>`;
   }
   if(id==="cheetah"){
@@ -2371,6 +2423,31 @@ function renderFull(id){
           <div class="weather-detail-row"><span>UV Index</span><span id="wd-uv">–</span></div>
           <div class="weather-forecast-title">Next Few Days</div>
           <div id="weather-full-forecast"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(id==="calendar"){
+    return `
+    <div class="calendar-full-layout">
+      <div class="calendar-cal-panel">
+        <div class="calendar-nav">
+          <button class="hbtn" id="cal-prev-month" title="Previous month">‹</button>
+          <div class="calendar-month-label" id="cal-month-label"></div>
+          <button class="hbtn" id="cal-next-month" title="Next month">›</button>
+        </div>
+        <div class="calendar-weekday-row">
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+        <div class="calendar-grid" id="cal-grid"></div>
+      </div>
+      <div class="calendar-events-panel">
+        <div class="calendar-events-title" id="cal-selected-label">Today</div>
+        <div class="calendar-events-list" id="cal-events-list"></div>
+        <div class="calendar-add-event">
+          <input id="cal-event-title" type="text" placeholder="Event title…">
+          <input id="cal-event-time" type="text" placeholder="Time (optional), e.g. 3:00 PM">
+          <button class="btn primary" id="cal-add-event-btn">Add event</button>
         </div>
       </div>
     </div>`;
@@ -3120,6 +3197,124 @@ function hydrateGarageMini(scope){
     if(e.target.closest("input") || e.target.closest("button")) return;
     const def = WIDGET_DEFS.find(w=>w.id==="garage");
     if(def) openModal(def);
+  });
+}
+
+/* ================= CALENDAR WIDGET ================= */
+/* Mini view is read-only by design (today + today's events only, no add form) — clicking
+   anywhere on it opens the full month view, same convention as the Garage mini card. */
+function hydrateCalendarMini(scope){
+  const today = new Date();
+  scope.querySelector("#calendar-mini-weekday").textContent = today.toLocaleDateString("en-US",{weekday:"long"});
+  scope.querySelector("#calendar-mini-daynum").textContent = today.getDate();
+  scope.querySelector("#calendar-mini-month").textContent = today.toLocaleDateString("en-US",{month:"long", year:"numeric"});
+  const events = (calendarData.events[calendarDateKey(today)] || []).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  scope.querySelector("#calendar-mini-events").innerHTML = events.length
+    ? events.map(ev=>`<div class="calendar-mini-event">${ev.time?`${ev.time} — `:""}${ev.title}</div>`).join("")
+    : `<div style="color:var(--text-dim);">No events today.</div>`;
+  scope.querySelector("#calendar-mini").addEventListener("click", ()=>{
+    const def = WIDGET_DEFS.find(w=>w.id==="calendar");
+    if(def) openModal(def);
+  });
+}
+/* calViewingMonth (which month the grid shows) and calSelectedKey (which day the side panel
+   shows) are reset to "now" every time the modal opens (see hydrateCalendarFull) rather than
+   persisted — browsing to a different month to add something and reopening later should land
+   back on today, not wherever you last left it. */
+let calViewingMonth = null, calSelectedKey = null;
+function renderCalendarGrid(scope){
+  const grid = scope.querySelector("#cal-grid");
+  scope.querySelector("#cal-month-label").textContent = calViewingMonth.toLocaleDateString("en-US",{month:"long", year:"numeric"});
+
+  const year = calViewingMonth.getFullYear(), month = calViewingMonth.getMonth();
+  const startDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const todayKey = calendarDateKey(new Date());
+
+  const cells = [];
+  for(let i=0;i<startDow;i++) cells.push({day: daysInPrevMonth-startDow+1+i, key:null, otherMonth:true});
+  for(let d=1; d<=daysInMonth; d++) cells.push({day:d, key:`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`, otherMonth:false});
+  while(cells.length % 7 !== 0) cells.push({day: cells.length-(startDow+daysInMonth)+1, key:null, otherMonth:true});
+
+  grid.innerHTML = cells.map(c=>{
+    const classes = ["calendar-day-cell"];
+    if(c.otherMonth) classes.push("other-month");
+    if(c.key===todayKey) classes.push("is-today");
+    if(c.key===calSelectedKey) classes.push("is-selected");
+    const hasEvents = c.key && calendarData.events[c.key] && calendarData.events[c.key].length;
+    return `<div class="${classes.join(" ")}" data-key="${c.key||""}">${c.day}${hasEvents?'<span class="calendar-day-dot"></span>':""}</div>`;
+  }).join("");
+
+  $$("[data-key]", grid).forEach(cell=>{
+    if(!cell.dataset.key) return; // filler days from the prev/next month aren't selectable
+    cell.addEventListener("click", ()=>{
+      calSelectedKey = cell.dataset.key;
+      renderCalendarGrid(scope);
+      renderCalendarEventsPanel(scope);
+    });
+  });
+}
+function renderCalendarEventsPanel(scope){
+  const [y,m,d] = calSelectedKey.split("-").map(Number);
+  const dateObj = new Date(y, m-1, d);
+  const isToday = calSelectedKey === calendarDateKey(new Date());
+  scope.querySelector("#cal-selected-label").textContent = (isToday ? "Today — " : "")
+    + dateObj.toLocaleDateString("en-US",{weekday:"long", month:"long", day:"numeric", year: isToday?undefined:"numeric"});
+
+  const events = (calendarData.events[calSelectedKey] || []).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const list = scope.querySelector("#cal-events-list");
+  list.innerHTML = events.length
+    ? events.map((ev,i)=>`
+        <div class="list-row">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ev.time?`<span style="color:var(--text-dim);">${ev.time}</span> `:""}${ev.title}</span>
+          <button class="hbtn" data-i="${i}" style="flex:none;">✕</button>
+        </div>`).join("")
+    : `<div style="color:var(--text-dim);">No events for this day.</div>`;
+
+  $$("[data-i]", list).forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      calendarData.events[calSelectedKey].splice(Number(btn.dataset.i),1);
+      if(!calendarData.events[calSelectedKey].length) delete calendarData.events[calSelectedKey];
+      saveJSON(NS+"calendar", calendarData);
+      renderCalendarEventsPanel(scope);
+      renderCalendarGrid(scope); // the day dot needs to go if that was the last event
+      renderWidgets(); // mini widget's own event list needs to reflect the deletion too
+    });
+  });
+}
+function addCalendarEvent(scope){
+  const titleInp = scope.querySelector("#cal-event-title");
+  const timeInp = scope.querySelector("#cal-event-time");
+  const title = titleInp.value.trim();
+  if(!title) return;
+  if(!calendarData.events[calSelectedKey]) calendarData.events[calSelectedKey] = [];
+  calendarData.events[calSelectedKey].push({title, time: timeInp.value.trim()});
+  saveJSON(NS+"calendar", calendarData);
+  titleInp.value = ""; timeInp.value = "";
+  renderCalendarEventsPanel(scope);
+  renderCalendarGrid(scope);
+  renderWidgets();
+  titleInp.focus();
+}
+function hydrateCalendarFull(scope){
+  const today = new Date();
+  calViewingMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  calSelectedKey = calendarDateKey(today);
+  renderCalendarGrid(scope);
+  renderCalendarEventsPanel(scope);
+
+  scope.querySelector("#cal-prev-month").addEventListener("click", ()=>{
+    calViewingMonth = new Date(calViewingMonth.getFullYear(), calViewingMonth.getMonth()-1, 1);
+    renderCalendarGrid(scope);
+  });
+  scope.querySelector("#cal-next-month").addEventListener("click", ()=>{
+    calViewingMonth = new Date(calViewingMonth.getFullYear(), calViewingMonth.getMonth()+1, 1);
+    renderCalendarGrid(scope);
+  });
+  scope.querySelector("#cal-add-event-btn").addEventListener("click", ()=>addCalendarEvent(scope));
+  ["#cal-event-title","#cal-event-time"].forEach(sel=>{
+    scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addCalendarEvent(scope); });
   });
 }
 
@@ -3992,6 +4187,9 @@ const WIDGET_TOPIC_INFERENCE = [
   { id:"weather", phrases:["what's the weather","what is the weather","how's the weather","how is the weather","weather forecast","is it raining","is it going to rain","is it cold outside","is it hot outside","what's it like outside","what is it like outside","how hot is it","how cold is it","do i need an umbrella","do i need a jacket"],
     exactWords:["weather","forecast","raining","snowing","overcast","humidity"],
     words:["sunny","cloudy","foggy","temperature"] },
+  { id:"calendar", phrases:["on my calendar","my schedule","today's events","events today","what do i have today","what's on my agenda","my agenda","what's today's date"],
+    exactWords:["calendar","agenda"],
+    words:["schedule","appointment","appointments"] },
   { id:"market", phrases:["s&p","s & p","sp500","sp 500","spx","dow jones","headline wire","pinned assets"],
     exactWords:["stock","stocks","shares"],
     words:["market","indices","nasdaq","dow","ticker","crypto","bitcoin","btc","ethereum","eth","dogecoin","doge","solana","sol","cardano","ada","portfolio","investments","equities"] },
