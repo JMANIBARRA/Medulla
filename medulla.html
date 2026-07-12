@@ -388,7 +388,7 @@
     z-index:260;
     transition:opacity .18s ease;
   }
-  #holo-speech-bubble.visible{opacity:1;}
+  #holo-speech-bubble.visible{opacity:1;pointer-events:auto;}
   .holo-speech-bubble__tail{
     position:absolute;width:10px;height:10px;margin-left:-5px;
     background:rgba(4,10,12,.9);
@@ -4144,12 +4144,30 @@ setInterval(ensureHoloIdleLoops, 2500);
    reading-time-based delay. If the MEDULLA widget isn't mounted in the current profile
    there's nothing to anchor to, so it's skipped entirely and #ai-log still shows the text. */
 let holoBubbleEl = null, holoBubbleRaf = null, holoBubbleHideTimer = null;
+/* the last computed reading-time delay, reused when a hover-pause ends so moving the cursor
+   away gives the same full reading window back rather than some arbitrary fixed re-delay. */
+let holoBubbleDisplayMs = 0;
+let holoBubbleHovering = false;
 function ensureHoloBubble(){
   if(holoBubbleEl) return holoBubbleEl;
   const el = document.createElement("div");
   el.id = "holo-speech-bubble";
   el.innerHTML = `<div class="holo-speech-bubble__text"></div><div class="holo-speech-bubble__tail"></div>`;
   document.body.appendChild(el);
+  /* hovering the bubble pauses the auto-hide entirely (so a longer reply can actually be read
+     in full) instead of just extending it — moving the cursor back off is what resumes the
+     countdown, starting fresh at the full reading-time delay rather than wherever it left off. */
+  el.addEventListener("mouseenter", ()=>{
+    holoBubbleHovering = true;
+    clearTimeout(holoBubbleHideTimer);
+  });
+  el.addEventListener("mouseleave", ()=>{
+    holoBubbleHovering = false;
+    if(el.classList.contains("visible")){
+      clearTimeout(holoBubbleHideTimer);
+      holoBubbleHideTimer = setTimeout(hideHoloSpeech, holoBubbleDisplayMs);
+    }
+  });
   holoBubbleEl = el;
   return el;
 }
@@ -4183,8 +4201,12 @@ function showHoloSpeech(text){
   if(holoBubbleRaf) cancelAnimationFrame(holoBubbleRaf);
   trackHoloBubblePosition();
   clearTimeout(holoBubbleHideTimer);
-  const displayMs = Math.min(9000, Math.max(2600, text.length * 45));
-  holoBubbleHideTimer = setTimeout(hideHoloSpeech, displayMs);
+  holoBubbleDisplayMs = Math.min(9000, Math.max(2600, text.length * 45));
+  /* if the cursor is already sitting on the bubble the instant new text arrives (replying while
+     still reading the last one), don't even start the countdown — mouseleave is what starts it. */
+  if(!holoBubbleHovering){
+    holoBubbleHideTimer = setTimeout(hideHoloSpeech, holoBubbleDisplayMs);
+  }
 }
 function hideHoloSpeech(){
   stopTalking(); // always stop in lockstep with the bubble hiding, whatever the reason
