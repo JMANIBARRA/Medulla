@@ -805,11 +805,11 @@
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);" id="zoom-readout">100%</span>
       <button class="tbtn" id="zoom-in-btn" title="Zoom in">+</button>
       <button class="tbtn" id="zoom-reset-btn" title="Reset zoom to 100%">reset zoom</button>
-      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;">memory</span>
-      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Select Memory 1 — jumps there if it's already saved">1</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Select Memory 2 — jumps there if it's already saved">2</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Select Memory 3 — jumps there if it's already saved">3</button>
-      <button class="tbtn" id="mem-save-btn" title="Save the current pan/zoom into the selected memory slot">save config</button>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;">memory seats</span>
+      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Select Memory 1 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">1</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Select Memory 2 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">2</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Select Memory 3 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">3</button>
+      <button class="tbtn" id="mem-save-btn" title="Save the current widget arrangement — every widget's position, size, pin state — and camera view into the selected memory slot">save config</button>
     </div>
   </div>
 
@@ -1439,16 +1439,17 @@ $("#zoom-reset-btn").addEventListener("click", ()=>{
   zoomAtViewportCenter(1/state.camera.scale);
 });
 
-/* ---------- camera "memory seats" — save the current pan/zoom into one of 3 slots and jump
-   straight back to it later, same idea as a car's memory seat buttons. Clicking a numbered
-   slot SELECTS it (and jumps there right away if it already has something saved); "save
-   config" then saves the current view into whichever slot is selected. Splitting select and
-   save into two separate, explicit actions rather than overloading the number buttons
-   themselves means there's no ambiguous gesture (a hold, a long-vs-short click) to get wrong.
+/* ---------- "memory seats" — save the WHOLE workspace (every widget's position, size, pinned
+   and minimized state, plus the camera's pan/zoom) into one of 3 slots and jump straight back
+   to that exact arrangement later, same idea as a car's memory seat buttons remembering the
+   seat/mirrors/wheel together as one setup rather than separately. Clicking a numbered slot
+   SELECTS it (and restores it right away if it already has something saved); "save config"
+   then captures the CURRENT arrangement into whichever slot is selected. Splitting select and
+   save into two separate, explicit actions means there's no ambiguous gesture to get wrong.
    Per-profile (each profile's state.cameraMemories is its own 3-slot array), since a saved
-   camera position only makes sense relative to that profile's own widget layout; which slot
-   is selected is deliberately NOT persisted — reselecting slot 1 on every load is a saner
-   default than picking up on whatever was selected last session. */
+   arrangement only makes sense relative to that profile's own set of widgets; which slot is
+   selected is deliberately NOT persisted — reselecting slot 1 on every load is a saner default
+   than picking up on whatever was selected last session. */
 let activeMemSlot = 0;
 function refreshCameraMemoryButtons(){
   $$(".mem-btn").forEach(btn=>{
@@ -1465,13 +1466,23 @@ function setupCameraMemoryButtons(){
       refreshCameraMemoryButtons();
       const mem = state.cameraMemories && state.cameraMemories[slot];
       if(!mem) return;
-      state.camera.x = mem.x; state.camera.y = mem.y; state.camera.scale = mem.scale;
+      /* deep-cloned back out of the memory (not just handed the reference) so editing a
+         restored widget's position/size afterward can never reach back in and mutate the
+         saved memory itself. */
+      state.layout = JSON.parse(JSON.stringify(mem.layout));
+      state.camera.x = mem.camera.x; state.camera.y = mem.camera.y; state.camera.scale = mem.camera.scale;
+      backfillMissingWidgetLayouts(state); // a widget added to WIDGET_DEFS since this memory was saved needs a real entry
+      recalcTopZ();
+      renderWidgets();
       applyCamera();
       saveProfileState();
     });
   });
   $("#mem-save-btn").addEventListener("click", ()=>{
-    state.cameraMemories[activeMemSlot] = {x:state.camera.x, y:state.camera.y, scale:state.camera.scale};
+    state.cameraMemories[activeMemSlot] = {
+      camera: {x:state.camera.x, y:state.camera.y, scale:state.camera.scale},
+      layout: JSON.parse(JSON.stringify(state.layout)),
+    };
     saveProfileState();
     refreshCameraMemoryButtons();
     const btn = $(`.mem-btn[data-slot="${activeMemSlot}"]`);
