@@ -4143,7 +4143,7 @@ setInterval(ensureHoloIdleLoops, 2500);
    stays glued to the widget through camera pans/zooms/resizes, then auto-hides after a
    reading-time-based delay. If the MEDULLA widget isn't mounted in the current profile
    there's nothing to anchor to, so it's skipped entirely and #ai-log still shows the text. */
-let holoBubbleEl = null, holoBubbleRaf = null, holoBubbleHideTimer = null;
+let holoBubbleEl = null, holoBubbleRaf = null, holoBubbleHideTimer = null, holoTalkStopTimer = null;
 /* the last computed reading-time delay, reused when a hover-pause ends so moving the cursor
    away gives the same full reading window back rather than some arbitrary fixed re-delay. */
 let holoBubbleDisplayMs = 0;
@@ -4201,7 +4201,14 @@ function showHoloSpeech(text){
   if(holoBubbleRaf) cancelAnimationFrame(holoBubbleRaf);
   trackHoloBubblePosition();
   clearTimeout(holoBubbleHideTimer);
+  clearTimeout(holoTalkStopTimer);
   holoBubbleDisplayMs = Math.min(9000, Math.max(2600, text.length * 45));
+  /* the mouth-flap animation stops on this normal reading-time schedule NO MATTER what happens
+     to the box itself — hovering keeps the text box on screen for as long as the cursor rests
+     on it, but that's not a reason for her to keep "talking" indefinitely; the two are
+     deliberately on separate timers so a long hover doesn't drag the talking animation out with
+     it. Only the box's own dismissal (see holoBubbleHideTimer below) is what hovering pauses. */
+  holoTalkStopTimer = setTimeout(stopTalking, holoBubbleDisplayMs);
   /* if the cursor is already sitting on the bubble the instant new text arrives (replying while
      still reading the last one), don't even start the countdown — mouseleave is what starts it. */
   if(!holoBubbleHovering){
@@ -4209,7 +4216,8 @@ function showHoloSpeech(text){
   }
 }
 function hideHoloSpeech(){
-  stopTalking(); // always stop in lockstep with the bubble hiding, whatever the reason
+  stopTalking(); // always stop in lockstep whatever the reason this gets called directly
+  clearTimeout(holoTalkStopTimer);
   if(!holoBubbleEl) return;
   holoBubbleEl.classList.remove("visible");
   if(holoBubbleRaf){ cancelAnimationFrame(holoBubbleRaf); holoBubbleRaf = null; }
