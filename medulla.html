@@ -740,6 +740,7 @@
       <button class="tbtn" id="cursor-toggle-btn" title="Toggle middle-finger cursor">🖕 cursor</button>
       <button class="tbtn" id="recenter-btn" title="Pan back to your apps">recenter</button>
       <button class="tbtn" id="stacks-btn" title="Arrange open widgets into a tidy grid, click again to restore their positions">▤ stacks</button>
+      <button class="tbtn" id="pin-all-btn" title="Pin every open widget to the screen; click again to unpin them all">pin all</button>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);padding-left:6px;">size all</span>
       <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small">S</button>
       <button class="tbtn hbtn-size" id="size-all-m-btn" title="Resize every open widget to Medium">M</button>
@@ -974,7 +975,48 @@ function togglePinWidget(l, card, header){
   pinBtn.classList.toggle("active", l.pinned);
   pinBtn.title = l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)";
   saveProfileState();
+  updatePinAllButtonState();
 }
+
+/* topbar "pin all" — same "already-pinned widgets are left alone" idea as a checkbox's
+   indeterminate state: if anything is still unpinned, this pins the rest; only once every
+   open widget is ALREADY pinned does clicking it flip to unpinning all of them. Minimized
+   widgets are skipped (their capsule has no header/pin button to drive through togglePinWidget)
+   — same exclusion the other "all open widgets" topbar actions (Stacks, size all) already use. */
+function toggleAllPinned(){
+  const targets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.minimized;
+  });
+  if(!targets.length) return;
+  const shouldPin = !targets.every(def=>state.layout[def.id].pinned);
+  targets.forEach(def=>{
+    const l = state.layout[def.id];
+    if(!!l.pinned === shouldPin) return;
+    const card = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`)
+      || pinnedLayer.querySelector(`.claustrum-widget[data-widget-id="${def.id}"]`);
+    const header = card && card.querySelector(".widget-header");
+    if(!header) return;
+    togglePinWidget(l, card, header);
+  });
+  updatePinAllButtonState();
+}
+/* Reflects "are all open widgets currently pinned?" — recomputed (rather than tracked as its
+   own persisted flag like state.stacked) since any individual widget's own pin button can
+   change the answer at any time; called after every renderWidgets() and after the batch
+   toggle above so it never goes stale. */
+function updatePinAllButtonState(){
+  const btn = $("#pin-all-btn");
+  if(!btn) return;
+  const targets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.minimized;
+  });
+  const allPinned = targets.length > 0 && targets.every(def=>state.layout[def.id].pinned);
+  btn.classList.toggle("active", allPinned);
+  btn.textContent = allPinned ? "unpin all" : "pin all";
+}
+$("#pin-all-btn").addEventListener("click", toggleAllPinned);
 
 /* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
@@ -1733,6 +1775,7 @@ function renderWidgets(){
       layer.appendChild(renderWidgetCard(def,l));
     }
   });
+  updatePinAllButtonState();
 }
 
 function fitToScreen(){
