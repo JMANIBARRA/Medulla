@@ -1046,11 +1046,29 @@ function cycleWidgetSize(def, l, card, header){
    an in-progress blackjack hand — survives the switch untouched. */
 function togglePinWidget(l, card, header){
   const cam = state.camera;
+  /* Size deliberately does NOT scale on the way IN (pinning) — only position converts between
+     world and screen space. An earlier version scaled l.w/l.h by cam.scale on pin too, to avoid
+     a visible size jump when pinning at a non-100% zoom, but that fed an already-scaled pixel
+     value into --w/--h, which every clamp()-based font formula in the app assumes is the
+     widget's plain nominal size (relying on the SAME ancestor zoom transform then applying to
+     both the box and its text together, so proportions stay correct at any zoom). With no more
+     ancestor transform to compensate once pinned, that scaled --w threw text sizing off badly
+     at zoom extremes — worst at zoom-out, where clamp()'s minimum floor stopped the font from
+     shrinking as far as the (now-tiny) pinned box needed, so text rendered oversized and got
+     cut off. Pinning now always snaps to the widget's actual nominal size instead (whatever
+     "S/M/L" or manual resize it currently is) — a visible size change if you pin away from
+     100% zoom, but a far smaller cost than broken text at any zoom level, and it matches "pin
+     it at small and have it STAY small" more literally than preserving an incidental zoomed
+     pixel size would.
+     Size DOES still convert on the way OUT (unpinning), though — dividing by the CURRENT zoom
+     (which may differ from whatever it was at pin time, since the entire point of pinning is
+     staying fixed while you pan/zoom around it) is what keeps the widget's on-screen appearance
+     from jumping at the exact moment it drops back into the zoomed canvas; the resulting world-
+     space number only has to be internally consistent for that one instant, not a "nominal"
+     size, so none of the font-proportion concerns above apply to it. */
   if(!l.pinned){
     l.x = l.x*cam.scale + cam.x;
     l.y = l.y*cam.scale + cam.y;
-    l.w = l.w*cam.scale;
-    l.h = l.h*cam.scale;
     l.pinned = true;
     pinnedLayer.appendChild(card);
   } else {
@@ -1060,11 +1078,10 @@ function togglePinWidget(l, card, header){
     l.h = l.h/cam.scale;
     l.pinned = false;
     widgetLayer.appendChild(card);
+    card.style.width = l.w+"px";
+    card.style.height = l.h+"px";
   }
   card.style.left = l.x+"px"; card.style.top = l.y+"px";
-  card.style.width = l.w+"px"; card.style.height = l.h+"px";
-  card.style.setProperty("--w", l.w+"px");
-  card.style.setProperty("--h", l.h+"px");
   card.classList.toggle("pinned", l.pinned);
   const pinBtn = header.querySelector('[data-act="pin"]');
   pinBtn.classList.toggle("active", l.pinned);
