@@ -104,25 +104,28 @@
   #globe-ring-2{border:1px dotted color-mix(in srgb, var(--text-primary) 22%, transparent);animation:hud-spin-ccw 85s linear infinite;}
   @keyframes hud-spin-cw{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   @keyframes hud-spin-ccw{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
+  /* a labeled button instead of a bare icon circle, and revealed by an actual click on the
+     globe (see globeHit's click-vs-drag detection in JS) rather than by hover — hover doesn't
+     exist on touch, and it also meant the affordance could appear/disappear just from an idle
+     mouse passing over the HUD centerpiece. Toggled via .shown (JS-driven), not CSS :hover. */
   #globe-move-handle{
-    position:absolute;width:20px;height:20px;border-radius:50%;
-    background:rgba(2,3,4,.6);border:1px solid var(--text-primary);
-    display:flex;align-items:center;justify-content:center;
+    position:absolute;
+    display:flex;align-items:center;gap:6px;
+    padding:7px 12px;border-radius:14px;
+    background:rgba(2,3,4,.75);border:1px solid var(--text-primary);
+    color:var(--text-primary);font-family:var(--font-mono);font-size:11px;
+    text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;
     cursor:move;z-index:-1;pointer-events:none;
     box-shadow:0 0 10px -3px var(--text-primary);
-    opacity:0;
-    transition:box-shadow .2s, opacity .2s;
+    opacity:0;transform:translateX(-50%) translateY(4px);
+    transition:box-shadow .2s, opacity .2s, transform .2s;
     touch-action:none;
   }
-  /* stays hidden until you interact with the globe itself, to keep the view uncluttered */
-  #globe-hit:hover ~ #globe-move-handle,
-  #globe-hit.held ~ #globe-move-handle,
-  #globe-move-handle:hover,
-  #globe-move-handle.held{
-    opacity:1;pointer-events:auto;
+  #globe-move-handle.shown{
+    opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);
   }
   #globe-move-handle:hover, #globe-move-handle.held{box-shadow:0 0 12px -1px var(--text-primary);}
-  #globe-move-handle svg{width:11px;height:11px;color:var(--text-primary);}
+  #globe-move-handle svg{width:12px;height:12px;color:var(--text-primary);flex:none;}
 
   /* ---------- HUD corner brackets ---------- */
   .hud-corner{position:absolute;width:28px;height:28px;pointer-events:none;z-index:45;opacity:.5;}
@@ -817,11 +820,12 @@
     <div id="globe-ring-1"></div>
     <div id="globe-ring-2"></div>
     <canvas id="globe-canvas"></canvas>
-    <div id="globe-hit" title="Hold to stop, drag to rotate"></div>
+    <div id="globe-hit" title="Hold to stop, drag to rotate · click for move options"></div>
     <div id="globe-hint">HOLD TO ROTATE</div>
-    <div id="globe-move-handle" title="Drag to move">
+    <button id="globe-move-handle" title="Drag to move">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
-    </div>
+      <span>Move Globe</span>
+    </button>
     <div id="canvas-world">
       <canvas id="draw-canvas" width="5000" height="5000"></canvas>
       <div id="text-layer"></div>
@@ -1581,7 +1585,9 @@ function sizeGlobe(){
   globeRing1.style.left = (center.x - r1/2)+"px"; globeRing1.style.top = (center.y - r1/2)+"px";
   globeRing2.style.width = r2+"px"; globeRing2.style.height = r2+"px";
   globeRing2.style.left = (center.x - r2/2)+"px"; globeRing2.style.top = (center.y - r2/2)+"px";
-  globeMoveHandle.style.left = (center.x - 10)+"px"; globeMoveHandle.style.top = (center.y - r2/2 - 10)+"px";
+  /* horizontal centering is CSS's job now (translateX(-50%), since the button is a variable-
+     width pill rather than a fixed 20px circle) — only the vertical position is set directly. */
+  globeMoveHandle.style.left = center.x+"px"; globeMoveHandle.style.top = (center.y - r2/2 - 10)+"px";
 }
 window.addEventListener("resize", sizeGlobe);
 
@@ -1696,12 +1702,20 @@ function globeLoop(){
   requestAnimationFrame(globeLoop);
 }
 
-/* clicking and holding the globe body itself pauses the auto-spin; dragging while held rotates it by hand */
+/* clicking and holding the globe body itself pauses the auto-spin; dragging while held rotates
+   it by hand. A plain click (pointer barely moved between down and up) is treated as a
+   distinct gesture from that drag-to-rotate — it toggles the "Move Globe" button instead,
+   rather than the button only ever showing up on hover (hover doesn't exist on touch, and
+   showing/hiding an affordance just because the mouse idly passed over the HUD centerpiece was
+   more surprising than helpful). */
+const GLOBE_CLICK_MAX_DRIFT = 5;
+let globeDownX = 0, globeDownY = 0;
 globeHit.addEventListener("pointerdown",(e)=>{
   e.stopPropagation();
   globeHeld = true;
   globeHit.classList.add("held");
   globeDragStartX = e.clientX;
+  globeDownX = e.clientX; globeDownY = e.clientY;
   try{ globeHit.setPointerCapture(e.pointerId); }catch(err){}
 });
 globeHit.addEventListener("pointermove",(e)=>{
@@ -1709,12 +1723,18 @@ globeHit.addEventListener("pointermove",(e)=>{
   globeAngle += (e.clientX - globeDragStartX) * 0.008;
   globeDragStartX = e.clientX;
 });
-function releaseGlobe(){
+function releaseGlobe(e){
   globeHeld = false;
   globeHit.classList.remove("held");
+  if(e && Math.abs(e.clientX-globeDownX) < GLOBE_CLICK_MAX_DRIFT && Math.abs(e.clientY-globeDownY) < GLOBE_CLICK_MAX_DRIFT){
+    globeMoveHandle.classList.toggle("shown");
+  }
 }
 globeHit.addEventListener("pointerup", releaseGlobe);
-globeHit.addEventListener("pointercancel", releaseGlobe);
+globeHit.addEventListener("pointercancel", ()=>releaseGlobe(null));
+/* clicking anywhere else dismisses the "Move Globe" button — its own pointerdown handler below
+   stops propagation, so a click that starts on the button itself never reaches here. */
+document.addEventListener("pointerdown", ()=>{ globeMoveHandle.classList.remove("shown"); });
 
 /* the small handle above the globe repositions it on screen, independent of rotation */
 let globeMoveHeld = false, globeMoveStartX = 0, globeMoveStartY = 0, globeMoveStartCenter = {x:0,y:0};
