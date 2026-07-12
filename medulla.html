@@ -789,12 +789,8 @@
   <div id="topbar">
     <div class="brand"><div class="mark"></div>MEDULLA</div>
     <div class="topbar-controls">
-      <select id="profile-select" title="Active profile"></select>
-      <button class="tbtn" id="add-profile-btn" title="New profile">+ profile</button>
-      <button class="tbtn" id="paint-mode-btn" title="Toggle freehand paint mode">paint mode</button>
       <button class="tbtn paint-only" id="undo-btn" title="Undo last stroke/note">↶ undo</button>
       <button class="tbtn paint-only" id="redo-btn" title="Redo">↷ redo</button>
-      <button class="tbtn" id="clear-canvas-btn" title="Clear drawings and notes">clear canvas</button>
       <button class="tbtn" id="settings-btn" title="Settings">settings</button>
       <button class="tbtn" id="cursor-toggle-btn" title="Toggle middle-finger cursor">🖕 cursor</button>
       <button class="tbtn" id="recenter-btn" title="Pan back to your apps">recenter</button>
@@ -850,7 +846,7 @@
 
   <div id="ai-dock">
     <form id="ai-form">
-      <input id="ai-input" type="text" placeholder="Tell Medulla what to do — e.g. &quot;switch to entertainment profile&quot;, &quot;zoom out&quot;, &quot;add BTC to my ticker&quot;..." autocomplete="off" />
+      <input id="ai-input" type="text" placeholder="Tell Medulla what to do — e.g. &quot;zoom out&quot;, &quot;add BTC to my ticker&quot;, &quot;what's the weather&quot;..." autocomplete="off" />
       <button id="ai-send" type="submit" title="Send">✦</button>
     </form>
     <div id="ai-log"></div>
@@ -1922,22 +1918,6 @@ function renderTexts(){
   });
 }
 
-$("#clear-canvas-btn").addEventListener("click", ()=>{
-  if(!confirm("Clear all drawings and notes on this profile's canvas?")) return;
-  state.draw = {strokes:[],texts:[]};
-  actionLog=[]; redoStack=[];
-  renderStrokes(); renderTexts(); saveProfileState();
-});
-$("#paint-mode-btn").addEventListener("click", ()=>{
-  setPaintMode(!paintMode);
-});
-function setPaintMode(on){
-  paintMode = on;
-  $("#paint-mode-btn").classList.toggle("active", on);
-  viewport.classList.toggle("paint-mode", on);
-  $("#undo-btn").classList.toggle("shown", on);
-  $("#redo-btn").classList.toggle("shown", on);
-}
 function undo(){
   if(!actionLog.length) return;
   const act = actionLog.pop();
@@ -3913,38 +3893,6 @@ function hydrateYouTubeOAuthFull(scope){
   return function cleanup(){ cleanupPlayer(); cleanupSuggestions(); };
 }
 
-/* ================= PROFILES ================= */
-const profileSelect = $("#profile-select");
-function renderProfileSelect(){
-  profileSelect.innerHTML = profiles.list.map(p=>`<option value="${p}" ${p===profiles.active?"selected":""}>${profiles.labels[p]||p}</option>`).join("");
-}
-profileSelect.addEventListener("change", (e)=>{
-  switchProfile(e.target.value);
-});
-function switchProfile(name){
-  profiles.active = name;
-  saveJSON(NS+"profiles", profiles);
-  state = loadProfileState(name);
-  backfillMissingWidgetLayouts(state);
-  recalcTopZ();
-  applyCamera();
-  renderStrokes(); renderTexts(); renderWidgets();
-  $("#stacks-btn").classList.toggle("active", !!state.stacked);
-  activeMemSlot = 0;
-  refreshCameraMemoryButtons();
-  maybeApplyLargeDefaultMigration();
-}
-$("#add-profile-btn").addEventListener("click", ()=>{
-  const name = prompt("New profile name:");
-  if(!name) return;
-  const key = name.toLowerCase().replace(/\s+/g,"-");
-  if(!profiles.list.includes(key)) profiles.list.push(key);
-  profiles.labels[key] = name;
-  saveJSON(NS+"profiles", profiles);
-  renderProfileSelect();
-  switchProfile(key);
-});
-
 /* ================= CURSOR TOGGLE ================= */
 /* Renders the real 🖕 emoji glyph onto a canvas and uses THAT bitmap as the cursor image, instead
    of a hand-drawn vector shape — this way it's the OS's own full-color, shaded emoji artwork
@@ -4590,15 +4538,10 @@ function tryLocalCommand(text){
   if((/\bdate\b/.test(t) || /what day is (it|today)/.test(t)) && asksQuestion && !/update|dating|candidate|mandate|validate|outdated|to date/.test(t) && !CUTOFF_RE.test(t)){
     results.push("Today is " + new Date().toLocaleDateString("en-US", {timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric"}) + ".");
   }
-  if(/switch to work|load.*work profile/.test(t)){ switchProfile("work"); profileSelect.value="work"; results.push("Switched to Work Profile."); }
-  if(/switch to entertainment|load.*entertainment/.test(t)){ switchProfile("entertainment"); profileSelect.value="entertainment"; results.push("Switched to Entertainment Profile."); }
   if(/zoom out|wide view/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 0.7); saveProfileState(); results.push("Zoomed out."); }
   if(/zoom in/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 1.3); saveProfileState(); results.push("Zoomed in."); }
   if(/reset (canvas )?zoom/.test(t)){ state.camera={x:80,y:20,scale:1}; applyCamera(); saveProfileState(); results.push("View reset."); }
   if(/fit (to )?screen|fit all|show everything|zoom to fit/.test(t)){ fitToScreen(); results.push("Fit all widgets to screen."); }
-  if(/clear.*(sketch|whiteboard|drawing)/.test(t)){ state.draw={strokes:[],texts:[]}; actionLog=[]; redoStack=[]; renderStrokes(); renderTexts(); saveProfileState(); results.push("Canvas cleared."); }
-  if(/(turn on|enable|start) paint( mode)?/.test(t)){ setPaintMode(true); results.push("Paint mode on — click-drag now draws."); }
-  if(/(turn off|disable|stop|exit) paint( mode)?/.test(t)){ setPaintMode(false); results.push("Paint mode off — click-drag now pans."); }
 
   const minMatch = t.match(/minimize the (.+?)( widget| box)?$/) || t.match(/collapse the (.+?)( widget| box)?$/);
   if(minMatch){
@@ -6324,7 +6267,6 @@ function hydrateFitnessFull(scope){
 
 /* ================= INIT ================= */
 document.documentElement.style.setProperty("--bg-deep", state.theme || "#020304");
-renderProfileSelect();
 applyCamera();
 renderStrokes();
 renderTexts();
