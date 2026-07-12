@@ -2072,7 +2072,12 @@ const widgetResizeObserver = new ResizeObserver(entries=>{
    is still too tall/wide even at that cap does .has-overflow (the bottom fade, see CSS) kick in
    as a last-resort scroll cue. Runs on: the card being resized (this observer), its content
    changing post-mount (e.g. async data landing — overflowMutationObserver below), and scrolling
-   (the listener below, which only needs to update the fade, not re-run growth).  */
+   (the listener below, which only needs to update the fade, not re-run growth).
+   Pinned widgets are excluded entirely — pinning is a deliberate "keep this exact size, out of
+   the way, no matter what" choice (e.g. pinning Sports at "S"), and silently growing it back up
+   the moment its scores list overflows would defeat that; .has-overflow's fade + the widget's
+   own internal scroll is what pinned widgets get instead, same as content that's still too big
+   even at the L cap for an unpinned widget. */
 function fitWidgetsToContent(){
   let changed = false;
   $$(".claustrum-widget").forEach(card=>{
@@ -2080,7 +2085,7 @@ function fitWidgetsToContent(){
     const l = state.layout[id];
     const header = card.querySelector(".widget-header");
     const body = card.querySelector(".widget-body");
-    if(!l || !header || !body) return;
+    if(!l || !header || !body || l.pinned) return;
     const cap = presetSize(id, "L");
     /* arcade's height is entirely managed by bjFitMiniWidgetToCards/bjResetMiniWidgetHeight
        instead (blackjack needs a taller cap than "L" for a long hand, and needs to shrink back
