@@ -579,6 +579,60 @@
   .icon-picker-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
   .garage-icon{display:inline-flex;flex:none;width:32px;height:14px;color:var(--accent-amber);}
   .garage-icon svg{width:100%;height:100%;display:block;}
+
+  /* ---------- garage door reveal (Garage widget's full view) ---------- */
+  /* Wraps the widget's real content (heading, vehicle list, add-vehicle inputs) — the door
+     overlay is an absolutely-positioned sibling stretched over it (inset:0), so the wrapper's
+     own height is still driven entirely by the real content underneath. The door itself never
+     resizes or gets removed from the DOM up front; it just animates translateY(-100%) on mount,
+     "rolling up" out of view to reveal whatever's already there. */
+  .garage-scene{position:relative;}
+  .garage-door-scene{
+    position:absolute;inset:0;z-index:5;overflow:hidden;pointer-events:none;
+  }
+  .garage-door{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    background:var(--bg-panel-raised);
+    border-bottom:2px solid var(--accent-amber);
+    box-shadow:0 0 24px -4px var(--accent-amber) inset;
+    animation:garageDoorLift 1.1s cubic-bezier(.6,0,.15,1) both;
+  }
+  .garage-door-panel{
+    flex:1;position:relative;
+    border-bottom:1px solid color-mix(in srgb, var(--accent-amber) 45%, transparent);
+    background:linear-gradient(180deg, color-mix(in srgb, var(--accent-amber) 10%, transparent), transparent 55%);
+  }
+  .garage-door-panel:last-child{border-bottom:none;}
+  .garage-door-windows{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    display:flex;gap:6px;
+  }
+  .garage-door-windows span{
+    width:10px;height:7px;border-radius:1px;
+    background:color-mix(in srgb, var(--accent-amber) 55%, transparent);
+    box-shadow:0 0 6px 0 var(--accent-amber);
+  }
+  .garage-door-glow{
+    position:absolute;left:0;right:0;bottom:0;height:22%;
+    background:linear-gradient(0deg, var(--accent-amber), transparent);
+    opacity:0;
+    animation:garageGlowPulse 1.1s cubic-bezier(.6,0,.15,1) both;
+  }
+  @keyframes garageDoorLift{
+    0%{ transform:translateY(0); }
+    4%{ transform:translateY(-2px); } /* mechanism engaging before the real lift */
+    9%{ transform:translateY(0); }
+    100%{ transform:translateY(-100%); }
+  }
+  @keyframes garageGlowPulse{
+    0%,9%{ opacity:0; }
+    55%{ opacity:.65; }
+    100%{ opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .garage-door-scene{display:none;}
+  }
   .scratch-mini-textarea{font-size:clamp(11px, calc(var(--w, 270px) * 0.036), 16px);}
   .widget-body::-webkit-scrollbar{width:6px;}
   .widget-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
@@ -2875,13 +2929,26 @@ function renderFull(id){
   }
   if(id==="garage"){
     return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">My Vehicles</h3>
-    <div id="garage-list" style="margin:10px 0;"></div>
-    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-      <input id="garage-add-input" type="text" placeholder="e.g. Honda Civic" style="flex:2;min-width:140px;"/>
-      <input id="garage-year-input" type="text" placeholder="Year" style="flex:1;min-width:70px;"/>
-      <input id="garage-mileage-input" type="text" placeholder="Mileage" style="flex:1;min-width:90px;"/>
-      <button class="btn primary" id="garage-add-btn">Add</button>
+    <div class="garage-scene">
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">My Vehicles</h3>
+      <div id="garage-list" style="margin:10px 0;"></div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <input id="garage-add-input" type="text" placeholder="e.g. Honda Civic" style="flex:2;min-width:140px;"/>
+        <input id="garage-year-input" type="text" placeholder="Year" style="flex:1;min-width:70px;"/>
+        <input id="garage-mileage-input" type="text" placeholder="Mileage" style="flex:1;min-width:90px;"/>
+        <button class="btn primary" id="garage-add-btn">Add</button>
+      </div>
+      <div class="garage-door-scene" id="garage-door-scene">
+        <div class="garage-door-glow"></div>
+        <div class="garage-door" id="garage-door">
+          <div class="garage-door-panel"></div>
+          <div class="garage-door-panel"></div>
+          <div class="garage-door-panel"></div>
+          <div class="garage-door-panel">
+            <div class="garage-door-windows"><span></span><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
     </div>`;
   }
   if(id==="phone"){
@@ -3536,6 +3603,16 @@ function hydrateGarageFull(scope){
   ["#garage-add-input","#garage-year-input","#garage-mileage-input"].forEach(sel=>{
     scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addGarageVehicle(scope); });
   });
+  /* the door overlay is purely a one-shot reveal — once it's finished lifting out of view,
+     drop it from the DOM entirely rather than leaving a fully-transparent element sitting on
+     top of the real content indefinitely (harmless since it's pointer-events:none, but there's
+     no reason to keep it around either). Under prefers-reduced-motion the CSS just display:none's
+     it outright and no animationend ever fires, which is fine — there's nothing to clean up. */
+  const door = scope.querySelector("#garage-door");
+  const doorScene = scope.querySelector("#garage-door-scene");
+  if(door && doorScene){
+    door.addEventListener("animationend", ()=>{ doorScene.remove(); }, {once:true});
+  }
 }
 function refreshGarageMiniList(scope){
   const el = scope.querySelector("#garage-mini-list");
