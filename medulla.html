@@ -1646,6 +1646,17 @@ const GLOBE_LINKS = Array.from({length:9}, ()=>({
 
 let globeAngle = 0.6, globeTilt = -0.36, globeHeld = false, globeDragStartX = 0;
 const GLOBE_SPIN_SPEED = 0.0018;
+/* flick-to-spin: releasing the globe mid-drag while still moving fast carries that speed
+   forward as momentum instead of snapping straight back to the constant baseline spin —
+   globeMomentum decays toward GLOBE_SPIN_SPEED every frame (not toward zero — the globe's
+   "resting state" is always slowly spinning, a flick just temporarily speeds that up, or spins
+   it the other way for a beat if flicked against its natural direction) until it settles back
+   into the normal continuous rotation. globeVelocitySample tracks how fast the drag itself was
+   moving (radians per ms, lightly smoothed across recent pointermove events so one single noisy
+   sample right before release can't dominate), converted into a per-frame momentum on release. */
+let globeMomentum = GLOBE_SPIN_SPEED, globeVelocitySample = 0, globeLastMoveTime = 0;
+const GLOBE_MOMENTUM_DECAY = 0.94;
+const GLOBE_MOMENTUM_CAP = 0.22;
 
 function rotY([x,y,z], a){ const c=Math.cos(a), s=Math.sin(a); return [x*c+z*s, y, -x*s+z*c]; }
 function rotX([x,y,z], a){ const c=Math.cos(a), s=Math.sin(a); return [x, y*c-z*s, y*s+z*c]; }
@@ -1709,7 +1720,10 @@ function drawGlobe(){
   });
 }
 function globeLoop(){
-  if(!globeHeld) globeAngle += GLOBE_SPIN_SPEED;
+  if(!globeHeld){
+    globeAngle += globeMomentum;
+    globeMomentum = GLOBE_SPIN_SPEED + (globeMomentum - GLOBE_SPIN_SPEED) * GLOBE_MOMENTUM_DECAY;
+  }
   drawGlobe();
   requestAnimationFrame(globeLoop);
 }
@@ -1728,19 +1742,32 @@ globeHit.addEventListener("pointerdown",(e)=>{
   globeHit.classList.add("held");
   globeDragStartX = e.clientX;
   globeDownX = e.clientX; globeDownY = e.clientY;
+  globeVelocitySample = 0;
+  globeLastMoveTime = performance.now();
   try{ globeHit.setPointerCapture(e.pointerId); }catch(err){}
 });
 globeHit.addEventListener("pointermove",(e)=>{
   if(!globeHeld) return;
-  globeAngle += (e.clientX - globeDragStartX) * 0.008;
+  const now = performance.now();
+  const dt = Math.max(1, now - globeLastMoveTime);
+  const dAngle = (e.clientX - globeDragStartX) * 0.008;
+  globeAngle += dAngle;
+  /* exponential moving average so the final pre-release sample (which can be a single noisy
+     coalesced pointer event) doesn't solely decide the flick speed */
+  globeVelocitySample = globeVelocitySample*0.7 + (dAngle/dt)*0.3;
   globeDragStartX = e.clientX;
+  globeLastMoveTime = now;
 });
 function releaseGlobe(e){
   globeHeld = false;
   globeHit.classList.remove("held");
   if(e && Math.abs(e.clientX-globeDownX) < GLOBE_CLICK_MAX_DRIFT && Math.abs(e.clientY-globeDownY) < GLOBE_CLICK_MAX_DRIFT){
     globeMoveHandle.classList.toggle("shown");
+  } else {
+    const flickPerFrame = globeVelocitySample * 16.67;
+    globeMomentum = GLOBE_SPIN_SPEED + Math.max(-GLOBE_MOMENTUM_CAP, Math.min(GLOBE_MOMENTUM_CAP, flickPerFrame));
   }
+  globeVelocitySample = 0;
 }
 globeHit.addEventListener("pointerup", releaseGlobe);
 globeHit.addEventListener("pointercancel", ()=>releaseGlobe(null));
