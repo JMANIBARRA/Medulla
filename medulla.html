@@ -4596,13 +4596,33 @@ function openSiteUrl(site, url){
   }
   const win = window.open("about:blank", "_blank");
   if(!win){ window.open(fallback, "_blank", "noopener,noreferrer"); return; }
-  let handedOff = false;
-  try{ win.addEventListener("blur", ()=>{ handedOff = true; }, {once:true}); }catch(e){}
+  /* exactly one outcome ever happens, never both: the moment a hand-off is detected (blur —
+     the OS switching focus to the just-launched app), close this helper tab immediately rather
+     than leaving it sitting blank forever (the actual bug reported — the app opened fine, but
+     nothing ever told this throwaway tab to close itself once its job was done). If nothing
+     intercepts the request within the window below, this closes the (now-tainted, see below)
+     helper tab and opens a FRESH tab for the web fallback instead — so it's either "app opens,
+     tab closes" or "web version opens", never a leftover blank tab either way.
+     Redirecting the SAME helper tab to the fallback (win.location.href = fallback) looks like it
+     should work but silently no-ops in testing — once a window has attempted a navigation to an
+     unrecognized/custom URL scheme, further opener-driven navigation on that exact window
+     object appears to get silently dropped (a Chromium quirk, not a typo/logic bug — confirmed
+     via the fact that the assignment doesn't throw but location.href never actually changes).
+     Closing it and opening a brand new tab for the fallback sidesteps that entirely. */
+  let settled = false;
+  function closeHelper(){
+    if(settled) return;
+    settled = true;
+    try{ if(!win.closed) win.close(); }catch(e){}
+  }
+  try{ win.addEventListener("blur", closeHelper, {once:true}); }catch(e){}
   win.location.href = url;
   setTimeout(()=>{
-    if(handedOff || win.closed) return; // the app likely opened — that tab lost focus or the browser auto-closed it
-    try{ win.location.href = fallback; }catch(e){ window.open(fallback, "_blank", "noopener,noreferrer"); }
-  }, 900);
+    if(settled || win.closed) return;
+    settled = true;
+    try{ if(!win.closed) win.close(); }catch(e){}
+    window.open(fallback, "_blank", "noopener,noreferrer");
+  }, 1200);
 }
 function tryLocalCommand(text){
   const t = text.toLowerCase();
