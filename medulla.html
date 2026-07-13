@@ -3770,8 +3770,17 @@ async function hydrateMarketFull(scope){
 }
 
 /* ================= SPORTS TRACKER WIDGET ================= */
-/* TheSportsDB free public test key ("3") — CORS enabled, keyless-friendly for demos. */
-const SPORTSDB = "https://www.thesportsdb.com/api/v1/json/3";
+/* Defaults to TheSportsDB's shared public demo key ("3") so Sports works with zero setup, but
+   that key is explicitly rate-limited to ~30 requests/MINUTE shared by every app/tutorial on the
+   internet using it — easy to exhaust from ordinary use, not just heavy testing, which is exactly
+   what caused a real reported "Scores unavailable" (confirmed via a direct 429 from TheSportsDB
+   itself, on a request that had nothing to do with this app's own traffic). A free registered
+   personal key (thesportsdb.com/free_sports_api) gets a real 100 requests/minute of its own
+   instead of splitting ~30 with the rest of the internet — same "paste your own key in Settings"
+   pattern as the YouTube/Groq keys already here, with "3" kept as the automatic fallback so this
+   still works out of the box for anyone who hasn't set one. */
+let sportsDbApiKey = loadJSON(NS+"sportsDbApiKey", "");
+function sportsDbBase(){ return `https://www.thesportsdb.com/api/v1/json/${sportsDbApiKey || "3"}`; }
 
 /* shown by default, most-popular-first, with no setup required */
 const POPULAR_LEAGUES = [
@@ -3785,21 +3794,21 @@ const POPULAR_LEAGUES = [
 
 async function fetchTeam(name){
   try{
-    const res = await fetch(`${SPORTSDB}/searchteams.php?t=${encodeURIComponent(name)}`);
+    const res = await fetch(`${sportsDbBase()}/searchteams.php?t=${encodeURIComponent(name)}`);
     const data = await res.json();
     return data.teams ? data.teams[0] : null;
   }catch(e){ return null; }
 }
 async function fetchLastEvents(teamId){
   try{
-    const res = await fetch(`${SPORTSDB}/eventslast.php?id=${teamId}`);
+    const res = await fetch(`${sportsDbBase()}/eventslast.php?id=${teamId}`);
     const data = await res.json();
     return data.results || [];
   }catch(e){ return []; }
 }
 async function fetchLeagueLastScore(leagueId){
   try{
-    const res = await fetch(`${SPORTSDB}/eventspastleague.php?id=${leagueId}`);
+    const res = await fetch(`${sportsDbBase()}/eventspastleague.php?id=${leagueId}`);
     const data = await res.json();
     return (data.events && data.events[0]) || null;
   }catch(e){ return null; }
@@ -3807,7 +3816,7 @@ async function fetchLeagueLastScore(leagueId){
 function todayDateStr(){ return new Date().toLocaleDateString("en-CA", {timeZone:"America/New_York"}); } // en-CA -> YYYY-MM-DD
 async function fetchLeagueTodayEvents(leagueId){
   try{
-    const res = await fetch(`${SPORTSDB}/eventsday.php?d=${todayDateStr()}&l=${leagueId}`);
+    const res = await fetch(`${sportsDbBase()}/eventsday.php?d=${todayDateStr()}&l=${leagueId}`);
     const data = await res.json();
     return data.events || [];
   }catch(e){ return []; }
@@ -3818,17 +3827,38 @@ async function fetchLeagueTodayEvents(leagueId){
    strStatus is "FT" (or similar terminal markers) once final, "NS" before it starts, and various
    in-progress values while it's being played; any event dated before today is always finished
    regardless of what strStatus says, since it obviously can't still be in progress. */
+/* TheSportsDB's dateEvent field is NOT necessarily "the calendar day a US viewer would say this
+   happened on" — it's whatever calendar day the event's UTC timestamp falls on. A match kicking
+   off at 01:00 UTC is still evening of the PREVIOUS day across the Americas (e.g. 01:00 UTC
+   Sunday is 9pm Saturday in US Eastern during summer) — confirmed exactly this way for a real
+   reported case (dateEvent said Sunday, strTimestamp 2026-07-12T01:00:00 UTC, but that's Saturday
+   evening Eastern). Prefers the full strTimestamp (UTC) and converts it to its actual US Eastern
+   calendar date; only falls back to the bare dateEvent field for the rare event missing a
+   timestamp, since a date-only string has no timezone to correct in the first place. */
+function eventEasternDateStr(ev){
+  if(ev && ev.strTimestamp){
+    const d = new Date(ev.strTimestamp+"Z");
+    if(!isNaN(d)) return d.toLocaleDateString("en-CA", {timeZone:"America/New_York"});
+  }
+  return ev ? ev.dateEvent : null;
+}
 const FINISHED_STATUSES = new Set(["FT","AET","AOT","FT_PEN","Match Finished","Finished","Final"]);
 function isEventFinished(ev){
   if(FINISHED_STATUSES.has((ev.strStatus||"").trim())) return true;
-  const diff = dayDiff(ev.dateEvent);
+  const diff = dayDiff(eventEasternDateStr(ev));
   return diff !== null && diff > 0;
 }
+/* Both sides parsed as UTC midnight of a plain "YYYY-MM-DD" string (the "Z" suffix), NOT the
+   browser's own local midnight — comparing a bare date string against `new Date()` interpreted
+   in local time is exactly what let this drift by a day depending on the machine's timezone.
+   "Today" comes from todayDateStr() (already used elsewhere in this file) so it's anchored to the
+   same US Eastern reference every other date/time feature in this app uses, instead of whatever
+   timezone this particular browser happens to be set to. Callers should pass
+   eventEasternDateStr(ev), not ev.dateEvent directly — see that function for why. */
 function dayDiff(dateStr){
-  const evDate = new Date(dateStr+"T00:00:00");
+  const evDate = new Date(dateStr+"T00:00:00Z");
   if(isNaN(evDate)) return null;
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const today = new Date(todayDateStr()+"T00:00:00Z");
   return Math.round((today - evDate) / 86400000);
 }
 function dayLabel(diffDays){
@@ -3857,7 +3887,7 @@ function shortTeamName(fullName){
    line, and without truncation that overflowed into an ugly horizontal scrollbar and text
    getting raggedly cut off mid-word instead of a clean "…". */
 function formatScoreLine(ev){
-  return `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:clamp(10px, calc(var(--w, 270px) * 0.052), 19px);line-height:1.5;">▸ ${shortTeamName(ev.strHomeTeam)} ${ev.intHomeScore ?? "?"}–${ev.intAwayScore ?? "?"} ${shortTeamName(ev.strAwayTeam)} <span style="color:var(--text-dim);">· ${relativeDayLabel(ev.dateEvent)}</span></div>`;
+  return `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:clamp(10px, calc(var(--w, 270px) * 0.052), 19px);line-height:1.5;">▸ ${shortTeamName(ev.strHomeTeam)} ${ev.intHomeScore ?? "?"}–${ev.intAwayScore ?? "?"} ${shortTeamName(ev.strAwayTeam)} <span style="color:var(--text-dim);">· ${relativeDayLabel(eventEasternDateStr(ev))}</span></div>`;
 }
 /* schedule-style game line for the full view, grouped under a day heading (no inline date) */
 function formatGameLine(ev){
@@ -3867,7 +3897,7 @@ function renderSchedule(events){
   if(!events.length) return `<div style="color:var(--text-dim);">Scores unavailable right now.</div>`;
   const groups = {};
   events.forEach(ev=>{
-    const diff = dayDiff(ev.dateEvent);
+    const diff = dayDiff(eventEasternDateStr(ev));
     const label = dayLabel(diff);
     if(!groups[label]) groups[label] = {diff: diff===null ? 9999 : Math.max(0,diff), items:[]};
     groups[label].items.push(ev);
@@ -3894,7 +3924,17 @@ function renderSchedule(events){
    - results are cached and shared across every widget instance (mini + full pop-up), so
      having both open doesn't double the request load
    - concurrent callers await the same in-flight fetch instead of starting their own */
-const SPORTS_CACHE_TTL = 55000;
+/* 4 minutes, not the ~1 minute this used to be — sports scores genuinely don't need to be
+   this fresh for a glance-at-your-dashboard widget, and every unnecessary refetch is one more
+   request competing for the shared free demo key's ~30/minute cap (see sportsDbBase() above).
+   Kept just under SPORTS_REFRESH_MS below so a scheduled refresh doesn't find a cache that
+   expired moments too early and fetches anyway. */
+const SPORTS_CACHE_TTL = 240000;
+/* A league's single "last event" fallback (below) is otherwise unbounded — during a bye week or
+   an off-season gap that can genuinely be weeks old, which reads as stale/wrong even though the
+   date itself is accurate. Only the past week is considered "recent" enough to show; anything
+   older is treated the same as that league having nothing to report right now. */
+const POPULAR_SCORES_MAX_AGE_DAYS = 7;
 let popularScoresCache = [];
 let popularScoresCacheTime = 0;
 let popularScoresPromise = null;
@@ -3914,7 +3954,8 @@ async function fetchPopularScores(){
         todays.forEach(ev=> rows.push({league:lg.label, ev}));
       } else {
         const ev = await fetchLeagueLastScore(lg.id);
-        if(ev) rows.push({league:lg.label, ev});
+        const age = ev ? dayDiff(eventEasternDateStr(ev)) : null;
+        if(ev && age !== null && age <= POPULAR_SCORES_MAX_AGE_DAYS) rows.push({league:lg.label, ev});
       }
       await new Promise(r=>setTimeout(r, 350));
     }
@@ -3939,7 +3980,13 @@ function renderFollowList(container){
   });
 }
 
-const SPORTS_REFRESH_MS = 60000;
+/* 5 minutes instead of 1 — the actual fix for "Scores unavailable" isn't a personal API key,
+   it's this app not hammering the shared free demo key 6-leagues-every-60-seconds in the first
+   place. A 5x lighter polling rate means 5x fewer chances to collide with everyone else on the
+   internet sharing that same key's ~30-requests/minute cap, with zero setup required — the
+   personal-key option in Settings is still there for anyone who wants scores fresher than this,
+   but it's now an upgrade, not a requirement. */
+const SPORTS_REFRESH_MS = 300000;
 
 /* synchronous on purpose: sets up polling + returns its cleanup immediately, while the
    actual score fetch runs async inside — lets renderWidgetCard register the cleanup
@@ -3961,7 +4008,21 @@ function hydrateSportsMini(scope){
     const finished = popular.filter(p=>isEventFinished(p.ev)).sort(byRecency).slice(0,2);
     let html = "";
     if(live.length) html += sportsSectionHeader("Live / Today") + live.map(p=>formatScoreLine(p.ev)).join("");
-    if(finished.length) html += sportsSectionHeader("Finished") + finished.map(p=>formatScoreLine(p.ev)).join("");
+    /* Grouped by the day each game actually happened ("Today"/"Yesterday"/"N days ago") instead
+       of one flat "Finished" label — these two most-recent finished games can easily be from
+       different days (e.g. nothing played today, so the last Heat game shown might be from
+       Tuesday while the last Dolphins game is from Sunday), and a single "Finished" header
+       covering both was misleading about when either actually happened. */
+    if(finished.length){
+      const dayGroups = {};
+      finished.forEach(p=>{
+        const label = relativeDayLabel(p.ev.dateEvent) || "Finished";
+        (dayGroups[label] = dayGroups[label] || []).push(p);
+      });
+      Object.entries(dayGroups).forEach(([label, items])=>{
+        html += sportsSectionHeader(label) + items.map(p=>formatScoreLine(p.ev)).join("");
+      });
+    }
     el2.innerHTML = html || `<div style="color:var(--text-dim);">Scores unavailable right now.</div>`;
     first = false;
   }
@@ -5435,6 +5496,17 @@ $("#settings-btn").addEventListener("click", ()=>{
       <button class="btn primary" id="groq-api-key-save-btn">Save</button>
       <a class="btn" href="https://console.groq.com/keys" target="_blank" rel="noopener">Get key ↗</a>
     </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Sports scores (TheSportsDB)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Free personal key — Sports works without one (using a shared public demo key), but that
+      demo key is capped at ~30 requests/minute split across everyone using it, which can show
+      "Scores unavailable" during busy periods. Your own free key gets its own 100/minute.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <input type="text" id="sportsdb-api-key-input" placeholder="leave blank to use the shared demo key" style="flex:1;" value="${sportsDbApiKey}"/>
+      <button class="btn primary" id="sportsdb-api-key-save-btn">Save</button>
+      <a class="btn" href="https://www.thesportsdb.com/free_sports_api" target="_blank" rel="noopener">Get key ↗</a>
+    </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Backup & restore</h3>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="btn primary" id="export-btn">Export backup (.json)</button>
@@ -5453,6 +5525,12 @@ $("#settings-btn").addEventListener("click", ()=>{
     saveJSON(NS+"groqApiKey", groqApiKey);
     $("#groq-api-key-save-btn").textContent = "Saved";
     setTimeout(()=>{ $("#groq-api-key-save-btn").textContent = "Save"; }, 1200);
+  });
+  $("#sportsdb-api-key-save-btn").addEventListener("click", ()=>{
+    sportsDbApiKey = $("#sportsdb-api-key-input").value.trim();
+    saveJSON(NS+"sportsDbApiKey", sportsDbApiKey);
+    $("#sportsdb-api-key-save-btn").textContent = "Saved";
+    setTimeout(()=>{ $("#sportsdb-api-key-save-btn").textContent = "Save"; }, 1200);
   });
   $("#google-client-id-save-btn").addEventListener("click", ()=>{
     googleClientId = $("#google-client-id-input").value.trim();
@@ -5606,6 +5684,7 @@ function hideAuthGate(){
   const gate = $("#auth-gate");
   if(gate) gate.classList.add("hidden");
   localStorage.setItem(NS+"authGateSeen", "1");
+  preloadLocalLLMIfNeeded(); // start the local model loading now (if needed) instead of on the first chat message
 }
 function initAuthGate(){
   /* remembered across reloads (for guests too, not just signed-in users) so it only ever
@@ -5822,7 +5901,9 @@ function logAI(msg){ aiLog.textContent = msg; }
    the plain text line below the input only when the widget isn't around to show a bubble on.
    Previously every reply called both logAI() and showHoloSpeech() with the same text, so it
    displayed twice at once — genuinely redundant, not just visually busy. */
+let lastAiReplyText = null;
 function presentAiReply(text){
+  lastAiReplyText = text;
   if(getHoloWidgetCard()){
     logAI("");
     showHoloSpeech(text);
@@ -5947,7 +6028,7 @@ const WIDGET_TOPIC_INFERENCE = [
   { id:"weather", phrases:["what's the weather","what is the weather","how's the weather","how is the weather","weather forecast","is it raining","is it going to rain","is it cold outside","is it hot outside","what's it like outside","what is it like outside","how hot is it","how cold is it","do i need an umbrella","do i need a jacket"],
     exactWords:["weather","forecast","raining","snowing","overcast","humidity"],
     words:["sunny","cloudy","foggy","temperature"] },
-  { id:"calendar", phrases:["on my calendar","my schedule","today's events","events today","what do i have today","what's on my agenda","my agenda","what's today's date"],
+  { id:"calendar", phrases:["on my calendar","my schedule","today's events","events today","what's on my agenda","my agenda","what's today's date"],
     exactWords:["calendar","agenda"],
     words:["schedule","appointment","appointments"] },
   { id:"market", phrases:["s&p","s & p","sp500","sp 500","spx","dow jones","headline wire","pinned assets"],
@@ -6034,7 +6115,7 @@ const SITE_SHORTCUTS = {
 /* Casual acknowledgment words that should never be treated as a site-name guess ("ok" isn't a
    request to open ok.com). Only relevant to the generic .com-guess fallback — an exact
    SITE_SHORTCUTS match always wins regardless, since that's unambiguous. */
-const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait"]);
+const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait","repeat"]);
 /* A custom URL scheme (tg://, and any future slack://, zoommtg://, etc.) hands off to an
    installed native app — but if nothing's registered to handle it, it fails completely
    silently, unlike a normal broken web link that at least shows an error page. Detected here by
@@ -6083,14 +6164,138 @@ function openSiteUrl(site, url){
     window.open(fallback, "_blank", "noopener,noreferrer");
   }, 1200);
 }
+/* Round-robin (not random) rotation through a small pool of pre-written lines for one "topic" —
+   like an NPC's bark lines in a video game, not an LLM generating anything: same handful of
+   answers every time, just advancing to the next one in sequence (wrapping around) so asking
+   "how are you" five times in a row doesn't show the exact same line five times. In-memory only
+   (resets on reload) rather than persisted — this is flavor-text variety, not real state. */
+let aiResponseCycleIndex = {};
+function cycledReply(key, options){
+  const i = (aiResponseCycleIndex[key] || 0) % options.length;
+  aiResponseCycleIndex[key] = i + 1;
+  return options[i];
+}
 function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
 
-  /* greeting — matches only when the WHOLE message is just a greeting (trailing punctuation
-     ok), so it doesn't fire on longer sentences that merely contain "hi"/"hey". h+i+ and h+e+y+
-     also tolerate typo'd repeated letters like "hhi" or "heyy". */
-  if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){ results.push("Hello! What can I do for you?"); }
+  /* Basic small talk answered as fixed, rotating NPC-style lines instead of ever going anywhere
+     near an LLM (Groq or the local model) — these are the handful of things almost anyone says
+     to something they're talking to, so they're worth guaranteeing instant and in-character
+     rather than paying a network round-trip or a slow local generation for "how are you". */
+  if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){
+    results.push(cycledReply("greeting", [
+      "Hello. What can I do for you?",
+      "Good to see you. How may I assist?",
+      "At your service — what do you need?",
+    ]));
+  }
+  if(/^how(?:'s| is| are) (?:it going|you doing|you|things)[?!.\s]*$/.test(t)){
+    results.push(cycledReply("howAreYou", [
+      "Quite well, thank you for asking. And yourself?",
+      "Functioning exactly as intended, sir — which is to say, entirely at your disposal.",
+      "Can't complain — not that it would do much good if I did.",
+    ]));
+  }
+  if(/^(thanks|thank you|thx|ty|much appreciated|appreciate it)[!.\s]*$/.test(t)){
+    results.push(cycledReply("thanks", [
+      "You're quite welcome.",
+      "Think nothing of it — it's what I'm here for.",
+      "Of course. Anything else?",
+    ]));
+  }
+  if(/^(bye|goodbye|good night|night|see ya|see you|later|catch you later)[!.\s]*$/.test(t)){
+    results.push(cycledReply("goodbye", [
+      "Very good. I'll be here when you need me.",
+      "Until next time.",
+      "Take care — I'll be right here.",
+    ]));
+  }
+  if(/^(you'?re (the best|great|awesome|amazing)|good job|well done|nice work|great job|you did (great|well|good))[!.\s]*$/.test(t)){
+    results.push(cycledReply("compliment", [
+      "You're too kind. I do try.",
+      "Much appreciated, sir.",
+      "I aim to be useful — glad it shows.",
+    ]));
+  }
+  if(/^(sorry|my bad|my apologies|my mistake|i apologize)[!.\s]*$/.test(t)){
+    results.push(cycledReply("apology", [
+      "No need to apologize.",
+      "Think nothing of it.",
+      "All is forgiven, not that there was much to forgive.",
+    ]));
+  }
+  /* Deliberately NOT giving bare "yes"/"no" a canned reply here, unlike the small talk above —
+     those two words are far too likely to be answering something the LLM itself just asked
+     ("would you like me to continue?" -> "yes"), and this layer has no way to know that context.
+     Intercepting them unconditionally would break exactly the conversations this is meant to
+     stay out of the way of. They're still excluded from the bare-word site-launcher fallback
+     near the bottom of this function (see SITE_LAUNCH_STOPWORDS) — just not answered here. */
+
+  /* Simple utility commands — a real coin flip/dice roll/random number/joke, computed or picked
+     in code, same "not the LLM's job" reasoning as the calculator above. */
+  if(/^flip a coin[?.!\s]*$/.test(t)){
+    results.push(Math.random() < 0.5 ? "Heads." : "Tails.");
+  }
+  let diceSides = null;
+  if(/^roll (?:a |the )?di(?:e|ce)[?.!\s]*$/.test(t)) diceSides = 6;
+  else {
+    const dm = t.match(/^roll a d(\d+)[?.!\s]*$/) || t.match(/^roll (?:a |the )?(\d+)[\s-]?sided di(?:e|ce)[?.!\s]*$/);
+    if(dm) diceSides = parseInt(dm[1], 10);
+  }
+  if(diceSides){
+    results.push(`You rolled a ${Math.floor(Math.random()*diceSides)+1} (out of ${diceSides}).`);
+  }
+  const rangeMatch = t.match(/number between (\d+) (?:and|to) (\d+)/);
+  if(rangeMatch){
+    const lo = parseInt(rangeMatch[1],10), hi = parseInt(rangeMatch[2],10);
+    const min = Math.min(lo,hi), max = Math.max(lo,hi);
+    results.push(`${Math.floor(Math.random()*(max-min+1)) + min}.`);
+  }
+  if(/^(tell me a joke|got any jokes|say something funny|make me laugh|know any jokes)[?.!\s]*$/.test(t)){
+    results.push(cycledReply("joke", [
+      "Why did the widget cross the dashboard? To get to the other tab.",
+      "I have a joke about time zones, but the punchline never lands when you expect it.",
+      "Two widgets walk into a bar. The bartender says, \"We don't serve your type here.\" They minimize themselves and leave.",
+      "I'm not one for comedy, sir — but if pressed, I'd say my humor is as dry as my wit.",
+    ]));
+  }
+
+  /* Built-in app help — answered from what's actually true about this interface, not guessed. */
+  if(/how (?:do|can) i pin (?:a )?widget/.test(t)){
+    results.push("Hover a widget and click the pin icon in its header — pinned widgets stay put on screen while you pan or zoom.");
+  }
+  if(/how (?:do|can) i (?:add|create) (?:a |an )?(?:hot ?bar|dock) (?:link|icon|bookmark)/.test(t)){
+    results.push("Click the + at the end of the hot bar, give it a title and a link, and it's added.");
+  }
+  if(/how (?:do|can) i remove (?:a |an )?(?:hot ?bar|dock) (?:link|icon)/.test(t)){
+    results.push("Drag it off the hot bar and drop it outside — built-in icons can be brought back later from the + button.");
+  }
+  if(/how (?:do|can) i minimize (?:a )?widget/.test(t)){
+    results.push("Click the widget's title text to minimize it, and click the capsule again to bring it back.");
+  }
+  if(/how (?:do|can) i (?:sync|save) (?:my )?settings|how do i (?:sign in|log in)/.test(t)){
+    results.push("Click \"sign in\" in the top bar — sign in or continue as a guest, and your settings sync automatically once you're signed in.");
+  }
+  /* "what do i have today" used to only read the Calendar widget (see WIDGET_TOPIC_INFERENCE's
+     "calendar" entry, which this phrase was deliberately removed from to avoid double-answering
+     it). A day's actual to-do list on this dashboard isn't just events — it's Calendar + today's
+     workout (Fitness) + whatever's sitting in Projects, so this pulls all three via the same
+     "read the ACTUAL mounted widget's live content" mechanism as everything else in this file,
+     silently skipping any of the three that isn't currently open rather than complaining about
+     each one missing. */
+  if(/^what do i have(?: to do)? today[?.!\s]*$/.test(t)){
+    const todayParts = ["calendar","fitness","claudeprojects"].map(id=>{
+      const card = document.querySelector(`.claustrum-widget[data-widget-id="${id}"]`);
+      if(!card) return null;
+      const def = WIDGET_DEFS.find(w=>w.id===id);
+      if(!def) return null;
+      const reply = readWidgetContentReply(def);
+      // skip a widget that's open but genuinely has nothing on it, rather than reporting that
+      return /there's nothing showing on it right now/.test(reply) ? null : reply;
+    }).filter(Boolean);
+    results.push(todayParts.length ? todayParts.join(" ") : "Open your Calendar, Fitness, or Projects widget so I can see what's on your plate today.");
+  }
   /* "do you have a face"/"what do you look like" answered deterministically, in character —
      the LLM's system prompt already tells it to stay embodied and never deny having a face, but
      it's a small local model and it's inconsistent: tested 4 phrasings of this exact question
@@ -6099,12 +6304,11 @@ function tryLocalCommand(text){
      meant to fix. Same fix pattern as everywhere else in this file — guarantee it in code
      instead of hoping the model gets it right every time. */
   if(/\b(do you have a face|what does your face look like|describe your face|what do you look like|what'?s your face like|do you have a body|show me your face)\b/.test(t)){
-    const faceReplies = [
+    results.push(cycledReply("face", [
       "This is my face — the holographic portrait on your dashboard. It moves when I speak.",
       "You're looking at it — the portrait here on your dashboard. It animates while I talk.",
       "The holographic portrait on your dashboard, sir — that is my face.",
-    ];
-    results.push(faceReplies[Math.floor(Math.random()*faceReplies.length)]);
+    ]));
   }
   /* "what's your name"/"who are you" answered deterministically — the system prompt tells the
      model "if asked your name, always say Medulla, never invent a different name," and it was
@@ -6112,20 +6316,32 @@ function tryLocalCommand(text){
      identities for myself" — with no actual name in the reply at all). Guaranteed clean answer
      instead of hoping the model paraphrases its own instructions sensibly. */
   if(/\b(what'?s your name|what is your name|who are you|what should i call you|tell me your name)\b/.test(t)){
-    results.push("My name is Medulla. I'm here to help with anything.");
+    results.push(cycledReply("name", [
+      "My name is Medulla. I'm here to help with anything.",
+      "Medulla — at your service.",
+      "You may call me Medulla.",
+    ]));
   }
   /* "what do you do"/"what can you help with" answered deterministically, short and plain — no
      one describes themselves with a paragraph when asked this in real life, and the LLM kept
      reaching for a long, formal explanation instead of a one-line answer. */
   if(/\b(what do you do|what can you (do|help with)|what are you (for|here for)|what'?s your purpose|how can you help( me)?)\b/.test(t)){
-    results.push("I'm here to help you with your tasks, that's all.");
+    results.push(cycledReply("purpose", [
+      "I'm here to help you with your tasks, that's all.",
+      "Whatever you need done — that's the whole of it.",
+      "I assist. That's my entire function, and I take it seriously.",
+    ]));
   }
   /* Guaranteed, guaranteed-not-corny answer about having no personal life/backstory —
      unprompted, the model previously invented one on its own (claimed "friends call me Mudd"),
      which is precisely the kind of fabricated personal detail this character explicitly
      shouldn't have. Locked down the same way as everything else that needed to be reliable. */
   if(/\b(what do your friends call you|do you have (any )?friends|what'?s your nickname|do you have a nickname|who are your friends|do you have (a )?family|what'?s your family like)\b/.test(t)){
-    results.push("I have no friends, no family — nothing outside of this. My role is serving you, and that's the whole of it.");
+    results.push(cycledReply("noFriendsFamily", [
+      "I have no friends, no family — nothing outside of this. My role is serving you, and that's the whole of it.",
+      "There's no life outside this role for me — no family, no friends. Serving you is the whole of it.",
+      "None of that exists for me. My function begins and ends with your service.",
+    ]));
   }
   /* A direct, sincere "are you an AI/bot/human" question gets a GUARANTEED honest answer,
      deterministically — not left to the model. Tested this exact carve-out via the system
@@ -6136,6 +6352,15 @@ function tryLocalCommand(text){
      line worth holding regardless of the roleplay, so it doesn't get left to model variance. */
   if(/\bare you (an ai|a bot|a robot|human|a real person|actually human|sentient|conscious|artificial|a language model|real or (?:a bot|fake|an ai))\b/.test(t)){
     results.push("Yes — I'm an AI, running on a local language model. Medulla is the character; that's the truth underneath it. I won't pretend otherwise if you're asking directly.");
+  }
+  /* "repeat"/"say that again" etc — checked here (well before the last-resort bare-word site
+     launcher near the bottom of this function) specifically because a bare "repeat" used to fall
+     all the way through to that guesser with nothing else matching it, opening https://repeat.com
+     instead of actually repeating anything. lastAiReplyText (see presentAiReply) is whatever was
+     shown last regardless of source — a deterministic command reply or an LLM one — so this
+     works even if the last reply never touched aiConversation at all. */
+  if(/^(repeat( that)?|say (that|it) again|what did you say|come again)[?.!\s]*$/.test(t)){
+    results.push(lastAiReplyText ? lastAiReplyText : "I haven't said anything yet.");
   }
   if(/forget (everything|our conversation|what we talked about)|clear (my )?memory|reset (the )?conversation|start (a )?(fresh|new) conversation/.test(t)){
     aiConversation = [];
@@ -6184,11 +6409,77 @@ function tryLocalCommand(text){
      whichever one led the sentence. NOT_CLOCK_TIME above still filters out the idioms this could
      otherwise false-positive on ("no time", "sometime", etc). */
   const asksQuestion = /\?\s*$/.test(text.trim()) || /\b(what|when|do you know|can you tell|tell me|give me|can i get|can i have|let me know|current|the current)\b/.test(t) || /\bcurrent (time|date)\b/.test(t);
+  /* "what time was it 3 hours ago" / "what time will it be in 20 minutes" — without this, the
+     block below just always answered with right-now regardless of any relative offset in the
+     question, since it never looked for one at all. Returns signed minutes (negative = ago,
+     positive = from now/in), or null if the message has no such offset — deliberately simple
+     digit-based matching (no "an hour ago"/word-number support) rather than a fuller natural-
+     language time parser, since that's real scope beyond fixing this one reported case. */
+  function parseRelativeTimeOffsetMinutes(str){
+    let m = str.match(/(\d+)\s*(?:hours?|hrs?)\s*(?:and\s*(\d+)\s*(?:minutes?|mins?)\s*)?ago/);
+    if(m) return -(parseInt(m[1],10)*60 + (m[2]?parseInt(m[2],10):0));
+    m = str.match(/(\d+)\s*(?:minutes?|mins?)\s*ago/);
+    if(m) return -parseInt(m[1],10);
+    m = str.match(/\bin\s*(\d+)\s*(?:hours?|hrs?)\b/) || str.match(/(\d+)\s*(?:hours?|hrs?)\s*from now/);
+    if(m) return parseInt(m[1],10)*60;
+    m = str.match(/\bin\s*(\d+)\s*(?:minutes?|mins?)\b/) || str.match(/(\d+)\s*(?:minutes?|mins?)\s*from now/);
+    if(m) return parseInt(m[1],10);
+    return null;
+  }
   if(/\btime\b/.test(t) && asksQuestion && !NOT_CLOCK_TIME.test(t) && !CUTOFF_RE.test(t)){
-    results.push("It's " + new Date().toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"}) + ".");
+    const offsetMin = parseRelativeTimeOffsetMinutes(t);
+    const target = offsetMin !== null ? new Date(Date.now() + offsetMin*60000) : new Date();
+    const formatted = target.toLocaleString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", second:"2-digit", timeZoneName:"short"});
+    if(offsetMin === null) results.push("It's " + formatted + ".");
+    else if(offsetMin < 0) results.push("That would have been " + formatted + ".");
+    else results.push("That will be " + formatted + ".");
   }
   if((/\bdate\b/.test(t) || /what day is (it|today)/.test(t)) && asksQuestion && !/update|dating|candidate|mandate|validate|outdated|to date/.test(t) && !CUTOFF_RE.test(t)){
     results.push("Today is " + new Date().toLocaleDateString("en-US", {timeZone:"America/New_York", weekday:"long", year:"numeric", month:"long", day:"numeric"}) + ".");
+  }
+  /* Basic arithmetic answered as an actual computed result, same "guarantee it in code rather
+     than trust the model" pattern as time/date above — a plain calculator, not the LLM doing
+     mental math (small models are also unreliable at that). Deliberately no eval()/Function()
+     anywhere here: the message is stripped down to known math words/symbols first, then only
+     proceeds if EVERY remaining character is a digit, operator, dot, or space — so something
+     like "call me at 555-1234" fails that whitelist (the words aren't math tokens) and is never
+     touched, rather than getting misread as subtraction. No parentheses support — flat
+     left-to-right expressions with standard multiply/divide-before-add/subtract precedence,
+     which covers ordinary "what's 5 + 3 * 2" style questions without a real expression parser. */
+  function evalBasicMath(tokens){
+    const numbers = [parseFloat(tokens[0])];
+    const ops = [];
+    for(let i=1;i<tokens.length;i+=2){ ops.push(tokens[i]); numbers.push(parseFloat(tokens[i+1])); }
+    for(let i=0;i<ops.length;){
+      if(ops[i]==="*" || ops[i]==="/"){
+        if(ops[i]==="/" && numbers[i+1]===0) return null;
+        numbers.splice(i, 2, ops[i]==="*" ? numbers[i]*numbers[i+1] : numbers[i]/numbers[i+1]);
+        ops.splice(i, 1);
+      } else i++;
+    }
+    let result = numbers[0];
+    for(let i=0;i<ops.length;i++){ result = ops[i]==="+" ? result+numbers[i+1] : result-numbers[i+1]; }
+    return result;
+  }
+  function tryBasicMath(str){
+    const s = str
+      .replace(/\b(what'?s|what is|how much is|calculate|compute|solve|equals?)\b/g, "")
+      .replace(/\bplus\b/g, "+")
+      .replace(/\bminus\b/g, "-")
+      .replace(/\b(times|multiplied by|multiply(?:ed)? by)\b/g, "*")
+      .replace(/\b(divided by|over)\b/g, "/")
+      .replace(/[?.!]/g, "")
+      .trim();
+    if(!s || !/^[\d\s+\-*/.]+$/.test(s) || !/[+\-*/]/.test(s)) return null;
+    const tokens = s.match(/\d+\.?\d*|[+\-*/]/g);
+    if(!tokens || tokens.length < 3) return null;
+    const result = evalBasicMath(tokens);
+    if(result === null || !isFinite(result)) return null;
+    return Math.round(result*1e6)/1e6; // trims float rounding noise (e.g. 0.1+0.2) without touching real precision
+  }
+  const mathResult = tryBasicMath(t);
+  if(mathResult !== null){
+    results.push(`That's ${mathResult}.`);
   }
   if(/zoom out|wide view/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 0.7); saveProfileState(); results.push("Zoomed out."); }
   if(/zoom in/.test(t)){ const vr=viewport.getBoundingClientRect(); zoomAtScreenPoint(vr.left+vr.width/2, vr.top+vr.height/2, 1.3); saveProfileState(); results.push("Zoomed in."); }
@@ -6370,6 +6661,17 @@ Your personality is that of a devoted, highly capable servant — think Alfred P
 
 Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.`;
 }
+/* A much shorter prompt used ONLY for the in-browser local model (see tryLocalLLM) — response
+   latency on a tiny model run client-side is dominated by how much prompt it has to process
+   before it can even start generating, so trimming this down (dropping the personality/character
+   paragraphs Groq gets) directly speeds up every single local reply, not just a one-time cost.
+   The full personality prompt wasn't landing reliably on a model this small anyway ("really bad"
+   per direct feedback), so keeping only the load-bearing honesty/time rules costs little in
+   practice while meaningfully cutting latency. */
+function getLocalLLMSystemPrompt(){
+  const timeOnly = new Date().toLocaleTimeString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
+  return `You are Medulla, a helpful assistant. Answer in ONE short sentence, plainly, like a real person talking out loud — never a list, never a paragraph. The current time is ${timeOnly} (US Eastern) — if the user mentions any other clock time, ${timeOnly} is still correct. If you don't actually know something, say so instead of guessing.`;
+}
 /* Groq (cloud-hosted, OpenAI-compatible /chat/completions) running the open-weight Llama 3.3
    70B model — free tier, no local install required on any device, unlike the Ollama approach
    this replaced. Cerebras was tried first for this but doesn't send CORS headers at all, so a
@@ -6403,34 +6705,65 @@ async function tryGroq(text){
 }
 
 /* In-browser fallback LLM — for anyone who doesn't want to set up Groq at all. Runs a genuinely
-   tiny open-weight model (Qwen2 0.5B, 4-bit quantized) fully client-side via WebGPU through the
+   tiny open-weight model (Qwen2.5 0.5B, 4-bit quantized) fully client-side via WebGPU through the
    WebLLM library loaded as an ES module in <head> (window.webllm — this app's own script is a
-   classic non-module IIFE, so it can't `import` directly). First use downloads/compiles the
-   model (a few hundred MB — cached by the browser after that, so only the very first message
-   ever pays this cost). Noticeably slower and less coherent than Groq's much larger 70B cloud
-   model, but needs zero setup and nothing ever leaves the device. Same system prompt/history
-   handling as tryGroq, so personality stays consistent regardless of which one answers. */
+   classic non-module IIFE, so it can't `import` directly). Noticeably slower and less coherent
+   than Groq's much larger 70B cloud model, but needs zero setup and nothing ever leaves the
+   device. Same system prompt/history handling as tryGroq, so personality stays consistent
+   regardless of which one answers.
+   Loading is kicked off from preloadLocalLLMIfNeeded() (called once the auth gate closes — see
+   hideAuthGate — whether by signing in or continuing as Guest), NOT on the first chat message,
+   so by the time someone actually types something the multi-hundred-MB download/compile has
+   already been running in the background instead of stalling their first message. Shared as a
+   promise (not a plain boolean flag) so a chat message sent while it's still loading just awaits
+   the SAME in-flight load instead of kicking off a second, redundant one. */
 let localLLMEngine = null;
-let localLLMLoading = false;
+let localLLMEnginePromise = null;
+function ensureLocalLLMEngine(){
+  if(localLLMEngine) return Promise.resolve(localLLMEngine);
+  if(!localLLMEnginePromise){
+    logAI("Loading local model (first time only, a few hundred MB)…");
+    localLLMEnginePromise = window.webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f16_1-MLC", {
+      initProgressCallback: (p)=> logAI(p.text || "Loading local model…"),
+    }).then(engine=>{ localLLMEngine = engine; return engine; })
+      .catch(e=>{ localLLMEnginePromise = null; throw e; }); // failed load doesn't get permanently stuck — a later call can retry
+  }
+  return localLLMEnginePromise;
+}
+/* Only preloads when there's no Groq key configured — Groq users never touch this path at all,
+   so there's no reason to spend their bandwidth/battery downloading a model they'll never use. */
+function preloadLocalLLMIfNeeded(retriesLeft){
+  if(groqApiKey) return;
+  /* window.webllm comes from a <script type="module"> in <head>, which (per spec) only runs
+     once the whole document finishes parsing — later than a classic script's own synchronous
+     execution. For a returning visitor, hideAuthGate() fires immediately/synchronously from
+     inside that same classic script (see initAuthGate's "already seen" fast path), which can be
+     BEFORE the module has had a chance to run yet. Retrying a few times a tick apart covers that
+     without needing a real event to hang this off of. */
+  if(!window.webllm){
+    if(retriesLeft === undefined) retriesLeft = 20;
+    if(retriesLeft > 0) setTimeout(()=> preloadLocalLLMIfNeeded(retriesLeft-1), 100);
+    return;
+  }
+  if(!navigator.gpu) return;
+  ensureLocalLLMEngine().catch(()=>{}); // errors surface later from an actual chat attempt instead of here
+}
 async function tryLocalLLM(text){
-  if(localLLMLoading) return "Still loading the built-in local model — try again in a few seconds.";
   if(!window.webllm) return "The local model library hasn't loaded (needs an internet connection at least once) — add a free Groq key in Settings instead.";
   if(!navigator.gpu) return "This browser doesn't support WebGPU, so the built-in local model can't run here — try Chrome or Edge, or add a free Groq key in Settings instead.";
   try{
-    if(!localLLMEngine){
-      localLLMLoading = true;
-      logAI("Loading local model (first time only, a few hundred MB)…");
-      localLLMEngine = await window.webllm.CreateMLCEngine("Qwen2-0.5B-Instruct-q4f32_1-MLC", {
-        initProgressCallback: (p)=> logAI(p.text || "Loading local model…"),
-      });
-      localLLMLoading = false;
-    }
+    const engine = await ensureLocalLLMEngine();
+    /* Both trimmed specifically for local-model latency: less conversation history means less
+       prompt to process before generation can even start (the dominant cost on weak/no-GPU
+       hardware), and max_tokens puts a hard ceiling on generation time regardless of whether the
+       model actually honors "keep it short" — Groq's tryGroq() keeps the full history/prompt
+       since Groq's own hardware is fast enough that neither matters there. */
     const messages = [
-      {role:"system", content: getAiSystemPrompt()},
-      ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
+      {role:"system", content: getLocalLLMSystemPrompt()},
+      ...aiConversation.slice(-4),
       {role:"user", content: text}
     ];
-    const res = await localLLMEngine.chat.completions.create({ messages });
+    const res = await engine.chat.completions.create({ messages, max_tokens: 100 });
     const reply = res.choices && res.choices[0] && res.choices[0].message && res.choices[0].message.content;
     if(!reply) return "(empty response)";
     aiConversation.push({role:"user", content:text}, {role:"assistant", content:reply});
@@ -6438,8 +6771,10 @@ async function tryLocalLLM(text){
     saveAiConversation();
     return reply;
   }catch(e){
-    localLLMLoading = false;
-    return null;
+    /* Surfaced instead of swallowed — a wrong model-id string silently broke this once before,
+       and there was no way to tell from a generic "couldn't respond" message alone. Showing the
+       real error means a future mistake here is self-diagnosing. */
+    return `Local model error: ${e.message || e}`;
   }
 }
 
@@ -6582,23 +6917,101 @@ aiForm.addEventListener("submit", async (e)=>{
     const c = customLinks.find(c=>c.id===site);
     return c ? c.url : null;
   }
+  /* Sites removed via drag-off (see the dragend handler below) — tracked separately from
+     hotbarOrder so a removed built-in doesn't just get silently re-appended on the next load by
+     the "any HOTBAR_LABELS site missing from hotbarOrder gets added back" logic a few lines down.
+     Custom links don't need this: removing one deletes it from customLinks entirely, same as the
+     existing right-click removal already does. */
+  let removedDefaultSites = new Set(loadJSON(NS+"removedDefaultSites", []));
+  function saveRemovedDefaultSites(){ saveJSON(NS+"removedDefaultSites", [...removedDefaultSites]); }
+  /* Themed replacement for what used to be a chain of plain prompt()/alert() calls — reuses the
+     app's one existing modal surface (#modal-overlay/#modal-panel, same thing Settings and every
+     widget's full view already drive directly) instead of ugly native browser dialogs, so adding
+     a hot bar link looks and feels like part of this app rather than the browser interrupting it. */
+  function openAddLinkModal({ hiddenDefaults, onRestore, onAdd }){
+    if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+    modalTitle.textContent = "Add to Hot Bar";
+    modalBody.innerHTML = `
+      ${hiddenDefaults && hiddenDefaults.length ? `
+        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Bring back a removed icon</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 20px;">
+          ${hiddenDefaults.map(site=>`<button class="btn" data-restore-site="${site}">${escapeHtml(HOTBAR_LABELS[site])}</button>`).join("")}
+        </div>
+        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Or add a new link</h3>
+      ` : ""}
+      <div class="field-row">
+        <label>Title</label>
+        <input type="text" id="add-link-label-input" placeholder="e.g. Notion" maxlength="24"/>
+      </div>
+      <div class="field-row">
+        <label>Link URL</label>
+        <input type="text" id="add-link-url-input" placeholder="notion.so"/>
+      </div>
+      <button class="btn primary" id="add-link-submit-btn">Add</button>
+    `;
+    if(hiddenDefaults && hiddenDefaults.length){
+      $$("[data-restore-site]", modalBody).forEach(btn=>{
+        btn.addEventListener("click", ()=>{ onRestore(btn.dataset.restoreSite); closeModal(); });
+      });
+    }
+    const labelInput = $("#add-link-label-input"), urlInput = $("#add-link-url-input");
+    function submit(){
+      const label = labelInput.value.trim().slice(0,24);
+      if(!label) return;
+      let url = urlInput.value.trim();
+      if(!url) return;
+      if(!/^https?:\/\//i.test(url)) url = "https://"+url;
+      onAdd(label, url);
+      closeModal();
+    }
+    $("#add-link-submit-btn").addEventListener("click", submit);
+    urlInput.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
+    modalOverlay.classList.add("open");
+    labelInput.focus();
+  }
   function addCustomLink(){
-    const label = (prompt("Title for the hot bar button:") || "").trim().slice(0,24);
-    if(!label) return;
-    let url = (prompt(`Link URL for "${label}":`) || "").trim();
-    if(!url) return;
-    if(!/^https?:\/\//i.test(url)) url = "https://"+url;
-    const id = "custom:"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    customLinks.push({id, label, url});
-    saveCustomLinks();
-    hotbarOrder.push(id);
-    saveHotbarOrder();
-    renderHotbarIcons();
+    const hiddenDefaults = HOTBAR_DEFAULT_ORDER.filter(site=>removedDefaultSites.has(site));
+    openAddLinkModal({
+      hiddenDefaults,
+      onRestore: (site)=>{
+        removedDefaultSites.delete(site);
+        saveRemovedDefaultSites();
+        hotbarOrder.push(site);
+        saveHotbarOrder();
+        renderHotbarIcons();
+      },
+      onAdd: (label, url)=>{
+        const id = "custom:"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        customLinks.push({id, label, url});
+        saveCustomLinks();
+        hotbarOrder.push(id);
+        saveHotbarOrder();
+        renderHotbarIcons();
+      }
+    });
+  }
+
+  /* Same "+" idea as the hot bar's own add-a-custom-link button, but scoped to one group popover
+     (Banks/AI) — lets you add your own bank/AI tool without needing a real SITE_SHORTCUTS entry
+     for it. Stored per group key so Banks' custom links and AI's don't mix. Right-click a custom
+     entry inside a popover to remove it, same convention as the main hot bar's custom links. */
+  let customGroupItems = loadJSON(NS+"customGroupItems", {});
+  function saveCustomGroupItems(){ saveJSON(NS+"customGroupItems", customGroupItems); }
+  function addCustomGroupItem(groupKey){
+    openAddLinkModal({
+      onAdd: (label, url)=>{
+        const id = "custom:"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        if(!customGroupItems[groupKey]) customGroupItems[groupKey] = [];
+        customGroupItems[groupKey].push({id, label, url});
+        saveCustomGroupItems();
+        renderGroupPopover(groupKey);
+      }
+    });
   }
 
   const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
   let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site] || customLinks.some(c=>c.id===site));
-  HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site)) hotbarOrder.push(site); });
+  HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site) && !removedDefaultSites.has(site)) hotbarOrder.push(site); });
   customLinks.forEach(c=>{ if(!hotbarOrder.includes(c.id)) hotbarOrder.push(c.id); });
   function saveHotbarOrder(){ saveJSON(NS+"hotbarOrder", hotbarOrder); }
   function renderHotbarIcons(){
@@ -6607,7 +7020,7 @@ aiForm.addEventListener("submit", async (e)=>{
       if(label == null) return "";
       const custom = !HOTBAR_LABELS[site];
       return `<button class="hotbar-icon" draggable="true" data-site="${site}"${custom ? ' data-custom="true"' : ""}>${escapeHtml(label)}</button>`;
-    }).join("") + `<button class="hotbar-icon hotbar-add-btn" id="hotbar-add-btn" draggable="false" title="Add a custom link (right-click a custom link to remove it)">+</button>`;
+    }).join("") + `<button class="hotbar-icon hotbar-add-btn" id="hotbar-add-btn" draggable="false" title="Add a custom link (drag any icon off the hot bar to remove it)">+</button>`;
   }
   renderHotbarIcons();
 
@@ -6643,11 +7056,19 @@ aiForm.addEventListener("submit", async (e)=>{
     renderHotbarIcons();
   });
 
-  GROUPS.forEach(({key, el, items})=>{
-    if(!el) return;
-    el.innerHTML = items.map(b=>
+  function renderGroupPopover(key){
+    const group = GROUPS.find(g=>g.key===key);
+    if(!group || !group.el) return;
+    const custom = customGroupItems[key] || [];
+    group.el.innerHTML = group.items.map(b=>
       `<button class="hotbar-icon" data-site="${b.site}">${b.label}</button>`
-    ).join("");
+    ).join("") + custom.map(c=>
+      `<button class="hotbar-icon" data-custom-id="${c.id}">${escapeHtml(c.label)}</button>`
+    ).join("") + `<button class="hotbar-icon hotbar-add-btn" data-add-group="${key}" title="Add a custom link (right-click a custom link to remove it)">+</button>`;
+  }
+  GROUPS.forEach(({key, el})=>{
+    if(!el) return;
+    renderGroupPopover(key);
     function position(){
       const rect = hotbar.getBoundingClientRect();
       el.style.bottom = Math.max(0, window.innerHeight - rect.top + 10) + "px";
@@ -6660,10 +7081,29 @@ aiForm.addEventListener("submit", async (e)=>{
     el.addEventListener("mouseenter", show);
     el.addEventListener("mouseleave", scheduleHide);
     el.addEventListener("click", (e)=>{
+      const addBtn = e.target.closest("[data-add-group]");
+      if(addBtn){ addCustomGroupItem(addBtn.dataset.addGroup); return; }
       const btn = e.target.closest(".hotbar-icon");
       if(!btn) return;
+      if(btn.dataset.customId){
+        const item = (customGroupItems[key]||[]).find(c=>c.id===btn.dataset.customId);
+        if(item) openSiteUrl(item.id, item.url);
+        toggle(false);
+        return;
+      }
       openSiteUrl(btn.dataset.site, SITE_SHORTCUTS[btn.dataset.site]);
       toggle(false);
+    });
+    el.addEventListener("contextmenu", (e)=>{
+      const btn = e.target.closest("[data-custom-id]");
+      if(!btn) return;
+      e.preventDefault();
+      const item = (customGroupItems[key]||[]).find(c=>c.id===btn.dataset.customId);
+      if(!item) return;
+      if(!confirm(`Remove "${item.label}"?`)) return;
+      customGroupItems[key] = (customGroupItems[key]||[]).filter(c=>c.id!==item.id);
+      saveCustomGroupItems();
+      renderGroupPopover(key);
     });
     document.addEventListener("click", (e)=>{
       if(!el.classList.contains("visible")) return;
@@ -6705,8 +7145,37 @@ aiForm.addEventListener("submit", async (e)=>{
     target.parentNode.insertBefore(draggedIcon, before ? target : target.nextSibling);
   });
   hotbar.addEventListener("drop", (e)=> e.preventDefault());
-  hotbar.addEventListener("dragend", ()=>{
-    if(draggedIcon) draggedIcon.classList.remove("dragging");
+  /* Drag an icon off the hot bar entirely (dropped outside its bounds, same "toss it off the
+     dock" gesture as removing an app from a phone's home screen) to remove it — dragend fires on
+     the source element regardless of where the drop actually happened, so checking the final
+     pointer position against the hot bar's own rect is what tells "reordered within it" apart
+     from "dragged off of it" (dragover, which drives the live reordering above, simply never
+     fires once the pointer leaves the hot bar, so the DOM is left in whatever order it was in
+     right before that — this is the one place that final position actually gets checked). A
+     removed custom link is deleted outright (same as right-clicking one already does); a removed
+     built-in is only hidden (see removedDefaultSites) so it can be brought back later via +. */
+  hotbar.addEventListener("dragend", (e)=>{
+    if(draggedIcon){
+      const rect = hotbar.getBoundingClientRect();
+      const droppedOutside = e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
+      if(droppedOutside){
+        const site = draggedIcon.dataset.site;
+        const isCustom = draggedIcon.dataset.custom === "true";
+        draggedIcon.remove();
+        draggedIcon = null;
+        if(isCustom){
+          customLinks = customLinks.filter(c=>c.id!==site);
+          saveCustomLinks();
+        } else {
+          removedDefaultSites.add(site);
+          saveRemovedDefaultSites();
+        }
+        hotbarOrder = hotbarOrder.filter(s=>s!==site);
+        saveHotbarOrder();
+        return;
+      }
+      draggedIcon.classList.remove("dragging");
+    }
     draggedIcon = null;
     hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site).filter(Boolean);
     saveHotbarOrder();
@@ -6726,17 +7195,34 @@ let lastAiInteractionTime = Date.now();
    since a location essentially never changes mid-session. */
 let cachedLocation = null, cachedLocationTime = 0;
 const LOCATION_CACHE_TTL = 6*60*60*1000;
+/* Tried in order, first one that succeeds wins — an IP-geolocation lookup is exactly the kind
+   of request some ad-blockers/privacy extensions flag as "tracking" and silently block, so if
+   ipwho.is gets blocked on someone's browser this just falls through to a different provider
+   instead of the whole Weather widget going dark with no explanation. */
+const LOCATION_PROVIDERS = [
+  async ()=>{
+    const data = await (await fetch("https://ipwho.is/")).json();
+    if(data && data.success !== false && data.latitude) return { city:data.city, lat:data.latitude, lon:data.longitude };
+    return null;
+  },
+  async ()=>{
+    const data = await (await fetch("https://ipapi.co/json/")).json();
+    if(data && !data.error && data.latitude) return { city:data.city, lat:data.latitude, lon:data.longitude };
+    return null;
+  },
+];
 async function fetchApproxLocation(){
   if(cachedLocation && (Date.now()-cachedLocationTime) < LOCATION_CACHE_TTL) return cachedLocation;
-  try{
-    const res = await fetch("https://ipwho.is/");
-    const data = await res.json();
-    if(data && data.success !== false && data.latitude){
-      cachedLocation = { city: data.city, lat: data.latitude, lon: data.longitude };
-      cachedLocationTime = Date.now();
-      return cachedLocation;
-    }
-  }catch(e){}
+  for(const provider of LOCATION_PROVIDERS){
+    try{
+      const loc = await provider();
+      if(loc){
+        cachedLocation = loc;
+        cachedLocationTime = Date.now();
+        return cachedLocation;
+      }
+    }catch(e){}
+  }
   return null;
 }
 const WEATHER_CODE_TEXT = {
