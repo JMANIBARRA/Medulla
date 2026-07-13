@@ -2732,6 +2732,14 @@ function renderFull(id){
       <input id="phone-name-input" type="text" placeholder="Name e.g. Mom" style="flex:1;min-width:140px;"/>
       <input id="phone-number-input" type="tel" placeholder="Phone number" style="flex:1;min-width:140px;"/>
       <button class="btn primary" id="phone-add-btn">Add</button>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button class="btn" id="phone-import-btn">Import from vCard (.vcf)</button>
+      <input id="phone-import-file" type="file" accept=".vcf,text/vcard" style="display:none;">
+      <span id="phone-import-status" style="font-size:.82em;color:var(--text-dim);"></span>
+    </div>
+    <div style="font-size:.78em;color:var(--text-dim);margin-top:6px;">
+      Export your contacts as a .vcf file (Mac Contacts app: File → Export → Export vCard; Google Contacts: Export → vCard) then import it here. Re-import anytime to pull in new contacts — existing ones are skipped, not duplicated.
     </div>`;
   }
   if(id==="mail"){
@@ -3467,11 +3475,92 @@ function addPhoneContact(scope){
   renderWidgets();
   nameInp.focus();
 }
+/* Parses one or more VCARD blocks out of a raw .vcf export (Mac Contacts, Google Contacts,
+   iCloud.com, Outlook all export this same format). Unfolds continuation lines (vCard wraps
+   long lines with a leading space/tab) before splitting each line into NAME;PARAMS:VALUE — the
+   first colon is always the params/value boundary since params themselves are ';'-separated,
+   never ':'-separated. A contact can have several TEL lines (mobile/home/work); each becomes
+   its own saved entry, labeled with its TYPE when there's more than one so they stay distinct. */
+function parseVcf(text){
+  const unfolded = text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "");
+  const cards = unfolded.split(/BEGIN:VCARD/i).slice(1);
+  const contacts = [];
+  cards.forEach(card=>{
+    const lines = card.split("END:VCARD")[0].split("\n").map(l=>l.trim()).filter(Boolean);
+    let name = "";
+    const tels = [];
+    lines.forEach(line=>{
+      const colon = line.indexOf(":");
+      if(colon === -1) return;
+      const head = line.slice(0, colon).toUpperCase();
+      const value = line.slice(colon+1).trim();
+      if(!value) return;
+      if(head === "FN") name = value;
+      if(head.startsWith("TEL")){
+        const typeMatch = head.match(/TYPE=([A-Z,]+)/i);
+        const type = typeMatch ? typeMatch[1].split(",")[0].toLowerCase() : "";
+        tels.push({ number: value, type });
+      }
+    });
+    if(!name){
+      const nLine = lines.find(l=>/^N:/i.test(l));
+      if(nLine){
+        const parts = nLine.slice(2).split(";").filter(Boolean);
+        name = parts.reverse().join(" ").trim();
+      }
+    }
+    if(!name || !tels.length) return;
+    tels.forEach(t=>{
+      const label = tels.length > 1 && t.type ? `${name} (${t.type})` : name;
+      contacts.push({ name: label, number: t.number });
+    });
+  });
+  return contacts;
+}
+function importVcfContacts(scope, text){
+  const status = scope.querySelector("#phone-import-status");
+  let parsed;
+  try{ parsed = parseVcf(text); }
+  catch(e){ if(status) status.textContent = "Couldn't read that file."; return; }
+  if(!parsed.length){
+    if(status) status.textContent = "No contacts with phone numbers found in that file.";
+    return;
+  }
+  const existing = new Set(phoneData.contacts.map(c=>`${c.name}|${telHref(c.number)}`));
+  let added = 0;
+  parsed.forEach(c=>{
+    const key = `${c.name}|${telHref(c.number)}`;
+    if(existing.has(key)) return;
+    existing.add(key);
+    phoneData.contacts.push(c);
+    added++;
+  });
+  saveJSON(NS+"phone", phoneData);
+  renderPhoneList(scope.querySelector("#phone-list"));
+  renderWidgets();
+  if(status) status.textContent = added
+    ? `Imported ${added} contact${added===1?"":"s"} (${parsed.length-added} already saved, skipped).`
+    : `All ${parsed.length} contacts from that file were already saved.`;
+}
 function hydratePhoneFull(scope){
   renderPhoneList(scope.querySelector("#phone-list"));
   scope.querySelector("#phone-add-btn").addEventListener("click", ()=>addPhoneContact(scope));
   ["#phone-name-input","#phone-number-input"].forEach(sel=>{
     scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addPhoneContact(scope); });
+  });
+  const importBtn = scope.querySelector("#phone-import-btn");
+  const importFile = scope.querySelector("#phone-import-file");
+  importBtn.addEventListener("click", ()=>importFile.click());
+  importFile.addEventListener("change", ()=>{
+    const file = importFile.files[0];
+    if(!file) return;
+    const status = scope.querySelector("#phone-import-status");
+    if(status) status.textContent = "Importing…";
+    const reader = new FileReader();
+    reader.onload = ()=>importVcfContacts(scope, String(reader.result||""));
+    reader.onerror = ()=>{ if(status) status.textContent = "Couldn't read that file."; };
+    reader.readAsText(file);
+    importFile.value = "";
   });
 }
 function refreshPhoneMiniList(scope){
