@@ -586,7 +586,18 @@
      own height is still driven entirely by the real content underneath. The door itself never
      resizes or gets removed from the DOM up front; it just animates translateY(-100%) on mount,
      "rolling up" out of view to reveal whatever's already there. */
-  .garage-scene{position:relative;}
+  /* min-height so the door actually reads as a tall garage door instead of a short wide strip —
+     a real vehicle list is rarely tall enough on its own to justify that proportion, so
+     .garage-floor (a decorative floor strip, not blank space) fills whatever's left below the
+     real content, same idea as a real garage having visible floor beyond where the car ends. */
+  .garage-scene{position:relative;display:flex;flex-direction:column;min-height:480px;}
+  .garage-floor{
+    flex:1;min-height:60px;margin-top:10px;position:relative;
+    background:
+      repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent-amber) 14%, transparent) 0, color-mix(in srgb, var(--accent-amber) 14%, transparent) 1px, transparent 1px, transparent 48px),
+      linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent-amber) 5%, transparent));
+    border-top:1px solid color-mix(in srgb, var(--accent-amber) 30%, transparent);
+  }
   .garage-door-scene{
     position:absolute;inset:0;z-index:5;overflow:hidden;pointer-events:none;
   }
@@ -2938,6 +2949,7 @@ function renderFull(id){
         <input id="garage-mileage-input" type="text" placeholder="Mileage" style="flex:1;min-width:90px;"/>
         <button class="btn primary" id="garage-add-btn">Add</button>
       </div>
+      <div class="garage-floor"></div>
       <div class="garage-door-scene" id="garage-door-scene">
         <div class="garage-door-glow"></div>
         <div class="garage-door" id="garage-door">
