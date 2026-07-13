@@ -568,24 +568,6 @@
   .icon-picker-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
   .garage-icon{display:inline-flex;flex:none;width:32px;height:14px;color:var(--accent-amber);}
   .garage-icon svg{width:100%;height:100%;display:block;}
-  .shortcut-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;}
-  .shortcut-tile{display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;color:var(--text-primary);width:4.4em;position:relative;}
-  .shortcut-tile-icon{
-    width:3.4em;height:3.4em;border-radius:0;
-    background:linear-gradient(160deg, var(--tile-accent, var(--accent-teal)), var(--bg-panel-raised));
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--font-display);font-weight:700;color:var(--bg-deep);font-size:1.15em;
-    box-shadow:0 4px 12px rgba(0,0,0,.5), 0 0 14px -3px var(--tile-accent, var(--accent-teal));border:1px solid var(--tile-accent, var(--accent-teal));
-    transition:filter .15s, transform .1s;
-  }
-  .shortcut-tile:hover .shortcut-tile-icon{filter:brightness(1.1);}
-  .shortcut-tile:active .shortcut-tile-icon{transform:scale(0.94);}
-  .shortcut-tile-caption{font-size:0.68em;color:var(--text-dim);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .shortcut-tile-del{
-    position:absolute;top:-4px;right:0.3em;width:16px;height:16px;border-radius:50%;
-    background:var(--bg-panel-raised);border:1px solid var(--line);color:var(--text-dim);
-    display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;cursor:pointer;
-  }
   .scratch-mini-textarea{font-size:clamp(11px, calc(var(--w, 270px) * 0.036), 16px);}
   .widget-body::-webkit-scrollbar{width:6px;}
   .widget-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
@@ -695,6 +677,11 @@
   .hotbar-icon:hover{transform:translateY(-7px) scale(1.08);background:rgba(255,255,255,.09);box-shadow:0 0 14px -3px var(--text-primary);}
   .hotbar-icon:active{cursor:grabbing;}
   .hotbar-icon.dragging{opacity:.35;}
+  .hotbar-add-btn{
+    width:38px;padding:0;flex:none;
+    border-style:dashed;color:var(--text-dim);font-size:18px;font-weight:400;
+  }
+  .hotbar-add-btn:hover{color:var(--text-primary);}
   /* small flyout for a hot bar "group" icon (Banks, AI) — same visual language as the hot bar
      itself, just a wrapping panel instead of a single scrollable row since each only ever holds
      a handful of items. Positioned above the hot bar (JS measures its real height each time one
@@ -891,7 +878,6 @@ const WIDGET_DEFS = [
   {id:"mail", title:"Mail", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Quick-launch cards for Gmail, Outlook, ProtonMail in a new tab. Editable link list."},
   {id:"arcade", title:"Arcade", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Flappy-style canvas game with saved high score, plus an infinite-bankroll blackjack simulator."},
   {id:"chrono", title:"Chrono", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Digital / analog clock toggle plus a 25/50/90 min focus timer that logs total focused minutes."},
-  {id:"quicklinks", title:"Links", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Grid of external app shortcuts (Maps, Spotify, socials) plus a 'save to Medulla' link capturer."},
   {id:"bluetooth", title:"Bluetooth", profiles:["main"], built:false, accent:"var(--accent-violet)", spec:"navigator.bluetooth battery_service telemetry for paired peripherals."},
   {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Plain launcher cards to official bank login portals, opened in a new isolated tab. No scraping."},
   {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
@@ -1234,6 +1220,9 @@ function loadJSON(key, fallback){
   try{ const v = localStorage.getItem(key); return v?JSON.parse(v):fallback; }catch(e){ return fallback; }
 }
 function saveJSON(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn("save failed",e); } }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
 
 let profiles = loadJSON(NS+"profiles", {list:["main"], labels:{main:"Main"}, active:"main"});
 if(!profiles.list.includes("main")){ profiles.list.unshift("main"); }
@@ -2099,6 +2088,12 @@ function bringToFront(l, el, id){
   saveProfileStateDebounced();
 }
 
+/* Minimized capsules are draggable too, same as a full widget's header — a plain click (barely
+   any movement between down and up) still un-minimizes it, but dragging first moves it instead,
+   exactly the click-vs-drag split already used for the globe (GLOBE_CLICK_MAX_DRIFT). Without
+   this a minimized widget sitting in an inconvenient spot could only be un-minimized, dragged
+   full-size, then re-minimized just to reposition it. */
+const CAPSULE_CLICK_MAX_DRIFT = 5;
 function renderCapsule(def,l){
   const cap = document.createElement("div");
   cap.className="capsule";
@@ -2106,9 +2101,25 @@ function renderCapsule(def,l){
   cap.style.zIndex = l.z || 1;
   cap.style.setProperty("--accent", def.accent || "var(--accent-amber)");
   cap.innerHTML = `<span class="led"></span><span>${def.title}</span>`;
-  cap.addEventListener("pointerdown", ()=>{ bringToFront(l, cap, def.id); }, {capture:true});
-  cap.addEventListener("click",()=>{
-    l.minimized=false; saveProfileState(); renderWidgets();
+  cap.addEventListener("pointerdown",(e)=>{
+    bringToFront(l, cap, def.id);
+    const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
+    let dragged = false;
+    function onMove(ev){
+      const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
+      const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
+      if(Math.abs(ev.clientX-startX) > CAPSULE_CLICK_MAX_DRIFT || Math.abs(ev.clientY-startY) > CAPSULE_CLICK_MAX_DRIFT) dragged = true;
+      l.x=ox+dx; l.y=oy+dy;
+      cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
+    }
+    function onUp(){
+      window.removeEventListener("pointermove",onMove);
+      window.removeEventListener("pointerup",onUp);
+      if(dragged){ saveProfileState(); }
+      else{ l.minimized=false; saveProfileState(); renderWidgets(); }
+    }
+    window.addEventListener("pointermove",onMove);
+    window.addEventListener("pointerup",onUp);
   });
   return cap;
 }
@@ -2261,7 +2272,6 @@ function renderWidgetCard(def,l){
   if(def.id==="weather") setTimeout(()=>{ const c = hydrateWeatherMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="mail") setTimeout(()=>hydrateMailMini(body),0);
   if(def.id==="chrono") setTimeout(()=>hydrateChronoMini(body),0);
-  if(def.id==="quicklinks") setTimeout(()=>hydrateQuickLinksMini(body),0);
   if(def.id==="scratchpad") setTimeout(()=>hydrateScratchpadMini(body),0);
   if(def.id==="arcade") setTimeout(()=>{ const c = hydrateArcadeMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="banking") setTimeout(()=>hydrateBankingMini(body),0);
@@ -2348,7 +2358,6 @@ function openModal(def){
     if(def.id==="weather") modalCloseCleanup = hydrateWeatherFull(modalBody);
     if(def.id==="mail") hydrateMailFull(modalBody);
     if(def.id==="chrono") modalCloseCleanup = hydrateChronoFull(modalBody);
-    if(def.id==="quicklinks") hydrateQuickLinksFull(modalBody);
     if(def.id==="scratchpad") hydrateScratchpadFull(modalBody);
     if(def.id==="arcade") modalCloseCleanup = hydrateArcadeFull(modalBody);
     if(def.id==="banking") hydrateBankingFull(modalBody);
@@ -2507,13 +2516,6 @@ function renderMini(id){
     <div style="text-align:center;">
       <div id="chrono-mini-face" class="chrono-face" style="cursor:pointer;"></div>
       <div id="chrono-mini-focus" style="margin-top:6px;font-family:var(--font-mono);font-size:0.8em;color:var(--text-dim);"></div>
-    </div>`;
-  }
-  if(id==="quicklinks"){
-    return `
-    <div style="display:flex;flex-direction:column;gap:0.6em;width:100%;">
-      <div id="ql-mini-row" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-      <div id="ql-mini-shortcuts" class="shortcut-grid"></div>
     </div>`;
   }
   if(id==="scratchpad"){
@@ -2792,24 +2794,6 @@ function renderFull(id){
         </div>
       </div>
     </div>`;
-  }
-  if(id==="quicklinks"){
-    return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Quick Launch</h3>
-    <div id="ql-full-row" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px;"></div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Search</h3>
-    <div style="display:flex;gap:6px;margin:10px 0 18px;">
-      <select id="ql-search-engine"><option value="https://www.google.com/search?q=">Google</option><option value="https://duckduckgo.com/?q=">DuckDuckGo</option></select>
-      <input id="ql-search-input" type="text" placeholder="Search the web…" style="flex:1;"/>
-      <button class="btn" id="ql-search-btn">Go</button>
-    </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">My Shortcuts</h3>
-    <div style="display:flex;gap:6px;margin:10px 0;">
-      <input id="ql-save-label" type="text" placeholder="Shortcut name e.g. Company Wiki" style="flex:1;"/>
-      <input id="ql-save-url" type="text" placeholder="https://…" style="flex:2;"/>
-      <button class="btn primary" id="ql-save-btn">Add</button>
-    </div>
-    <div id="ql-bookmarks" class="shortcut-grid" style="margin-top:12px;"></div>`;
   }
   if(id==="scratchpad"){
     return `
@@ -4710,8 +4694,6 @@ const WIDGET_TOPIC_INFERENCE = [
        launches (SITE_SHORTCUTS below) now that a bare "gmail" opens Gmail itself rather than
        reading the Mail widget's link list, per an explicit later request for that behavior. */
     words:["email","emails","inbox"] },
-  { id:"quicklinks", phrases:["quick links","my links","saved links","my bookmarks"],
-    words:["bookmark","bookmarks","shortcut","shortcuts"] },
   { id:"claudeprojects", phrases:["my projects","project snippets","code snippets","my sandbox","the sandbox","file paths"],
     words:["project","projects","snippet","snippets","sandbox"] },
   { id:"scratchpad", phrases:["my scratchpad","my notebook","what did i write","notebook page","jotted down","wrote down"],
@@ -5248,23 +5230,59 @@ aiForm.addEventListener("submit", async (e)=>{
     hotbar.scrollLeft += e.deltaY * scale;
   }, {passive:false});
 
+  /* Custom links — the "+" button lets you add your own quick launcher with any title, so you
+     don't need an actual icon/SITE_SHORTCUTS entry for every site you personally care about.
+     Stored separately from HOTBAR_LABELS (which is only the built-in catalog); labelForSite/
+     urlForSite fall back to this list for any id not found there. Right-click a custom link's
+     icon to remove it — built-in ones can be reordered or dragged but aren't removable. */
+  let customLinks = loadJSON(NS+"customLinks", []);
+  function saveCustomLinks(){ saveJSON(NS+"customLinks", customLinks); }
+  function labelForSite(site){
+    if(HOTBAR_LABELS[site]) return HOTBAR_LABELS[site];
+    const c = customLinks.find(c=>c.id===site);
+    return c ? c.label : null;
+  }
+  function urlForSite(site){
+    if(SITE_SHORTCUTS[site]) return SITE_SHORTCUTS[site];
+    const c = customLinks.find(c=>c.id===site);
+    return c ? c.url : null;
+  }
+  function addCustomLink(){
+    const label = (prompt("Title for the hot bar button:") || "").trim().slice(0,24);
+    if(!label) return;
+    let url = (prompt(`Link URL for "${label}":`) || "").trim();
+    if(!url) return;
+    if(!/^https?:\/\//i.test(url)) url = "https://"+url;
+    const id = "custom:"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    customLinks.push({id, label, url});
+    saveCustomLinks();
+    hotbarOrder.push(id);
+    saveHotbarOrder();
+    renderHotbarIcons();
+  }
+
   const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
-  let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site]);
+  let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site] || customLinks.some(c=>c.id===site));
   HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site)) hotbarOrder.push(site); });
+  customLinks.forEach(c=>{ if(!hotbarOrder.includes(c.id)) hotbarOrder.push(c.id); });
   function saveHotbarOrder(){ saveJSON(NS+"hotbarOrder", hotbarOrder); }
   function renderHotbarIcons(){
-    hotbar.innerHTML = hotbarOrder.map(site=>
-      `<button class="hotbar-icon" draggable="true" data-site="${site}">${HOTBAR_LABELS[site]}</button>`
-    ).join("");
+    hotbar.innerHTML = hotbarOrder.map(site=>{
+      const label = labelForSite(site);
+      if(label == null) return "";
+      const custom = !HOTBAR_LABELS[site];
+      return `<button class="hotbar-icon" draggable="true" data-site="${site}"${custom ? ' data-custom="true"' : ""}>${escapeHtml(label)}</button>`;
+    }).join("") + `<button class="hotbar-icon hotbar-add-btn" id="hotbar-add-btn" draggable="false" title="Add a custom link (right-click a custom link to remove it)">+</button>`;
   }
   renderHotbarIcons();
 
-  /* a group icon (Banks/AI) opens its popover instead of a URL directly — everything else
-     launches as normal. Delegated on the container since icons get re-created by
-     renderHotbarIcons(). */
+  /* a group icon (Banks/AI) opens its popover instead of a URL directly, the "+" button opens
+     the add-link prompts instead of a URL — everything else launches as normal. Delegated on
+     the container since icons get re-created by renderHotbarIcons(). */
   hotbar.addEventListener("click", (e)=>{
     const btn = e.target.closest(".hotbar-icon");
     if(!btn) return;
+    if(btn.id === "hotbar-add-btn"){ addCustomLink(); return; }
     const site = btn.dataset.site;
     if(groupToggles[site]){
       const group = GROUPS.find(g=>g.key===site);
@@ -5273,7 +5291,21 @@ aiForm.addEventListener("submit", async (e)=>{
       groupToggles[site](!isOpen);
       return;
     }
-    openSiteUrl(site, SITE_SHORTCUTS[site]);
+    openSiteUrl(site, urlForSite(site));
+  });
+  hotbar.addEventListener("contextmenu", (e)=>{
+    const btn = e.target.closest(".hotbar-icon[data-custom]");
+    if(!btn) return;
+    e.preventDefault();
+    const site = btn.dataset.site;
+    const link = customLinks.find(c=>c.id===site);
+    if(!link) return;
+    if(!confirm(`Remove "${link.label}" from the hot bar?`)) return;
+    customLinks = customLinks.filter(c=>c.id!==site);
+    saveCustomLinks();
+    hotbarOrder = hotbarOrder.filter(s=>s!==site);
+    saveHotbarOrder();
+    renderHotbarIcons();
   });
 
   GROUPS.forEach(({key, el, items})=>{
@@ -5326,6 +5358,13 @@ aiForm.addEventListener("submit", async (e)=>{
     e.preventDefault(); // required for drop to be allowed at all
     const target = e.target.closest(".hotbar-icon");
     if(!target || target === draggedIcon) return;
+    // the "+" button is never a real reorder target — always stays last, so anything dropped
+    // "on" it just lands right before it instead of risking landing after (there's no next
+    // sibling to fall back on, so the naive before/after split would push past it)
+    if(target.id === "hotbar-add-btn"){
+      hotbar.insertBefore(draggedIcon, target);
+      return;
+    }
     const rect = target.getBoundingClientRect();
     const before = (e.clientX - rect.left) < rect.width/2;
     target.parentNode.insertBefore(draggedIcon, before ? target : target.nextSibling);
@@ -5334,7 +5373,7 @@ aiForm.addEventListener("submit", async (e)=>{
   hotbar.addEventListener("dragend", ()=>{
     if(draggedIcon) draggedIcon.classList.remove("dragging");
     draggedIcon = null;
-    hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site);
+    hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site).filter(Boolean);
     saveHotbarOrder();
   });
 })();
@@ -5733,96 +5772,6 @@ function hydrateChronoFull(scope){
     if(countdownInterval) clearInterval(countdownInterval);
     if(swInterval) clearInterval(swInterval);
   };
-}
-
-/* ================= QUICK LINK CAPTURER WIDGET ================= */
-const QL_PLATFORMS = [
-  {label:"Gmail", url:"https://mail.google.com"},
-  {label:"Outlook", url:"https://outlook.live.com"},
-  {label:"Maps", url:"https://maps.google.com"},
-  {label:"Spotify", url:"https://open.spotify.com"},
-  {label:"Apple Music", url:"https://music.apple.com"},
-  {label:"YouTube", url:"https://www.youtube.com"},
-  {label:"Instagram", url:"https://www.instagram.com"},
-  {label:"Facebook", url:"https://www.facebook.com"},
-  {label:"Telegram", url:"https://web.telegram.org"},
-  {label:"WhatsApp", url:"https://web.whatsapp.com"},
-];
-let bookmarks = loadJSON(NS+"bookmarks", []);
-let bookmarksNeedSave = false;
-bookmarks.forEach(b=>{ if(!b.id){ b.id = "s"+Date.now()+Math.random().toString(36).slice(2,6); bookmarksNeedSave = true; } });
-if(bookmarksNeedSave) saveJSON(NS+"bookmarks", bookmarks);
-function linkCardHTML(l){
-  return `<a class="linkcard" href="${l.url}" target="_blank" rel="noopener noreferrer" style="padding:0.5em 0.8em;border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);background:var(--bg-panel-raised);">${l.label}</a>`;
-}
-const SHORTCUT_ACCENTS = ["var(--accent-teal)","var(--accent-amber)","var(--accent-rust)","var(--accent-violet)"];
-function shortcutAccentFor(str){
-  let hash = 0;
-  for(let i=0;i<str.length;i++) hash = str.charCodeAt(i) + ((hash<<5)-hash);
-  return SHORTCUT_ACCENTS[Math.abs(hash)%SHORTCUT_ACCENTS.length];
-}
-function shortcutHostname(url){
-  try{ return new URL(url).hostname.replace(/^www\./,""); }catch(e){ return url; }
-}
-function shortcutInitials(label){
-  const words = label.trim().split(/\s+/).filter(Boolean);
-  if(!words.length) return "?";
-  if(words.length===1) return words[0].slice(0,2).toUpperCase();
-  return (words[0][0]+words[1][0]).toUpperCase();
-}
-function shortcutTileHTML(b, showDelete){
-  const label = b.label || shortcutHostname(b.url);
-  const accent = shortcutAccentFor(label);
-  return `<a class="shortcut-tile" href="${b.url}" target="_blank" rel="noopener noreferrer" title="${label}">
-    ${showDelete ? `<span class="shortcut-tile-del" data-id="${b.id}">✕</span>` : ""}
-    <span class="shortcut-tile-icon" style="--tile-accent:${accent};">${shortcutInitials(label)}</span>
-    <span class="shortcut-tile-caption">${label}</span>
-  </a>`;
-}
-function hydrateQuickLinksMini(scope){
-  scope.querySelector("#ql-mini-row").innerHTML = QL_PLATFORMS.slice(0,6).map(linkCardHTML).join("");
-  renderShortcutGrid(scope.querySelector("#ql-mini-shortcuts"), false);
-}
-function renderShortcutGrid(container, showDelete){
-  if(!container) return;
-  container.innerHTML = bookmarks.length ? bookmarks.map(b=>shortcutTileHTML(b, showDelete)).join("") : (showDelete ? `<div style="color:var(--text-dim);font-size:12px;">No shortcuts yet — add one above.</div>` : "");
-  if(showDelete){
-    container.querySelectorAll(".shortcut-tile-del").forEach(btn=>{
-      btn.addEventListener("click",(e)=>{
-        e.preventDefault(); e.stopPropagation();
-        bookmarks = bookmarks.filter(b=>b.id!==btn.dataset.id);
-        saveJSON(NS+"bookmarks", bookmarks);
-        renderShortcutGrid(container, true);
-        const miniGrid = document.getElementById("ql-mini-shortcuts");
-        if(miniGrid) renderShortcutGrid(miniGrid, false);
-      });
-    });
-  }
-}
-function hydrateQuickLinksFull(scope){
-  scope.querySelector("#ql-full-row").innerHTML = QL_PLATFORMS.map(linkCardHTML).join("");
-  renderShortcutGrid(scope.querySelector("#ql-bookmarks"), true);
-  scope.querySelector("#ql-search-btn").addEventListener("click", ()=>{
-    const input = scope.querySelector("#ql-search-input");
-    const q = input.value.trim();
-    if(!q) return;
-    const base = scope.querySelector("#ql-search-engine").value;
-    window.open(base+encodeURIComponent(q), "_blank", "noopener,noreferrer");
-  });
-  scope.querySelector("#ql-save-btn").addEventListener("click", ()=>{
-    const urlInput = scope.querySelector("#ql-save-url");
-    const labelInput = scope.querySelector("#ql-save-label");
-    let url = urlInput.value.trim();
-    const label = labelInput.value.trim();
-    if(!url) return;
-    if(!/^https?:\/\//i.test(url)) url = "https://"+url;
-    bookmarks.push({id:"s"+Date.now()+Math.random().toString(36).slice(2,6), url, label, ts:Date.now()});
-    saveJSON(NS+"bookmarks", bookmarks);
-    urlInput.value=""; labelInput.value="";
-    renderShortcutGrid(scope.querySelector("#ql-bookmarks"), true);
-    const miniGrid = document.getElementById("ql-mini-shortcuts");
-    if(miniGrid) renderShortcutGrid(miniGrid, false);
-  });
 }
 
 /* ================= SCRATCHPAD WIDGET ================= */
