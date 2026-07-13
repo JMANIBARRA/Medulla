@@ -4919,7 +4919,10 @@ const WIDGET_TOPIC_INFERENCE = [
     words:["biomarkers","calories","macros","exercise","diary","meal","meals"],
     exclude:/workout.*today|today.*workout|what'?s my workout|what is my workout/ },
   { id:"garage", phrases:["what cars do i have","what cars do i own","what vehicles do i have","what vehicles do i own","my cars","my vehicles"],
-    words:["garage","vehicle","vehicles","motorcycle","truck"] },
+    /* "garage" itself deliberately excluded from words below — bare "garage" should open the
+       widget (same as "open garage"), not read its contents back as a topic match. Descriptive
+       mentions ("vehicle", "motorcycle", "truck") still trigger the read-summary as before. */
+    words:["vehicle","vehicles","motorcycle","truck"] },
   { id:"phone", phrases:["my contacts","saved contacts","my saved numbers","who's in my phone","who's in my contacts"],
     words:["contact","contacts"] },
   { id:"career", phrases:["cover letter","job feed","salary target","job applications","my resume"],
