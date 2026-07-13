@@ -4547,7 +4547,13 @@ const SITE_SHORTCUTS = {
   reddit:"https://reddit.com", instagram:"https://instagram.com", insta:"https://instagram.com", ig:"https://instagram.com",
   facebook:"https://facebook.com", fb:"https://facebook.com",
   linkedin:"https://linkedin.com", tiktok:"https://tiktok.com",
-  whatsapp:"https://web.whatsapp.com", telegram:"https://web.telegram.org", discord:"https://discord.com", slack:"https://slack.com",
+  /* tg:// is Telegram Desktop's own registered URL scheme — opening it (same window.open path
+     every other shortcut here already uses) hands off to the installed native app instead of
+     the web version. If Telegram Desktop isn't installed, the browser has nothing to hand off
+     to and this just does nothing/shows a blank tab — an acceptable tradeoff here since this is
+     a personal single-user dashboard for a machine that already has the app installed, not a
+     link meant to work for an arbitrary visitor. */
+  whatsapp:"https://web.whatsapp.com", telegram:"tg://", discord:"https://discord.com", slack:"https://slack.com",
   twitch:"https://twitch.tv", pinterest:"https://pinterest.com",
   claude:"https://claude.ai", chatgpt:"https://chatgpt.com", "chat gpt":"https://chatgpt.com",
   openai:"https://openai.com", gemini:"https://gemini.google.com", bard:"https://gemini.google.com",
