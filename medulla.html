@@ -1867,10 +1867,13 @@ function spawnSkyfxParticle(kind){
   skyfxParticles.push({
     x: from.x, y: from.y,
     vx: dx/dist*speed, vy: dy/dist*speed,
-    trailLen: fast ? (60+Math.random()*50) : (140+Math.random()*90),
-    coreR: fast ? 1.6 : 2.6,
-    glow: fast ? 6 : 14,
-    width: fast ? 1.6 : 2.4,
+    /* meteor is deliberately a SHORTER trail than the star despite being slower/brighter — a long
+       trail at low speed just reads as "a shooting star in slow motion"; a short stubby glowing
+       trail reads as a distinct, heavier object instead. */
+    trailLen: fast ? (60+Math.random()*50) : (35+Math.random()*25),
+    coreR: fast ? 1.6 : 3.2,
+    glow: fast ? 6 : 18,
+    width: fast ? 1.6 : 3,
     born: performance.now(),
     maxLifeMs: (dist/speed)*1000 + 300,
   });
