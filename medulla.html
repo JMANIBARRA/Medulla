@@ -659,7 +659,11 @@
   }
   .garage-carousel-arrow:hover{border-color:var(--accent-amber);color:var(--accent-amber);box-shadow:0 0 10px -3px var(--accent-amber);}
   .garage-carousel-arrow:disabled{opacity:.25;cursor:default;box-shadow:none;border-color:var(--line);color:var(--text-dim);}
-  .garage-carousel-viewport{flex:1;position:relative;overflow:hidden;min-height:120px;touch-action:pan-y;}
+  /* Capped width (not flex:1) so the visible window is narrower than one full lap of the
+     tripled reel underneath it — otherwise, with only a handful of vehicles, more than one
+     copy of the same vehicle could be visible on screen at once. Centered via auto margins
+     within the flex row, with the arrow buttons staying pinned to the true left/right edges. */
+  .garage-carousel-viewport{flex:0 1 300px;margin:0 auto;position:relative;overflow:hidden;min-height:120px;touch-action:pan-y;}
   .garage-carousel-viewport.draggable{cursor:grab;}
   .garage-carousel-viewport.dragging{cursor:grabbing;}
   .garage-carousel-track{display:flex;align-items:center;gap:14px;will-change:transform;}
@@ -3823,6 +3827,12 @@ function renderGarageCarousel(container){
     </div>
     <div class="garage-carousel-meta" id="garage-carousel-meta"></div>
     <div class="garage-carousel-dots">${dotsHTML}</div>`;
+
+  /* the viewport's max-width is normally capped at 300px, but for a small vehicle count, a
+     whole lap of the tripled reel (n*PITCH) can be narrower than that — capping further here
+     keeps the window narrower than one full lap so the same vehicle never peeks in on both
+     sides at once. */
+  container.querySelector(".garage-carousel-viewport").style.maxWidth = Math.max(140, Math.min(300, n*GARAGE_CARD_PITCH - 20)) + "px";
 
   garageTrackPos = n + garageCarouselIndex;
   positionGarageTrack(container, garageTrackPos, false);
