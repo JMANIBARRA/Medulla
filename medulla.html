@@ -645,11 +645,12 @@
     .garage-door-scene{display:none;}
   }
 
-  /* ---------- garage carousel (turnstile-style vehicle picker) ---------- */
-  /* Always renders exactly 3 slots — previous/active/next — with wraparound at both ends, so
-     cycling through vehicles never dead-ends and always feels like a continuous rotation
-     (a real turnstile) rather than a list you reach the end of. */
-  .garage-carousel{display:flex;align-items:center;gap:8px;margin:6px 0 10px;}
+  /* ---------- garage carousel (continuous reel, CS:GO-crate-style) ---------- */
+  /* One uniform-width strip of cards (tripled — see garageExtendedList) slides continuously
+     under a fixed center point; whichever card lands there is "selected". Navigating only ever
+     moves this SAME strip's transform — it's never torn down and rebuilt mid-animation, which is
+     what made the previous 3-slot version look like a hard cut/refresh on every step. */
+  .garage-carousel{display:flex;align-items:center;gap:8px;margin:6px 0 4px;}
   .garage-carousel-arrow{
     flex:none;width:32px;height:32px;border:1px solid var(--line);background:var(--bg-panel-raised);
     color:var(--text-primary);font-size:17px;line-height:1;cursor:pointer;
@@ -658,34 +659,43 @@
   }
   .garage-carousel-arrow:hover{border-color:var(--accent-amber);color:var(--accent-amber);box-shadow:0 0 10px -3px var(--accent-amber);}
   .garage-carousel-arrow:disabled{opacity:.25;cursor:default;box-shadow:none;border-color:var(--line);color:var(--text-dim);}
-  .garage-carousel-track{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;min-height:170px;touch-action:pan-y;}
-  .garage-carousel-track.draggable{cursor:grab;}
-  .garage-carousel-track.draggable.dragging{cursor:grabbing;}
-  .garage-carousel-track.dragging .garage-carousel-card{transition:none;}
-  .garage-carousel-card{
-    flex:none;cursor:pointer;border:1px solid var(--line);background:var(--bg-panel-raised);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-    padding:12px 8px;text-align:center;
+  .garage-carousel-viewport{flex:1;position:relative;overflow:hidden;min-height:120px;touch-action:pan-y;}
+  .garage-carousel-viewport.draggable{cursor:grab;}
+  .garage-carousel-viewport.dragging{cursor:grabbing;}
+  .garage-carousel-track{display:flex;align-items:center;gap:14px;will-change:transform;}
+  .garage-carousel-track.dragging .garage-carousel-reel-card{transition:none;}
+  /* fixed bracket marking the center "winning" slot, independent of the strip sliding underneath it */
+  .garage-carousel-center-marker{
+    position:absolute;top:0;bottom:0;left:50%;width:118px;transform:translateX(-50%);
+    border-left:1px solid color-mix(in srgb, var(--accent-amber) 55%, transparent);
+    border-right:1px solid color-mix(in srgb, var(--accent-amber) 55%, transparent);
+    pointer-events:none;
+  }
+  .garage-carousel-reel-card{
+    flex:none;width:104px;height:100px;cursor:pointer;
+    border:1px solid var(--line);background:var(--bg-panel-raised);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    padding:8px 6px;text-align:center;opacity:.5;
     transition:transform .2s ease, opacity .2s ease, box-shadow .2s ease, border-color .2s ease;
   }
-  .garage-carousel-card--side{width:104px;height:118px;opacity:.4;transform:scale(.82);}
-  .garage-carousel-card--side:hover{opacity:.75;}
-  .garage-carousel-card--active{
-    width:180px;height:170px;border-color:var(--accent-amber);cursor:default;
-    box-shadow:0 0 24px -6px var(--accent-amber), 0 0 0 1px var(--accent-amber) inset;
+  .garage-carousel-reel-card:hover{opacity:.8;}
+  .garage-carousel-reel-card.active{
+    opacity:1;transform:scale(1.14);border-color:var(--accent-amber);cursor:default;z-index:2;
+    box-shadow:0 0 20px -5px var(--accent-amber), 0 0 0 1px var(--accent-amber) inset;
   }
-  .garage-carousel-card .garage-icon{width:50px;height:22px;}
-  .garage-carousel-card--side .garage-icon{width:34px;height:15px;}
-  .garage-carousel-card-name{font-family:var(--font-display);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
-  .garage-carousel-card-meta{font-size:10px;color:var(--text-dim);font-family:var(--font-mono);min-height:1.2em;}
+  .garage-carousel-reel-card .garage-icon{width:44px;height:20px;}
+  .garage-carousel-card-name{font-family:var(--font-display);font-weight:700;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .garage-carousel-empty{flex:1;text-align:center;color:var(--text-dim);padding:44px 0;font-size:13px;}
+  .garage-carousel-meta{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:8px 0 6px;font-family:var(--font-mono);}
+  .garage-carousel-meta-name{font-family:var(--font-display);font-weight:700;font-size:13px;}
+  .garage-carousel-meta-detail{font-size:11px;color:var(--text-dim);}
   .garage-carousel-remove{
     flex:none;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);
     background:var(--bg-panel);color:var(--text-dim);font-size:10px;line-height:1;
     display:flex;align-items:center;justify-content:center;cursor:pointer;
   }
   .garage-carousel-remove:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
-  .garage-carousel-empty{flex:1;text-align:center;color:var(--text-dim);padding:44px 0;font-size:13px;}
-  .garage-carousel-dots{display:flex;justify-content:center;gap:6px;}
+  .garage-carousel-dots{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;}
   .garage-carousel-dot{width:6px;height:6px;border-radius:50%;background:var(--line);cursor:pointer;flex:none;}
   .garage-carousel-dot.active{background:var(--accent-amber);box-shadow:0 0 6px 0 var(--accent-amber);}
 
@@ -3700,19 +3710,90 @@ function formatGarageVehicle(v){
   if(v.mileage) label += ` — ${v.mileage} mi`;
   return label;
 }
-/* Turnstile-style vehicle picker for the full view — always exactly 3 slots (previous/active/
-   next) with wraparound at both ends, so cycling through vehicles is a continuous rotation
-   rather than a list with a dead end. garageCarouselIndex is module-level (not persisted) since
-   it's just "what's currently centered while this modal happens to be open", not real state. */
+/* Continuous reel vehicle picker for the full view — a CS:GO-crate-style strip: one uniform
+   set of cards slides under a fixed center marker, whichever card lands there is "selected".
+   The strip is the SAME vehicle list rendered 3 times back-to-back (garageTrackPos lives in
+   that tripled index space); after any move that's drifted into the outer copies, a silent
+   (non-animated) jump back to the equivalent spot in the middle copy keeps the numbers from
+   drifting to infinity — invisible to the user since the copies are identical, so the "reel"
+   just keeps going in either direction with no visible seam. garageCarouselIndex (the real,
+   canonical 0..n-1 vehicle index) and garageTrackPos are both module-level — not persisted,
+   just "what's centered while this modal happens to be open". */
 let garageCarouselIndex = 0;
-function garageCarouselCardHTML(v, i, isActive){
+let garageTrackPos = 0;
+const GARAGE_CARD_W = 104, GARAGE_CARD_GAP = 14;
+const GARAGE_CARD_PITCH = GARAGE_CARD_W + GARAGE_CARD_GAP;
+
+function garageReelCardHTML(v, extPos, canonicalIdx){
   return `
-    <div class="garage-carousel-card garage-carousel-card--${isActive ? "active" : "side"}" data-i="${i}">
+    <div class="garage-carousel-reel-card" data-pos="${extPos}" data-i="${canonicalIdx}">
       <span class="garage-icon">${vehicleIconMarkup(resolveVehicleType(v))}</span>
       <span class="garage-carousel-card-name">${escapeHtml(v.vehicle)}</span>
-      ${isActive ? `<span class="garage-carousel-card-meta">${escapeHtml([v.year, v.mileage ? v.mileage+" mi" : ""].filter(Boolean).join(" · "))}</span>
-      <span class="garage-carousel-remove" data-remove="${i}" title="Remove">✕</span>` : ""}
     </div>`;
+}
+function positionGarageTrack(container, pos, animate){
+  const track = container.querySelector(".garage-carousel-track");
+  const viewport = container.querySelector(".garage-carousel-viewport");
+  if(!track || !viewport) return;
+  const vw = viewport.getBoundingClientRect().width || 300;
+  const offset = vw/2 - (pos*GARAGE_CARD_PITCH + GARAGE_CARD_W/2);
+  track.style.transition = animate ? "transform .4s cubic-bezier(.22,.61,.36,1)" : "none";
+  track.style.transform = `translateX(${offset}px)`;
+}
+function updateGarageActiveCard(container, pos){
+  container.querySelectorAll(".garage-carousel-reel-card").forEach(card=>{
+    card.classList.toggle("active", Number(card.dataset.pos) === pos);
+  });
+}
+function updateGarageDots(container){
+  container.querySelectorAll(".garage-carousel-dot").forEach(dot=>{
+    dot.classList.toggle("active", Number(dot.dataset.dot) === garageCarouselIndex);
+  });
+}
+function updateGarageMeta(container){
+  const meta = container.querySelector("#garage-carousel-meta");
+  if(!meta) return;
+  const v = garageData.vehicles[garageCarouselIndex];
+  if(!v){ meta.innerHTML = ""; return; }
+  const detail = [v.year, v.mileage ? v.mileage+" mi" : ""].filter(Boolean).join(" · ");
+  meta.innerHTML = `
+    <span class="garage-carousel-meta-name">${escapeHtml(v.vehicle)}</span>
+    ${detail ? `<span class="garage-carousel-meta-detail">${escapeHtml(detail)}</span>` : ""}
+    <span class="garage-carousel-remove" data-remove title="Remove">✕</span>`;
+  meta.querySelector("[data-remove]").addEventListener("click", ()=>{
+    garageData.vehicles.splice(garageCarouselIndex, 1);
+    saveJSON(NS+"garage", garageData);
+    renderGarageCarousel(container);
+    renderWidgets();
+  });
+}
+/* Once we've drifted into the outer thirds of the tripled strip, silently (no transition) jump
+   back to the equivalent position in the middle copy — the copies are identical so nothing
+   visibly changes, it just resets the "coordinate system" so repeated moves in one direction
+   don't drift the numbers off toward infinity. */
+function garageSettleCheck(container){
+  const n = garageData.vehicles.length;
+  if(n < 2) return;
+  if(garageTrackPos < n*0.5 || garageTrackPos > n*2.5){
+    garageTrackPos = n + garageCarouselIndex;
+    positionGarageTrack(container, garageTrackPos, false);
+    updateGarageActiveCard(container, garageTrackPos);
+  }
+}
+function garageGoToPos(container, targetPos){
+  const n = garageData.vehicles.length;
+  if(n < 2) return;
+  garageTrackPos = targetPos;
+  garageCarouselIndex = ((targetPos % n) + n) % n;
+  positionGarageTrack(container, garageTrackPos, true);
+  updateGarageActiveCard(container, garageTrackPos);
+  updateGarageDots(container);
+  updateGarageMeta(container);
+  const track = container.querySelector(".garage-carousel-track");
+  let done = false;
+  const finish = ()=>{ if(done) return; done = true; garageSettleCheck(container); };
+  track.addEventListener("transitionend", finish, {once:true});
+  setTimeout(finish, 450); // safety net in case transitionend never fires
 }
 function renderGarageCarousel(container){
   if(!container) return;
@@ -3724,68 +3805,76 @@ function renderGarageCarousel(container){
   const n = vehicles.length;
   if(garageCarouselIndex >= n) garageCarouselIndex = n-1;
   if(garageCarouselIndex < 0) garageCarouselIndex = 0;
-  const activeIdx = garageCarouselIndex;
-  const prevIdx = n > 1 ? (activeIdx-1+n)%n : null;
-  const nextIdx = n > 1 ? (activeIdx+1)%n : null;
 
-  const cardsHTML =
-    (prevIdx!==null ? garageCarouselCardHTML(vehicles[prevIdx], prevIdx, false) : "") +
-    garageCarouselCardHTML(vehicles[activeIdx], activeIdx, true) +
-    (nextIdx!==null ? garageCarouselCardHTML(vehicles[nextIdx], nextIdx, false) : "");
-  const dotsHTML = vehicles.map((_,i)=>`<span class="garage-carousel-dot${i===activeIdx ? " active" : ""}" data-dot="${i}"></span>`).join("");
+  let cardsHTML = "";
+  for(let copy=0; copy<3; copy++){
+    vehicles.forEach((v,i)=>{ cardsHTML += garageReelCardHTML(v, copy*n+i, i); });
+  }
+  const dotsHTML = vehicles.map((_,i)=>`<span class="garage-carousel-dot${i===garageCarouselIndex ? " active" : ""}" data-dot="${i}"></span>`).join("");
 
   container.innerHTML = `
     <div class="garage-carousel">
       <button class="garage-carousel-arrow" id="garage-carousel-prev" ${n<2?"disabled":""} title="Previous vehicle">‹</button>
-      <div class="garage-carousel-track">${cardsHTML}</div>
+      <div class="garage-carousel-viewport">
+        <div class="garage-carousel-track">${cardsHTML}</div>
+        <div class="garage-carousel-center-marker"></div>
+      </div>
       <button class="garage-carousel-arrow" id="garage-carousel-next" ${n<2?"disabled":""} title="Next vehicle">›</button>
     </div>
+    <div class="garage-carousel-meta" id="garage-carousel-meta"></div>
     <div class="garage-carousel-dots">${dotsHTML}</div>`;
 
-  const goTo = (i)=>{ garageCarouselIndex = i; renderGarageCarousel(container); };
-  /* arrows, keyboard, and side-card clicks all move exactly one vehicle at a time, so they
-     share the same sliding "step" transition below; dots can jump an arbitrary distance so they
-     stay an instant cut instead of a directionally-ambiguous slide. */
-  if(prevIdx!==null) container.querySelector("#garage-carousel-prev").addEventListener("click", ()=>garageCarouselStep(container, -1));
-  if(nextIdx!==null) container.querySelector("#garage-carousel-next").addEventListener("click", ()=>garageCarouselStep(container, 1));
-  container.querySelectorAll(".garage-carousel-card--side").forEach(card=>{
-    card.addEventListener("click", ()=>{
-      const i = Number(card.dataset.i);
-      garageCarouselStep(container, i===prevIdx ? -1 : 1);
-    });
-  });
-  container.querySelectorAll("[data-dot]").forEach(dot=>{
-    dot.addEventListener("click", ()=>goTo(Number(dot.dataset.dot)));
-  });
-  const removeBtn = container.querySelector("[data-remove]");
-  if(removeBtn){
-    removeBtn.addEventListener("click", (e)=>{
-      e.stopPropagation();
-      garageData.vehicles.splice(Number(removeBtn.dataset.remove), 1);
-      saveJSON(NS+"garage", garageData);
-      renderGarageCarousel(container);
-      renderWidgets();
-    });
-  }
+  garageTrackPos = n + garageCarouselIndex;
+  positionGarageTrack(container, garageTrackPos, false);
+  updateGarageActiveCard(container, garageTrackPos);
+  updateGarageMeta(container);
 
-  /* drag-to-spin, same hand-feel as the HUD globe: the track follows the pointer 1:1 while
-     held, then on release either snaps back (small/slow drag) or slides the rest of the way
-     into the next/previous vehicle — a hard flick can carry through several vehicles at once,
-     same "speed becomes distance" idea as the globe's momentum, just resolved instantly into a
-     discrete step count instead of a continuously decaying spin. */
+  if(n > 1){
+    container.querySelector("#garage-carousel-prev").addEventListener("click", ()=>garageGoToPos(container, garageTrackPos-1));
+    container.querySelector("#garage-carousel-next").addEventListener("click", ()=>garageGoToPos(container, garageTrackPos+1));
+  }
+  /* clicking any visible card (from any of the 3 copies) jumps straight to that exact spot —
+     it's what's in front of you, not an abstract vehicle index, so no shortest-path logic here. */
+  container.querySelectorAll(".garage-carousel-reel-card").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      if(card.classList.contains("active")) return;
+      garageGoToPos(container, Number(card.dataset.pos));
+    });
+  });
+  /* dots pick a vehicle by its real index, not a specific strip position, so they take whichever
+     of the 3 copies is currently closest — same visual "shortest slide" a real reel would take. */
+  container.querySelectorAll("[data-dot]").forEach(dot=>{
+    dot.addEventListener("click", ()=>{
+      const i = Number(dot.dataset.dot);
+      const candidates = [n+i, n+i-n, n+i+n];
+      let best = candidates[0];
+      candidates.forEach(c=>{ if(Math.abs(c-garageTrackPos) < Math.abs(best-garageTrackPos)) best = c; });
+      garageGoToPos(container, best);
+    });
+  });
+
+  /* drag-to-spin, same hand-feel as the HUD globe: the reel follows the pointer 1:1 while held,
+     then on release either snaps back (small/slow drag) or slides the rest of the way to the
+     nearest vehicle — a hard flick carries through several vehicles at once, same "speed becomes
+     distance" idea as the globe's momentum. Steps are capped by n-1 as well as a flat max of 4,
+     since flicking further than "all the way around" in the tripled strip has nowhere real to go. */
+  const viewport = container.querySelector(".garage-carousel-viewport");
   const track = container.querySelector(".garage-carousel-track");
-  if(track && n > 1){
-    track.classList.add("draggable");
-    track.addEventListener("pointerdown", (e)=>{
+  if(viewport && track && n > 1){
+    viewport.classList.add("draggable");
+    viewport.addEventListener("pointerdown", (e)=>{
       if(e.target.closest(".garage-carousel-remove")) return;
       const startX = e.clientX;
+      const vw = viewport.getBoundingClientRect().width || 300;
+      const baseOffset = vw/2 - (garageTrackPos*GARAGE_CARD_PITCH + GARAGE_CARD_W/2);
       let lastX = e.clientX, lastT = performance.now(), velocity = 0, dragged = false;
       track.style.transition = "none";
+      viewport.classList.add("dragging");
       track.classList.add("dragging");
       function onMove(ev){
         const dx = ev.clientX - startX;
         if(Math.abs(dx) > 6) dragged = true;
-        track.style.transform = `translateX(${dx}px)`;
+        track.style.transform = `translateX(${baseOffset+dx}px)`;
         const now = performance.now();
         const dt = Math.max(1, now-lastT);
         velocity = velocity*0.7 + ((ev.clientX-lastX)/dt)*0.3;
@@ -3794,56 +3883,30 @@ function renderGarageCarousel(container){
       function onUp(ev){
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        viewport.classList.remove("dragging");
         track.classList.remove("dragging");
-        if(!dragged) return; // plain click — let the click event through untouched (e.g. a side card)
+        if(!dragged) return; // plain click — let the click event through untouched (e.g. picking a visible card)
         const swallowClick = (ce)=>{ ce.stopPropagation(); ce.preventDefault(); };
-        track.addEventListener("click", swallowClick, {capture:true, once:true});
-        setTimeout(()=>track.removeEventListener("click", swallowClick, {capture:true}), 0);
+        viewport.addEventListener("click", swallowClick, {capture:true, once:true});
+        setTimeout(()=>viewport.removeEventListener("click", swallowClick, {capture:true}), 0);
 
         const dx = ev.clientX - startX;
-        const w = track.getBoundingClientRect().width || 300;
-        const distSteps = Math.round(Math.abs(dx) / Math.max(60, w/3));
-        const velocitySteps = Math.round(Math.abs(velocity) * 4);
-        const steps = Math.min(4, Math.max(distSteps, velocitySteps));
+        const distSteps = -dx / GARAGE_CARD_PITCH; // dragging left -> advance toward "next"
+        const velocitySteps = -velocity * 4;
+        const raw = Math.abs(distSteps) > Math.abs(velocitySteps) ? distSteps : velocitySteps;
+        const maxSteps = Math.min(4, n-1);
+        let steps = Math.round(raw);
+        steps = Math.max(-maxSteps, Math.min(maxSteps, steps));
         if(steps === 0){
-          track.style.transition = "transform .22s cubic-bezier(.25,.8,.4,1)";
-          track.style.transform = "translateX(0px)";
+          positionGarageTrack(container, garageTrackPos, true); // snap back to current
           return;
         }
-        garageCarouselStep(container, dx < 0 ? 1 : -1, steps);
+        garageGoToPos(container, garageTrackPos + steps);
       }
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     });
   }
-}
-/* Shared sliding transition for any single-direction move (arrows, keyboard, side-card clicks,
-   and drag release) — slides the CURRENT track (wherever it happens to already be, so a drag's
-   live position continues smoothly into this rather than snapping back to 0 first) the rest of
-   the way off in `dir`'s direction, then swaps in the freshly-centered render. `steps` (default
-   1) advances by more than one vehicle for a hard drag flick. */
-function garageCarouselStep(container, dir, steps){
-  steps = steps || 1;
-  const n = garageData.vehicles.length;
-  if(n < 2) return;
-  const track = container.querySelector(".garage-carousel-track");
-  if(!track){
-    garageCarouselIndex = ((garageCarouselIndex + dir*steps) % n + n) % n;
-    renderGarageCarousel(container);
-    return;
-  }
-  const w = track.getBoundingClientRect().width || 300;
-  track.style.transition = "transform .2s cubic-bezier(.25,.8,.4,1)";
-  track.style.transform = `translateX(${dir > 0 ? -w : w}px)`;
-  let done = false;
-  const finish = ()=>{
-    if(done) return;
-    done = true;
-    garageCarouselIndex = ((garageCarouselIndex + dir*steps) % n + n) % n;
-    renderGarageCarousel(container);
-  };
-  track.addEventListener("transitionend", finish, {once:true});
-  setTimeout(finish, 260); // safety net in case transitionend never fires
 }
 /* Motorcycle types are offered alongside the 21 car body styles in the picker below, but still
    use the original hand-drawn line-art icons (VEHICLE_ICONS) rather than the new raster set. */
@@ -3928,11 +3991,10 @@ function hydrateGarageFull(scope){
   function onKeydown(e){
     if(isTypingTarget(e)) return;
     if(e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    const n = garageData.vehicles.length;
-    if(n < 2) return;
+    if(garageData.vehicles.length < 2) return;
     e.preventDefault();
-    garageCarouselIndex = e.key==="ArrowLeft" ? (garageCarouselIndex-1+n)%n : (garageCarouselIndex+1)%n;
-    renderGarageCarousel(scope.querySelector("#garage-carousel"));
+    const container = scope.querySelector("#garage-carousel");
+    garageGoToPos(container, garageTrackPos + (e.key==="ArrowLeft" ? -1 : 1));
   }
   document.addEventListener("keydown", onKeydown);
   /* the door overlay is purely a one-shot reveal — once it's finished lifting out of view,
