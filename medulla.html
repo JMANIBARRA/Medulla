@@ -4576,6 +4576,34 @@ const SITE_SHORTCUTS = {
    request to open ok.com). Only relevant to the generic .com-guess fallback — an exact
    SITE_SHORTCUTS match always wins regardless, since that's unambiguous. */
 const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait"]);
+/* A custom URL scheme (tg://, and any future slack://, zoommtg://, etc.) hands off to an
+   installed native app — but if nothing's registered to handle it, it fails completely
+   silently, unlike a normal broken web link that at least shows an error page. Detected here by
+   opening a blank background tab FIRST and doing the actual attempt inside THAT tab rather than
+   the main Medulla page — so whichever way it goes, success or failure, only the disposable new
+   tab is ever affected; the dashboard itself never risks navigating away or erroring out. If
+   the OS hands off to the app, that tab typically loses focus or gets closed by the browser; if
+   nothing intercepts it within a short window, this redirects that same tab to the web fallback
+   instead. Only "telegram" has both a scheme and a fallback defined right now — anything else
+   in SITE_SHORTCUTS is a plain http(s) URL and just opens normally, untouched by any of this. */
+const SITE_WEB_FALLBACKS = { telegram: "https://web.telegram.org" };
+function openSiteUrl(site, url){
+  if(!url) return;
+  const fallback = SITE_WEB_FALLBACKS[site];
+  if(!fallback || /^https?:\/\//i.test(url)){
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const win = window.open("about:blank", "_blank");
+  if(!win){ window.open(fallback, "_blank", "noopener,noreferrer"); return; }
+  let handedOff = false;
+  try{ win.addEventListener("blur", ()=>{ handedOff = true; }, {once:true}); }catch(e){}
+  win.location.href = url;
+  setTimeout(()=>{
+    if(handedOff || win.closed) return; // the app likely opened — that tab lost focus or the browser auto-closed it
+    try{ win.location.href = fallback; }catch(e){ window.open(fallback, "_blank", "noopener,noreferrer"); }
+  }, 900);
+}
 function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
@@ -4641,7 +4669,7 @@ function tryLocalCommand(text){
      of the Mail widget's link list). */
   const siteShortcutHandled = !!SITE_SHORTCUTS[t.trim()];
   if(siteShortcutHandled){
-    window.open(SITE_SHORTCUTS[t.trim()], "_blank", "noopener,noreferrer");
+    openSiteUrl(t.trim(), SITE_SHORTCUTS[t.trim()]);
     results.push(`Opening ${t.trim()}.`);
   }
   /* Direct time/date questions answered exactly, in code, instead of leaving them to the LLM.
@@ -4737,7 +4765,7 @@ function tryLocalCommand(text){
       openModal(exactDef);
       results.push(`Opening ${exactDef.title}.`);
     } else if(SITE_SHORTCUTS[name]){
-      window.open(SITE_SHORTCUTS[name], "_blank", "noopener,noreferrer");
+      openSiteUrl(name, SITE_SHORTCUTS[name]);
       results.push(`Opening ${name}.`);
     } else if(findWidgetDefByName(name)){
       const def = findWidgetDefByName(name);
@@ -5028,8 +5056,7 @@ aiForm.addEventListener("submit", async (e)=>{
       groupToggles[site](!isOpen);
       return;
     }
-    const url = SITE_SHORTCUTS[site];
-    if(url) window.open(url, "_blank", "noopener,noreferrer");
+    openSiteUrl(site, SITE_SHORTCUTS[site]);
   });
 
   GROUPS.forEach(({key, el, items})=>{
@@ -5051,8 +5078,7 @@ aiForm.addEventListener("submit", async (e)=>{
     el.addEventListener("click", (e)=>{
       const btn = e.target.closest(".hotbar-icon");
       if(!btn) return;
-      const url = SITE_SHORTCUTS[btn.dataset.site];
-      if(url) window.open(url, "_blank", "noopener,noreferrer");
+      openSiteUrl(btn.dataset.site, SITE_SHORTCUTS[btn.dataset.site]);
       toggle(false);
     });
     document.addEventListener("click", (e)=>{
