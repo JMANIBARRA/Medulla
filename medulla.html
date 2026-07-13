@@ -82,6 +82,11 @@
     white-space:pre;pointer-events:none;text-shadow:0 0 8px rgba(0,0,0,.6);
   }
 
+  /* ---------- background sky fx (idle shooting stars / meteor, purely decorative) ---------- */
+  /* z-index:-2 — same locally-scoped-negative-z-index trick as the globe below, just one layer
+     further back so streaks pass behind the globe too, not just behind the widgets. */
+  #skyfx-canvas{position:absolute;inset:0;pointer-events:none;z-index:-2;}
+
   /* ---------- holographic globe (JARVIS/ctOS-style HUD centerpiece) ---------- */
   /* negative z-index — must stay behind #canvas-world (the widgets), which is z-index:auto.
      A positive z-index here would paint above an auto-stacked sibling regardless of DOM order. */
@@ -806,6 +811,7 @@
   </div>
 
   <div id="canvas-viewport">
+    <canvas id="skyfx-canvas"></canvas>
     <div id="globe-ring-1"></div>
     <div id="globe-ring-2"></div>
     <canvas id="globe-canvas"></canvas>
@@ -1806,6 +1812,133 @@ globeMoveHandle.addEventListener("pointercancel", releaseGlobeMove);
 
 sizeGlobe();
 requestAnimationFrame(globeLoop);
+
+/* ================= BACKGROUND SKY FX (idle shooting stars / meteor) ================= */
+/* Purely decorative ambient motion so the backplate doesn't feel totally static between
+   interactions — small bright streaks occasionally cross the screen. "Star" is quick and thin;
+   "meteor" is slower, brighter, rarer, with a longer trail. Both spawn between two random points
+   just outside the viewport (rather than a fixed edge/angle), so every one crosses real screen
+   space at a genuinely random angle and doesn't repeat the same direction each time. The render
+   loop only runs while at least one particle is alive — idle the rest of the time between
+   spawns, not a permanent rAF tax. */
+const skyfxCanvas = $("#skyfx-canvas");
+const skyfxCtx = skyfxCanvas.getContext("2d");
+let skyfxParticles = [];
+let skyfxLoopRunning = false;
+
+function sizeSkyfx(){
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  skyfxCanvas.width = vw*dpr;
+  skyfxCanvas.height = vh*dpr;
+  skyfxCanvas.style.width = vw+"px";
+  skyfxCanvas.style.height = vh+"px";
+  skyfxCtx.setTransform(dpr,0,0,dpr,0,0);
+}
+sizeSkyfx();
+window.addEventListener("resize", sizeSkyfx);
+
+function skyfxOffscreenPoint(margin, side){
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  if(side===0) return {x:-margin, y: Math.random()*vh};
+  if(side===1) return {x: vw+margin, y: Math.random()*vh};
+  if(side===2) return {x: Math.random()*vw, y:-margin};
+  return {x: Math.random()*vw, y: vh+margin};
+}
+const SKYFX_OPPOSITE_SIDE = {0:1, 1:0, 2:3, 3:2};
+
+function spawnSkyfxParticle(kind){
+  /* the destination side is usually the opposite of the start side (left->right, top->bottom,
+     etc), occasionally an adjacent one instead, purely so the direction still varies run to run
+     — picking both points fully independently risked landing on the SAME side, which produces a
+     path running parallel to that edge and never actually entering visible screen space at all. */
+  const fromSide = Math.floor(Math.random()*4);
+  let toSide = SKYFX_OPPOSITE_SIDE[fromSide];
+  if(Math.random() < 0.3){
+    const others = [0,1,2,3].filter(s=>s!==fromSide);
+    toSide = others[Math.floor(Math.random()*others.length)];
+  }
+  const from = skyfxOffscreenPoint(40, fromSide);
+  const to = skyfxOffscreenPoint(40, toSide);
+  const dx = to.x-from.x, dy = to.y-from.y;
+  const dist = Math.max(1, Math.hypot(dx,dy));
+  const fast = kind==="star";
+  const speed = fast ? (900+Math.random()*500) : (90+Math.random()*60); // px/sec
+  skyfxParticles.push({
+    x: from.x, y: from.y,
+    vx: dx/dist*speed, vy: dy/dist*speed,
+    trailLen: fast ? (60+Math.random()*50) : (140+Math.random()*90),
+    coreR: fast ? 1.6 : 2.6,
+    glow: fast ? 6 : 14,
+    width: fast ? 1.6 : 2.4,
+    born: performance.now(),
+    maxLifeMs: (dist/speed)*1000 + 300,
+  });
+  if(!skyfxLoopRunning){ skyfxLoopRunning = true; skyfxLastT = 0; requestAnimationFrame(skyfxTick); }
+}
+
+function drawSkyfxParticle(p, alpha){
+  const angle = Math.atan2(p.vy, p.vx);
+  const tx = p.x - Math.cos(angle)*p.trailLen;
+  const ty = p.y - Math.sin(angle)*p.trailLen;
+  const grad = skyfxCtx.createLinearGradient(tx,ty,p.x,p.y);
+  grad.addColorStop(0, `rgba(${themeAccentRgbStr},0)`);
+  grad.addColorStop(1, `rgba(${themeAccentRgbStr},${0.85*alpha})`);
+  skyfxCtx.strokeStyle = grad;
+  skyfxCtx.lineWidth = p.width;
+  skyfxCtx.lineCap = "round";
+  skyfxCtx.beginPath();
+  skyfxCtx.moveTo(tx,ty);
+  skyfxCtx.lineTo(p.x,p.y);
+  skyfxCtx.stroke();
+
+  skyfxCtx.beginPath();
+  skyfxCtx.fillStyle = `rgba(${themeAccentRgbStr},${alpha})`;
+  skyfxCtx.shadowColor = `rgba(${themeAccentRgbStr},${alpha})`;
+  skyfxCtx.shadowBlur = p.glow;
+  skyfxCtx.arc(p.x, p.y, p.coreR, 0, Math.PI*2);
+  skyfxCtx.fill();
+  skyfxCtx.shadowBlur = 0;
+}
+
+let skyfxLastT = 0;
+function skyfxTick(t){
+  const dt = skyfxLastT ? Math.min(48, t-skyfxLastT) : 16.7;
+  skyfxLastT = t;
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  skyfxCtx.clearRect(0,0,vw,vh);
+  skyfxParticles = skyfxParticles.filter(p=>{
+    p.x += p.vx*dt/1000;
+    p.y += p.vy*dt/1000;
+    const age = t-p.born;
+    if(age > p.maxLifeMs || p.x < -200 || p.x > vw+200 || p.y < -200 || p.y > vh+200) return false;
+    const fadeIn = Math.min(1, age/150);
+    const fadeOut = Math.min(1, (p.maxLifeMs-age)/300);
+    const alpha = Math.max(0, Math.min(fadeIn, fadeOut));
+    drawSkyfxParticle(p, alpha);
+    return true;
+  });
+  if(skyfxParticles.length){
+    requestAnimationFrame(skyfxTick);
+  } else {
+    skyfxLoopRunning = false;
+  }
+}
+
+/* two independent randomized-interval loops (same "never feel mechanical" idea as the idle
+   check-ins below) — shooting stars fairly often, the rarer/slower meteor much less so. Skipped
+   entirely under prefers-reduced-motion, same guard used for the holographic portrait's idle
+   loops. */
+function scheduleSkyfx(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  (function loopStar(){
+    setTimeout(()=>{ spawnSkyfxParticle("star"); loopStar(); }, 4000+Math.random()*6000);
+  })();
+  (function loopMeteor(){
+    setTimeout(()=>{ spawnSkyfxParticle("meteor"); loopMeteor(); }, 18000+Math.random()*22000);
+  })();
+}
+scheduleSkyfx();
 
 let spaceDown = false;
 window.addEventListener("keydown", e=>{ if(e.code==="Space" && !isTypingTarget(e)){ spaceDown=true; viewport.classList.add("space-down"); }});
