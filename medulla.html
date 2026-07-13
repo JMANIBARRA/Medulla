@@ -2733,13 +2733,22 @@ function renderFull(id){
       <input id="phone-number-input" type="tel" placeholder="Phone number" style="flex:1;min-width:140px;"/>
       <button class="btn primary" id="phone-add-btn">Add</button>
     </div>
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <button class="btn" id="phone-import-btn">Import from vCard (.vcf)</button>
-      <input id="phone-import-file" type="file" accept=".vcf,text/vcard" style="display:none;">
-      <span id="phone-import-status" style="font-size:.82em;color:var(--text-dim);"></span>
-    </div>
-    <div style="font-size:.78em;color:var(--text-dim);margin-top:6px;">
-      Export your contacts as a .vcf file (Mac Contacts app: File → Export → Export vCard; Google Contacts: Export → vCard) then import it here. Re-import anytime to pull in new contacts — existing ones are skipped, not duplicated.
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Sync From Your Contacts</h3>
+      <div style="font-size:.78em;color:var(--text-dim);margin-bottom:8px;">
+        Open your contacts, select the ones you want, copy them (⌘C / Ctrl+C), then paste below — works with a raw copy from the Contacts app or a plain list like "Mom, 555-123-4567" (one per line).
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <a href="https://contacts.google.com" target="_blank" rel="noopener noreferrer" class="btn" style="text-decoration:none;">Open Google Contacts ↗</a>
+        <a href="https://www.icloud.com/contacts" target="_blank" rel="noopener noreferrer" class="btn" style="text-decoration:none;">Open iCloud Contacts ↗</a>
+      </div>
+      <textarea id="phone-paste-area" placeholder="Paste copied contacts here…" style="width:100%;min-height:70px;resize:vertical;font-family:var(--font-mono);font-size:.85em;"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;">
+        <button class="btn primary" id="phone-paste-import-btn">Import Pasted Contacts</button>
+        <button class="btn" id="phone-import-btn">Import a .vcf file instead</button>
+        <input id="phone-import-file" type="file" accept=".vcf,text/vcard" style="display:none;">
+      </div>
+      <div id="phone-import-status" style="font-size:.82em;color:var(--text-dim);margin-top:6px;"></div>
     </div>`;
   }
   if(id==="mail"){
@@ -3517,13 +3526,67 @@ function parseVcf(text){
   });
   return contacts;
 }
-function importVcfContacts(scope, text){
+/* Fallback for pasted text that isn't a raw vCard — covers a plain hand-typed/copied list
+   ("Mom, 555-123-4567", "Mom: 555-123-4567", "Mom - 555-123-4567", one per line) as well as a
+   macOS/Google "copy contact" clipboard dump, which tends to land as a name line followed by
+   one or more labeled phone lines rather than valid vCard markup. A line becomes "the current
+   name" whenever it doesn't itself look like a phone number, so later phone-only lines attach
+   to whichever name line came before them. */
+const PHONE_LABEL_RE = /^(mobile|cell|iphone|home|work|main|other|fax|phone)\s*[:\-]?\s*/i;
+function looksLikePhone(str){
+  const digits = str.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 && /^[\d+()\s.-]+$/.test(str.trim());
+}
+function parseFreeformContacts(text){
+  const lines = text.replace(/\r\n/g, "\n").split("\n").map(l=>l.trim()).filter(Boolean);
+  const raw = [];
+  let currentName = "";
+  lines.forEach(line=>{
+    if(/^https?:\/\//i.test(line)) return;
+    if(line.includes("@")) return; // skip email lines, they're not useful here and never phone-shaped
+
+    /* checked first, before the generic "Name <sep> Number" split below — a bare label+number
+       line like "mobile 555-123-4567" has no name of its own (it belongs to whatever name line
+       came before it), and the phone number's own internal hyphens would otherwise get
+       mistaken for a name/number separator by the generic split. */
+    const labelMatch = line.match(PHONE_LABEL_RE);
+    const stripped = line.replace(PHONE_LABEL_RE, "").trim();
+    if(looksLikePhone(stripped)){
+      if(currentName) raw.push({ name: currentName, number: stripped, label: labelMatch ? labelMatch[1].toLowerCase() : "" });
+      return;
+    }
+
+    const sepMatch = line.match(/^(.*?)[\t:,]\s*([\d+()\s.-]{7,})$/) || line.match(/^(.*?)\s-\s([\d+()\s.-]{7,})$/);
+    if(sepMatch && looksLikePhone(sepMatch[2])){
+      const label = (sepMatch[1].match(PHONE_LABEL_RE)||[])[1] || "";
+      const namePart = sepMatch[1].replace(PHONE_LABEL_RE, "").trim();
+      const name = namePart || currentName;
+      if(name) raw.push({ name, number: sepMatch[2].trim(), label: label.toLowerCase() });
+      return;
+    }
+
+    if(line.length <= 60) currentName = line;
+  });
+
+  const byName = {};
+  raw.forEach(c=>{ (byName[c.name] = byName[c.name]||[]).push(c); });
+  const contacts = [];
+  Object.keys(byName).forEach(name=>{
+    const entries = byName[name];
+    entries.forEach(c=>{
+      const suffix = entries.length > 1 && c.label ? ` (${c.label})` : "";
+      contacts.push({ name: name+suffix, number: c.number });
+    });
+  });
+  return contacts;
+}
+function parseContactsText(text){
+  return /BEGIN:VCARD/i.test(text) ? parseVcf(text) : parseFreeformContacts(text);
+}
+function mergeParsedContacts(scope, parsed, notFoundMsg){
   const status = scope.querySelector("#phone-import-status");
-  let parsed;
-  try{ parsed = parseVcf(text); }
-  catch(e){ if(status) status.textContent = "Couldn't read that file."; return; }
   if(!parsed.length){
-    if(status) status.textContent = "No contacts with phone numbers found in that file.";
+    if(status) status.textContent = notFoundMsg;
     return;
   }
   const existing = new Set(phoneData.contacts.map(c=>`${c.name}|${telHref(c.number)}`));
@@ -3540,7 +3603,7 @@ function importVcfContacts(scope, text){
   renderWidgets();
   if(status) status.textContent = added
     ? `Imported ${added} contact${added===1?"":"s"} (${parsed.length-added} already saved, skipped).`
-    : `All ${parsed.length} contacts from that file were already saved.`;
+    : `All ${parsed.length} contacts were already saved.`;
 }
 function hydratePhoneFull(scope){
   renderPhoneList(scope.querySelector("#phone-list"));
@@ -3548,6 +3611,19 @@ function hydratePhoneFull(scope){
   ["#phone-name-input","#phone-number-input"].forEach(sel=>{
     scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addPhoneContact(scope); });
   });
+
+  const pasteArea = scope.querySelector("#phone-paste-area");
+  scope.querySelector("#phone-paste-import-btn").addEventListener("click", ()=>{
+    const text = pasteArea.value.trim();
+    const status = scope.querySelector("#phone-import-status");
+    if(!text){ if(status) status.textContent = "Paste some contacts first."; return; }
+    let parsed;
+    try{ parsed = parseContactsText(text); }
+    catch(e){ if(status) status.textContent = "Couldn't read that text."; return; }
+    mergeParsedContacts(scope, parsed, "No names with phone numbers found in that text.");
+    if(parsed.length) pasteArea.value = "";
+  });
+
   const importBtn = scope.querySelector("#phone-import-btn");
   const importFile = scope.querySelector("#phone-import-file");
   importBtn.addEventListener("click", ()=>importFile.click());
@@ -3557,7 +3633,12 @@ function hydratePhoneFull(scope){
     const status = scope.querySelector("#phone-import-status");
     if(status) status.textContent = "Importing…";
     const reader = new FileReader();
-    reader.onload = ()=>importVcfContacts(scope, String(reader.result||""));
+    reader.onload = ()=>{
+      let parsed;
+      try{ parsed = parseVcf(String(reader.result||"")); }
+      catch(e){ if(status) status.textContent = "Couldn't read that file."; return; }
+      mergeParsedContacts(scope, parsed, "No contacts with phone numbers found in that file.");
+    };
     reader.onerror = ()=>{ if(status) status.textContent = "Couldn't read that file."; };
     reader.readAsText(file);
     importFile.value = "";
