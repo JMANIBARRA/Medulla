@@ -644,6 +644,48 @@
   @media (prefers-reduced-motion: reduce){
     .garage-door-scene{display:none;}
   }
+
+  /* ---------- garage carousel (turnstile-style vehicle picker) ---------- */
+  /* Always renders exactly 3 slots — previous/active/next — with wraparound at both ends, so
+     cycling through vehicles never dead-ends and always feels like a continuous rotation
+     (a real turnstile) rather than a list you reach the end of. */
+  .garage-carousel{display:flex;align-items:center;gap:8px;margin:6px 0 10px;}
+  .garage-carousel-arrow{
+    flex:none;width:32px;height:32px;border:1px solid var(--line);background:var(--bg-panel-raised);
+    color:var(--text-primary);font-size:17px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color .15s, color .15s, box-shadow .15s;
+  }
+  .garage-carousel-arrow:hover{border-color:var(--accent-amber);color:var(--accent-amber);box-shadow:0 0 10px -3px var(--accent-amber);}
+  .garage-carousel-arrow:disabled{opacity:.25;cursor:default;box-shadow:none;border-color:var(--line);color:var(--text-dim);}
+  .garage-carousel-track{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;min-height:170px;}
+  .garage-carousel-card{
+    flex:none;cursor:pointer;border:1px solid var(--line);background:var(--bg-panel-raised);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    padding:12px 8px;text-align:center;
+    transition:transform .2s ease, opacity .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .garage-carousel-card--side{width:104px;height:118px;opacity:.4;transform:scale(.82);}
+  .garage-carousel-card--side:hover{opacity:.75;}
+  .garage-carousel-card--active{
+    width:180px;height:170px;border-color:var(--accent-amber);cursor:default;
+    box-shadow:0 0 24px -6px var(--accent-amber), 0 0 0 1px var(--accent-amber) inset;
+  }
+  .garage-carousel-card .garage-icon{width:50px;height:22px;}
+  .garage-carousel-card--side .garage-icon{width:34px;height:15px;}
+  .garage-carousel-card-name{font-family:var(--font-display);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .garage-carousel-card-meta{font-size:10px;color:var(--text-dim);font-family:var(--font-mono);min-height:1.2em;}
+  .garage-carousel-remove{
+    flex:none;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);
+    background:var(--bg-panel);color:var(--text-dim);font-size:10px;line-height:1;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .garage-carousel-remove:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
+  .garage-carousel-empty{flex:1;text-align:center;color:var(--text-dim);padding:44px 0;font-size:13px;}
+  .garage-carousel-dots{display:flex;justify-content:center;gap:6px;}
+  .garage-carousel-dot{width:6px;height:6px;border-radius:50%;background:var(--line);cursor:pointer;flex:none;}
+  .garage-carousel-dot.active{background:var(--accent-amber);box-shadow:0 0 6px 0 var(--accent-amber);}
+
   .scratch-mini-textarea{font-size:clamp(11px, calc(var(--w, 270px) * 0.036), 16px);}
   .widget-body::-webkit-scrollbar{width:6px;}
   .widget-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
@@ -2586,7 +2628,7 @@ function openModal(def){
     if(def.id==="banking") hydrateBankingFull(modalBody);
     if(def.id==="claudeprojects") hydrateClaudeProjectsFull(modalBody);
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
-    if(def.id==="garage") hydrateGarageFull(modalBody);
+    if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
     if(def.id==="phone") hydratePhoneFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
@@ -2942,7 +2984,7 @@ function renderFull(id){
     return `
     <div class="garage-scene">
       <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">My Vehicles</h3>
-      <div id="garage-list" style="margin:10px 0;"></div>
+      <div id="garage-carousel"></div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
         <input id="garage-add-input" type="text" placeholder="e.g. Honda Civic" style="flex:2;min-width:140px;"/>
         <input id="garage-year-input" type="text" placeholder="Year" style="flex:1;min-width:70px;"/>
@@ -3577,24 +3619,67 @@ function formatGarageVehicle(v){
   if(v.mileage) label += ` — ${v.mileage} mi`;
   return label;
 }
-function renderGarageList(container){
-  container.innerHTML = garageData.vehicles.map((v,i)=>`
-    <div class="list-row">
-      <span style="display:flex;align-items:center;gap:8px;overflow:hidden;">
-        <span class="garage-icon">${vehicleIconSvg(v.vehicle)}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${formatGarageVehicle(v)}</span>
-      </span>
-      <button class="hbtn" data-i="${i}">✕</button>
+/* Turnstile-style vehicle picker for the full view — always exactly 3 slots (previous/active/
+   next) with wraparound at both ends, so cycling through vehicles is a continuous rotation
+   rather than a list with a dead end. garageCarouselIndex is module-level (not persisted) since
+   it's just "what's currently centered while this modal happens to be open", not real state. */
+let garageCarouselIndex = 0;
+function garageCarouselCardHTML(v, i, isActive){
+  return `
+    <div class="garage-carousel-card garage-carousel-card--${isActive ? "active" : "side"}" data-i="${i}">
+      <span class="garage-icon">${vehicleIconSvg(v.vehicle)}</span>
+      <span class="garage-carousel-card-name">${escapeHtml(v.vehicle)}</span>
+      ${isActive ? `<span class="garage-carousel-card-meta">${escapeHtml([v.year, v.mileage ? v.mileage+" mi" : ""].filter(Boolean).join(" · "))}</span>
+      <span class="garage-carousel-remove" data-remove="${i}" title="Remove">✕</span>` : ""}
+    </div>`;
+}
+function renderGarageCarousel(container){
+  if(!container) return;
+  const vehicles = garageData.vehicles;
+  if(!vehicles.length){
+    container.innerHTML = `<div class="garage-carousel-empty">No vehicles added yet — add one below.</div>`;
+    return;
+  }
+  const n = vehicles.length;
+  if(garageCarouselIndex >= n) garageCarouselIndex = n-1;
+  if(garageCarouselIndex < 0) garageCarouselIndex = 0;
+  const activeIdx = garageCarouselIndex;
+  const prevIdx = n > 1 ? (activeIdx-1+n)%n : null;
+  const nextIdx = n > 1 ? (activeIdx+1)%n : null;
+
+  const cardsHTML =
+    (prevIdx!==null ? garageCarouselCardHTML(vehicles[prevIdx], prevIdx, false) : "") +
+    garageCarouselCardHTML(vehicles[activeIdx], activeIdx, true) +
+    (nextIdx!==null ? garageCarouselCardHTML(vehicles[nextIdx], nextIdx, false) : "");
+  const dotsHTML = vehicles.map((_,i)=>`<span class="garage-carousel-dot${i===activeIdx ? " active" : ""}" data-dot="${i}"></span>`).join("");
+
+  container.innerHTML = `
+    <div class="garage-carousel">
+      <button class="garage-carousel-arrow" id="garage-carousel-prev" ${n<2?"disabled":""} title="Previous vehicle">‹</button>
+      <div class="garage-carousel-track">${cardsHTML}</div>
+      <button class="garage-carousel-arrow" id="garage-carousel-next" ${n<2?"disabled":""} title="Next vehicle">›</button>
     </div>
-  `).join("") || `<div style="color:var(--text-dim);">No vehicles added yet.</div>`;
-  $$("[data-i]",container).forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      garageData.vehicles.splice(Number(btn.dataset.i),1);
+    <div class="garage-carousel-dots">${dotsHTML}</div>`;
+
+  const goTo = (i)=>{ garageCarouselIndex = i; renderGarageCarousel(container); };
+  if(prevIdx!==null) container.querySelector("#garage-carousel-prev").addEventListener("click", ()=>goTo(prevIdx));
+  if(nextIdx!==null) container.querySelector("#garage-carousel-next").addEventListener("click", ()=>goTo(nextIdx));
+  container.querySelectorAll(".garage-carousel-card--side").forEach(card=>{
+    card.addEventListener("click", ()=>goTo(Number(card.dataset.i)));
+  });
+  container.querySelectorAll("[data-dot]").forEach(dot=>{
+    dot.addEventListener("click", ()=>goTo(Number(dot.dataset.dot)));
+  });
+  const removeBtn = container.querySelector("[data-remove]");
+  if(removeBtn){
+    removeBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      garageData.vehicles.splice(Number(removeBtn.dataset.remove), 1);
       saveJSON(NS+"garage", garageData);
-      renderGarageList(container);
+      renderGarageCarousel(container);
       renderWidgets();
     });
-  });
+  }
 }
 function addGarageVehicle(scope){
   const nameInp = scope.querySelector("#garage-add-input");
@@ -3604,17 +3689,30 @@ function addGarageVehicle(scope){
   if(!vehicle) return;
   garageData.vehicles.push({vehicle, year: yearInp.value.trim(), mileage: mileageInp.value.trim()});
   saveJSON(NS+"garage", garageData);
+  garageCarouselIndex = garageData.vehicles.length-1; // center the newly-added vehicle
   nameInp.value = ""; yearInp.value = ""; mileageInp.value = "";
-  renderGarageList(scope.querySelector("#garage-list"));
+  renderGarageCarousel(scope.querySelector("#garage-carousel"));
   renderWidgets();
   nameInp.focus();
 }
 function hydrateGarageFull(scope){
-  renderGarageList(scope.querySelector("#garage-list"));
+  renderGarageCarousel(scope.querySelector("#garage-carousel"));
   scope.querySelector("#garage-add-btn").addEventListener("click", ()=>addGarageVehicle(scope));
   ["#garage-add-input","#garage-year-input","#garage-mileage-input"].forEach(sel=>{
     scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addGarageVehicle(scope); });
   });
+  /* left/right arrow keys cycle the carousel too, while this modal's open — skipped while
+     actually typing in one of the add-vehicle inputs so it doesn't hijack text-cursor movement. */
+  function onKeydown(e){
+    if(isTypingTarget(e)) return;
+    if(e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const n = garageData.vehicles.length;
+    if(n < 2) return;
+    e.preventDefault();
+    garageCarouselIndex = e.key==="ArrowLeft" ? (garageCarouselIndex-1+n)%n : (garageCarouselIndex+1)%n;
+    renderGarageCarousel(scope.querySelector("#garage-carousel"));
+  }
+  document.addEventListener("keydown", onKeydown);
   /* the door overlay is purely a one-shot reveal — once it's finished lifting out of view,
      drop it from the DOM entirely rather than leaving a fully-transparent element sitting on
      top of the real content indefinitely (harmless since it's pointer-events:none, but there's
@@ -3625,6 +3723,7 @@ function hydrateGarageFull(scope){
   if(door && doorScene){
     door.addEventListener("animationend", ()=>{ doorScene.remove(); }, {once:true});
   }
+  return ()=>{ document.removeEventListener("keydown", onKeydown); };
 }
 function refreshGarageMiniList(scope){
   const el = scope.querySelector("#garage-mini-list");
