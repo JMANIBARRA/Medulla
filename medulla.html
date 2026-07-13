@@ -658,7 +658,10 @@
   }
   .garage-carousel-arrow:hover{border-color:var(--accent-amber);color:var(--accent-amber);box-shadow:0 0 10px -3px var(--accent-amber);}
   .garage-carousel-arrow:disabled{opacity:.25;cursor:default;box-shadow:none;border-color:var(--line);color:var(--text-dim);}
-  .garage-carousel-track{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;min-height:170px;}
+  .garage-carousel-track{flex:1;display:flex;align-items:center;justify-content:center;gap:16px;min-height:170px;touch-action:pan-y;}
+  .garage-carousel-track.draggable{cursor:grab;}
+  .garage-carousel-track.draggable.dragging{cursor:grabbing;}
+  .garage-carousel-track.dragging .garage-carousel-card{transition:none;}
   .garage-carousel-card{
     flex:none;cursor:pointer;border:1px solid var(--line);background:var(--bg-panel-raised);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
@@ -3662,10 +3665,16 @@ function renderGarageCarousel(container){
     <div class="garage-carousel-dots">${dotsHTML}</div>`;
 
   const goTo = (i)=>{ garageCarouselIndex = i; renderGarageCarousel(container); };
-  if(prevIdx!==null) container.querySelector("#garage-carousel-prev").addEventListener("click", ()=>goTo(prevIdx));
-  if(nextIdx!==null) container.querySelector("#garage-carousel-next").addEventListener("click", ()=>goTo(nextIdx));
+  /* arrows, keyboard, and side-card clicks all move exactly one vehicle at a time, so they
+     share the same sliding "step" transition below; dots can jump an arbitrary distance so they
+     stay an instant cut instead of a directionally-ambiguous slide. */
+  if(prevIdx!==null) container.querySelector("#garage-carousel-prev").addEventListener("click", ()=>garageCarouselStep(container, -1));
+  if(nextIdx!==null) container.querySelector("#garage-carousel-next").addEventListener("click", ()=>garageCarouselStep(container, 1));
   container.querySelectorAll(".garage-carousel-card--side").forEach(card=>{
-    card.addEventListener("click", ()=>goTo(Number(card.dataset.i)));
+    card.addEventListener("click", ()=>{
+      const i = Number(card.dataset.i);
+      garageCarouselStep(container, i===prevIdx ? -1 : 1);
+    });
   });
   container.querySelectorAll("[data-dot]").forEach(dot=>{
     dot.addEventListener("click", ()=>goTo(Number(dot.dataset.dot)));
@@ -3680,6 +3689,83 @@ function renderGarageCarousel(container){
       renderWidgets();
     });
   }
+
+  /* drag-to-spin, same hand-feel as the HUD globe: the track follows the pointer 1:1 while
+     held, then on release either snaps back (small/slow drag) or slides the rest of the way
+     into the next/previous vehicle — a hard flick can carry through several vehicles at once,
+     same "speed becomes distance" idea as the globe's momentum, just resolved instantly into a
+     discrete step count instead of a continuously decaying spin. */
+  const track = container.querySelector(".garage-carousel-track");
+  if(track && n > 1){
+    track.classList.add("draggable");
+    track.addEventListener("pointerdown", (e)=>{
+      if(e.target.closest(".garage-carousel-remove")) return;
+      const startX = e.clientX;
+      let lastX = e.clientX, lastT = performance.now(), velocity = 0, dragged = false;
+      track.style.transition = "none";
+      track.classList.add("dragging");
+      function onMove(ev){
+        const dx = ev.clientX - startX;
+        if(Math.abs(dx) > 6) dragged = true;
+        track.style.transform = `translateX(${dx}px)`;
+        const now = performance.now();
+        const dt = Math.max(1, now-lastT);
+        velocity = velocity*0.7 + ((ev.clientX-lastX)/dt)*0.3;
+        lastX = ev.clientX; lastT = now;
+      }
+      function onUp(ev){
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        track.classList.remove("dragging");
+        if(!dragged) return; // plain click — let the click event through untouched (e.g. a side card)
+        const swallowClick = (ce)=>{ ce.stopPropagation(); ce.preventDefault(); };
+        track.addEventListener("click", swallowClick, {capture:true, once:true});
+        setTimeout(()=>track.removeEventListener("click", swallowClick, {capture:true}), 0);
+
+        const dx = ev.clientX - startX;
+        const w = track.getBoundingClientRect().width || 300;
+        const distSteps = Math.round(Math.abs(dx) / Math.max(60, w/3));
+        const velocitySteps = Math.round(Math.abs(velocity) * 4);
+        const steps = Math.min(4, Math.max(distSteps, velocitySteps));
+        if(steps === 0){
+          track.style.transition = "transform .22s cubic-bezier(.25,.8,.4,1)";
+          track.style.transform = "translateX(0px)";
+          return;
+        }
+        garageCarouselStep(container, dx < 0 ? 1 : -1, steps);
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  }
+}
+/* Shared sliding transition for any single-direction move (arrows, keyboard, side-card clicks,
+   and drag release) — slides the CURRENT track (wherever it happens to already be, so a drag's
+   live position continues smoothly into this rather than snapping back to 0 first) the rest of
+   the way off in `dir`'s direction, then swaps in the freshly-centered render. `steps` (default
+   1) advances by more than one vehicle for a hard drag flick. */
+function garageCarouselStep(container, dir, steps){
+  steps = steps || 1;
+  const n = garageData.vehicles.length;
+  if(n < 2) return;
+  const track = container.querySelector(".garage-carousel-track");
+  if(!track){
+    garageCarouselIndex = ((garageCarouselIndex + dir*steps) % n + n) % n;
+    renderGarageCarousel(container);
+    return;
+  }
+  const w = track.getBoundingClientRect().width || 300;
+  track.style.transition = "transform .2s cubic-bezier(.25,.8,.4,1)";
+  track.style.transform = `translateX(${dir > 0 ? -w : w}px)`;
+  let done = false;
+  const finish = ()=>{
+    if(done) return;
+    done = true;
+    garageCarouselIndex = ((garageCarouselIndex + dir*steps) % n + n) % n;
+    renderGarageCarousel(container);
+  };
+  track.addEventListener("transitionend", finish, {once:true});
+  setTimeout(finish, 260); // safety net in case transitionend never fires
 }
 function addGarageVehicle(scope){
   const nameInp = scope.querySelector("#garage-add-input");
