@@ -60,6 +60,12 @@
   #canvas-viewport.space-down{cursor:grab;}
   #canvas-viewport.paint-mode{cursor:crosshair;}
   #canvas-viewport.paint-mode.panning{cursor:grabbing;}
+  /* while panning the canvas (or dragging/resizing any widget), the mouse sweeps across
+     whatever's on screen — including pinned widgets, which don't move with the pan — and would
+     otherwise trigger the browser's native text-selection drag on their content. Toggled on
+     document.documentElement for the duration of the gesture so it covers pinned widgets no
+     matter where in the DOM they live. */
+  html.no-select-drag, html.no-select-drag *{user-select:none;-webkit-user-select:none;}
 
   #canvas-world{
     position:absolute;top:0;left:0;
@@ -1733,6 +1739,7 @@ globeHit.addEventListener("pointerdown",(e)=>{
   globeDownX = e.clientX; globeDownY = e.clientY;
   globeVelocitySample = 0;
   globeLastMoveTime = performance.now();
+  setGlobalNoSelect(true);
   try{ globeHit.setPointerCapture(e.pointerId); }catch(err){}
 });
 globeHit.addEventListener("pointermove",(e)=>{
@@ -1750,6 +1757,7 @@ globeHit.addEventListener("pointermove",(e)=>{
 function releaseGlobe(e){
   globeHeld = false;
   globeHit.classList.remove("held");
+  setGlobalNoSelect(false);
   if(e && Math.abs(e.clientX-globeDownX) < GLOBE_CLICK_MAX_DRIFT && Math.abs(e.clientY-globeDownY) < GLOBE_CLICK_MAX_DRIFT){
     globeMoveHandle.classList.toggle("shown");
   } else {
@@ -1773,6 +1781,7 @@ globeMoveHandle.addEventListener("pointerdown",(e)=>{
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   globeMoveStartCenter = globeCenterPx(vw, vh);
   globeMoveStartX = e.clientX; globeMoveStartY = e.clientY;
+  setGlobalNoSelect(true);
   try{ globeMoveHandle.setPointerCapture(e.pointerId); }catch(err){}
 });
 globeMoveHandle.addEventListener("pointermove",(e)=>{
@@ -1789,6 +1798,7 @@ function releaseGlobeMove(){
   if(!globeMoveHeld) return;
   globeMoveHeld = false;
   globeMoveHandle.classList.remove("held");
+  setGlobalNoSelect(false);
   if(globePos) saveJSON(NS+"globePos", globePos);
 }
 globeMoveHandle.addEventListener("pointerup", releaseGlobeMove);
@@ -1801,6 +1811,10 @@ let spaceDown = false;
 window.addEventListener("keydown", e=>{ if(e.code==="Space" && !isTypingTarget(e)){ spaceDown=true; viewport.classList.add("space-down"); }});
 window.addEventListener("keyup", e=>{ if(e.code==="Space"){ spaceDown=false; viewport.classList.remove("space-down"); }});
 
+function setGlobalNoSelect(on){
+  document.documentElement.classList.toggle("no-select-drag", on);
+}
+
 let panning=false, panStart={x:0,y:0}, camStart={x:0,y:0};
 let drawing=false, currentStroke=null;
 let paintMode=false;
@@ -1812,6 +1826,7 @@ viewport.addEventListener("pointerdown", (e)=>{
   if(e.button===1){
     panning=true; panStart={x:e.clientX,y:e.clientY}; camStart={x:state.camera.x,y:state.camera.y};
     viewport.classList.add("panning");
+    setGlobalNoSelect(true);
     e.preventDefault();
     return;
   }
@@ -1828,6 +1843,7 @@ viewport.addEventListener("pointerdown", (e)=>{
   /* default (not in paint mode, or spacebar held): plain click-drag pans the dashboard */
   panning=true; panStart={x:e.clientX,y:e.clientY}; camStart={x:state.camera.x,y:state.camera.y};
   viewport.classList.add("panning");
+  setGlobalNoSelect(true);
 });
 window.addEventListener("pointermove",(e)=>{
   if(panning){
@@ -1843,7 +1859,7 @@ window.addEventListener("pointermove",(e)=>{
   }
 });
 window.addEventListener("pointerup",()=>{
-  if(panning){ panning=false; viewport.classList.remove("panning"); saveProfileState(); }
+  if(panning){ panning=false; viewport.classList.remove("panning"); setGlobalNoSelect(false); saveProfileState(); }
   if(drawing){
     drawing=false;
     if(currentStroke && currentStroke.points.length>1){
@@ -2105,6 +2121,7 @@ function renderCapsule(def,l){
     bringToFront(l, cap, def.id);
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
+    setGlobalNoSelect(true);
     function onMove(ev){
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
@@ -2115,6 +2132,7 @@ function renderCapsule(def,l){
     function onUp(){
       window.removeEventListener("pointermove",onMove);
       window.removeEventListener("pointerup",onUp);
+      setGlobalNoSelect(false);
       if(dragged){ saveProfileState(); }
       else{ l.minimized=false; saveProfileState(); renderWidgets(); }
     }
@@ -2249,6 +2267,7 @@ function renderWidgetCard(def,l){
     e.stopPropagation();
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     card.classList.add("dragging");
+    setGlobalNoSelect(true);
     function onMove(ev){
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
@@ -2259,6 +2278,7 @@ function renderWidgetCard(def,l){
       window.removeEventListener("pointermove",onMove);
       window.removeEventListener("pointerup",onUp);
       card.classList.remove("dragging");
+      setGlobalNoSelect(false);
       saveProfileState();
     }
     window.addEventListener("pointermove",onMove);
@@ -2309,6 +2329,7 @@ function attachResizeHandles(card, l){
       const startClientX=e.clientX, startClientY=e.clientY;
       const ox=l.x, oy=l.y, ow=l.w, oh=l.h;
       card.classList.add("resizing");
+      setGlobalNoSelect(true);
       function onMove(ev){
         /* same un-transformed-vs-scaled split as the drag handler above — pinned widgets read
            raw screen-pixel deltas, everyone else still divides by the camera's zoom. */
@@ -2328,6 +2349,7 @@ function attachResizeHandles(card, l){
         window.removeEventListener("pointermove",onMove);
         window.removeEventListener("pointerup",onUp);
         card.classList.remove("resizing");
+        setGlobalNoSelect(false);
         saveProfileState();
       }
       window.addEventListener("pointermove",onMove);
