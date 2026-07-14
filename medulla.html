@@ -1052,6 +1052,7 @@
         </svg>
       </button>
       <button class="tbtn" id="pin-all-btn" title="Pin every open widget to the screen; click again to unpin them all">pin all</button>
+      <button class="tbtn" id="min-all-btn" title="Minimize every open, unpinned widget; click again to restore them">min all</button>
       <div class="tbtn-divider"></div>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">size</span>
       <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small">S</button>
@@ -1306,6 +1307,32 @@ function packWidgetsIntoGrid(targets, originX, originY, maxRowWidth){
     cursorX += l.w + gap;
     rowHeight = Math.max(rowHeight, l.h);
   });
+  return cursorY + rowHeight; // bottom edge reached, so a caller can stack another pack beneath it
+}
+/* Minimized widgets aren't real cards — their capsule's rendered width varies with the title
+   (padding + text, see .capsule) and state.layout's own l.w/l.h still hold whatever the
+   pre-minimize full size was, not the capsule's actual footprint — so Stacks packs them
+   separately from full-size widgets, using an estimate of that rendered width instead of l.w/l.h. */
+function estimateCapsuleWidth(title){
+  return Math.max(90, title.length*7 + 56);
+}
+function packCapsulesIntoRow(targets, originX, originY, maxRowWidth){
+  const gap = 12, capsuleH = 32;
+  let cursorX = originX, cursorY = originY, rowHeight = 0;
+  targets.forEach(def=>{
+    const l = state.layout[def.id];
+    const w = estimateCapsuleWidth(def.title);
+    if(cursorX !== originX && (cursorX - originX + w) > maxRowWidth){
+      cursorX = originX;
+      cursorY += rowHeight + gap;
+      rowHeight = 0;
+    }
+    l.x = cursorX;
+    l.y = cursorY;
+    cursorX += w + gap;
+    rowHeight = Math.max(rowHeight, capsuleH);
+  });
+  return cursorY + rowHeight;
 }
 
 function defaultLayout(){
@@ -1440,6 +1467,7 @@ function togglePinWidget(l, card, header){
   pinBtn.title = l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)";
   saveProfileState();
   updatePinAllButtonState();
+  updateMinAllButtonState();
 }
 
 /* topbar "pin all" — same "already-pinned widgets are left alone" idea as a checkbox's
@@ -1464,6 +1492,7 @@ function toggleAllPinned(){
     togglePinWidget(l, card, header);
   });
   updatePinAllButtonState();
+  updateMinAllButtonState();
 }
 /* Reflects "are all open widgets currently pinned?" — recomputed (rather than tracked as its
    own persisted flag like state.stacked) since any individual widget's own pin button can
@@ -1481,6 +1510,35 @@ function updatePinAllButtonState(){
   btn.textContent = allPinned ? "unpin all" : "pin all";
 }
 $("#pin-all-btn").addEventListener("click", toggleAllPinned);
+
+/* topbar "min all" — same toggle idea as "pin all": if anything open (and unpinned) is still
+   full-size, this minimizes the rest down to capsules; only once everything eligible is already
+   minimized does clicking it flip to restoring them all. Pinned widgets are left alone entirely
+   (pinning already means "keep this one usable and out of the way," minimizing it on top of
+   that would fight the whole point of pinning it), same exclusion "pin all" uses in reverse. */
+function toggleAllMinimized(){
+  const targets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.pinned;
+  });
+  if(!targets.length) return;
+  const shouldMinimize = !targets.every(def=>state.layout[def.id].minimized);
+  targets.forEach(def=>{ state.layout[def.id].minimized = shouldMinimize; });
+  saveProfileState();
+  renderWidgets();
+}
+function updateMinAllButtonState(){
+  const btn = $("#min-all-btn");
+  if(!btn) return;
+  const targets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.pinned;
+  });
+  const allMinimized = targets.length > 0 && targets.every(def=>state.layout[def.id].minimized);
+  btn.classList.toggle("active", allMinimized);
+  btn.textContent = allMinimized ? "restore all" : "min all";
+}
+$("#min-all-btn").addEventListener("click", toggleAllMinimized);
 
 /* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
@@ -2514,6 +2572,7 @@ function renderWidgets(){
     }
   });
   updatePinAllButtonState();
+  updateMinAllButtonState();
 }
 
 function fitToScreen(){
@@ -2553,15 +2612,19 @@ $("#recenter-btn").addEventListener("click", recenterOnWidgets);
 function toggleStacks(){
   const btn = $("#stacks-btn");
   if(!state.stacked){
-    const targets = widgetsForActiveProfile().filter(def=>{
+    // pinned widgets' x/y are screen coordinates, not world ones — left out of the repack
+    const fullTargets = widgetsForActiveProfile().filter(def=>{
       const l = state.layout[def.id];
-      // pinned widgets' x/y are screen coordinates, not world ones — left out of the repack
       return l && l.visible && !l.minimized && !l.pinned;
     });
-    if(!targets.length) return;
+    const minimizedTargets = widgetsForActiveProfile().filter(def=>{
+      const l = state.layout[def.id];
+      return l && l.visible && l.minimized && !l.pinned;
+    });
+    if(!fullTargets.length && !minimizedTargets.length) return;
 
     const snapshot = {};
-    targets.forEach(def=>{
+    fullTargets.concat(minimizedTargets).forEach(def=>{
       const l = state.layout[def.id];
       snapshot[def.id] = {x:l.x, y:l.y};
     });
@@ -2569,7 +2632,14 @@ function toggleStacks(){
     const rect = viewport.getBoundingClientRect();
     const origin = screenToWorld(rect.left + 40, rect.top + 40);
     const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
-    packWidgetsIntoGrid(targets, origin.x, origin.y, maxRowWidth);
+    const bottomY = packWidgetsIntoGrid(fullTargets, origin.x, origin.y, maxRowWidth);
+    /* minimized capsules get their own tidy row underneath the full-size grid (or right at the
+       origin if there's no full-size grid at all) instead of being left scattered wherever they
+       happened to be — same "keep it tidy" idea Stacks already applies to everything else. */
+    if(minimizedTargets.length){
+      const capsuleOriginY = fullTargets.length ? bottomY + 24 : origin.y;
+      packCapsulesIntoRow(minimizedTargets, origin.x, capsuleOriginY, maxRowWidth);
+    }
 
     state.stackSnapshot = snapshot;
     state.stacked = true;
@@ -6928,9 +6998,13 @@ aiForm.addEventListener("submit", async (e)=>{
      app's one existing modal surface (#modal-overlay/#modal-panel, same thing Settings and every
      widget's full view already drive directly) instead of ugly native browser dialogs, so adding
      a hot bar link looks and feels like part of this app rather than the browser interrupting it. */
-  function openAddLinkModal({ hiddenDefaults, onRestore, onAdd }){
+  /* `editing` (an existing {label,url}) switches this into edit mode: prefills both fields,
+     renames the submit button to Save, and adds a Remove button — so fixing a mistyped title or
+     URL on a custom link is "open it, fix the field, Save" instead of deleting the button and
+     re-adding it from scratch. onSave/onRemove are only used (and required) in edit mode. */
+  function openAddLinkModal({ hiddenDefaults, onRestore, onAdd, editing, onSave, onRemove }){
     if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
-    modalTitle.textContent = "Add to Hot Bar";
+    modalTitle.textContent = editing ? "Edit Hot Bar Link" : "Add to Hot Bar";
     modalBody.innerHTML = `
       ${hiddenDefaults && hiddenDefaults.length ? `
         <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Bring back a removed icon</h3>
@@ -6941,13 +7015,16 @@ aiForm.addEventListener("submit", async (e)=>{
       ` : ""}
       <div class="field-row">
         <label>Title</label>
-        <input type="text" id="add-link-label-input" placeholder="e.g. Notion" maxlength="24"/>
+        <input type="text" id="add-link-label-input" placeholder="e.g. Notion" maxlength="24" value="${editing ? escapeHtml(editing.label) : ""}"/>
       </div>
       <div class="field-row">
         <label>Link URL</label>
-        <input type="text" id="add-link-url-input" placeholder="notion.so"/>
+        <input type="text" id="add-link-url-input" placeholder="notion.so" value="${editing ? escapeHtml(editing.url) : ""}"/>
       </div>
-      <button class="btn primary" id="add-link-submit-btn">Add</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn primary" id="add-link-submit-btn">${editing ? "Save" : "Add"}</button>
+        ${editing ? `<button class="btn" id="add-link-remove-btn">Remove</button>` : ""}
+      </div>
     `;
     if(hiddenDefaults && hiddenDefaults.length){
       $$("[data-restore-site]", modalBody).forEach(btn=>{
@@ -6961,11 +7038,18 @@ aiForm.addEventListener("submit", async (e)=>{
       let url = urlInput.value.trim();
       if(!url) return;
       if(!/^https?:\/\//i.test(url)) url = "https://"+url;
-      onAdd(label, url);
+      if(editing) onSave(label, url); else onAdd(label, url);
       closeModal();
     }
     $("#add-link-submit-btn").addEventListener("click", submit);
     urlInput.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
+    if(editing){
+      $("#add-link-remove-btn").addEventListener("click", ()=>{
+        if(!confirm(`Remove "${editing.label}" from the hot bar?`)) return;
+        onRemove();
+        closeModal();
+      });
+    }
     modalOverlay.classList.add("open");
     labelInput.focus();
   }
@@ -6990,11 +7074,34 @@ aiForm.addEventListener("submit", async (e)=>{
       }
     });
   }
+  /* right-click opens this instead of an immediate delete-confirm, so fixing a mistyped title
+     or URL means "fix the field, Save" instead of deleting the button and re-adding it. */
+  function editCustomLink(id){
+    const link = customLinks.find(c=>c.id===id);
+    if(!link) return;
+    openAddLinkModal({
+      editing: {label: link.label, url: link.url},
+      onSave: (label, url)=>{
+        link.label = label;
+        link.url = url;
+        saveCustomLinks();
+        renderHotbarIcons();
+      },
+      onRemove: ()=>{
+        customLinks = customLinks.filter(c=>c.id!==id);
+        saveCustomLinks();
+        hotbarOrder = hotbarOrder.filter(s=>s!==id);
+        saveHotbarOrder();
+        renderHotbarIcons();
+      }
+    });
+  }
 
   /* Same "+" idea as the hot bar's own add-a-custom-link button, but scoped to one group popover
      (Banks/AI) — lets you add your own bank/AI tool without needing a real SITE_SHORTCUTS entry
      for it. Stored per group key so Banks' custom links and AI's don't mix. Right-click a custom
-     entry inside a popover to remove it, same convention as the main hot bar's custom links. */
+     entry inside a popover to edit or remove it, same convention as the main hot bar's custom
+     links. */
   let customGroupItems = loadJSON(NS+"customGroupItems", {});
   function saveCustomGroupItems(){ saveJSON(NS+"customGroupItems", customGroupItems); }
   function addCustomGroupItem(groupKey){
@@ -7003,6 +7110,24 @@ aiForm.addEventListener("submit", async (e)=>{
         const id = "custom:"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
         if(!customGroupItems[groupKey]) customGroupItems[groupKey] = [];
         customGroupItems[groupKey].push({id, label, url});
+        saveCustomGroupItems();
+        renderGroupPopover(groupKey);
+      }
+    });
+  }
+  function editCustomGroupItem(groupKey, id){
+    const item = (customGroupItems[groupKey]||[]).find(c=>c.id===id);
+    if(!item) return;
+    openAddLinkModal({
+      editing: {label: item.label, url: item.url},
+      onSave: (label, url)=>{
+        item.label = label;
+        item.url = url;
+        saveCustomGroupItems();
+        renderGroupPopover(groupKey);
+      },
+      onRemove: ()=>{
+        customGroupItems[groupKey] = (customGroupItems[groupKey]||[]).filter(c=>c.id!==id);
         saveCustomGroupItems();
         renderGroupPopover(groupKey);
       }
@@ -7020,7 +7145,7 @@ aiForm.addEventListener("submit", async (e)=>{
       if(label == null) return "";
       const custom = !HOTBAR_LABELS[site];
       return `<button class="hotbar-icon" draggable="true" data-site="${site}"${custom ? ' data-custom="true"' : ""}>${escapeHtml(label)}</button>`;
-    }).join("") + `<button class="hotbar-icon hotbar-add-btn" id="hotbar-add-btn" draggable="false" title="Add a custom link (drag any icon off the hot bar to remove it)">+</button>`;
+    }).join("") + `<button class="hotbar-icon hotbar-add-btn" id="hotbar-add-btn" draggable="false" title="Add a custom link (right-click one to edit it, or drag any icon off the hot bar to remove it)">+</button>`;
   }
   renderHotbarIcons();
 
@@ -7045,15 +7170,7 @@ aiForm.addEventListener("submit", async (e)=>{
     const btn = e.target.closest(".hotbar-icon[data-custom]");
     if(!btn) return;
     e.preventDefault();
-    const site = btn.dataset.site;
-    const link = customLinks.find(c=>c.id===site);
-    if(!link) return;
-    if(!confirm(`Remove "${link.label}" from the hot bar?`)) return;
-    customLinks = customLinks.filter(c=>c.id!==site);
-    saveCustomLinks();
-    hotbarOrder = hotbarOrder.filter(s=>s!==site);
-    saveHotbarOrder();
-    renderHotbarIcons();
+    editCustomLink(btn.dataset.site);
   });
 
   function renderGroupPopover(key){
@@ -7064,7 +7181,7 @@ aiForm.addEventListener("submit", async (e)=>{
       `<button class="hotbar-icon" data-site="${b.site}">${b.label}</button>`
     ).join("") + custom.map(c=>
       `<button class="hotbar-icon" data-custom-id="${c.id}">${escapeHtml(c.label)}</button>`
-    ).join("") + `<button class="hotbar-icon hotbar-add-btn" data-add-group="${key}" title="Add a custom link (right-click a custom link to remove it)">+</button>`;
+    ).join("") + `<button class="hotbar-icon hotbar-add-btn" data-add-group="${key}" title="Add a custom link (right-click a custom link to edit or remove it)">+</button>`;
   }
   GROUPS.forEach(({key, el})=>{
     if(!el) return;
@@ -7098,12 +7215,7 @@ aiForm.addEventListener("submit", async (e)=>{
       const btn = e.target.closest("[data-custom-id]");
       if(!btn) return;
       e.preventDefault();
-      const item = (customGroupItems[key]||[]).find(c=>c.id===btn.dataset.customId);
-      if(!item) return;
-      if(!confirm(`Remove "${item.label}"?`)) return;
-      customGroupItems[key] = (customGroupItems[key]||[]).filter(c=>c.id!==item.id);
-      saveCustomGroupItems();
-      renderGroupPopover(key);
+      editCustomGroupItem(key, btn.dataset.customId);
     });
     document.addEventListener("click", (e)=>{
       if(!el.classList.contains("visible")) return;
