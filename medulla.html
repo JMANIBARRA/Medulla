@@ -1187,6 +1187,12 @@ function initFirebaseSync(){
   fbDb = firebase.firestore();
   fbAuth.onAuthStateChanged(handleAuthChange);
 }
+/* millis of the cloud version this device has last seen/applied/pushed — NOT run through
+   saveJSON (that would recursively schedule another cloud push for zero reason), just a plain
+   bookkeeping value so pullCloudState below can tell "cloud has changes I don't have yet" apart
+   from "nothing's changed since I last checked" without asking every single time. */
+function getLastCloudSyncMillis(){ return Number(localStorage.getItem(NS+"lastCloudSyncAt")) || 0; }
+function setLastCloudSyncMillis(ms){ localStorage.setItem(NS+"lastCloudSyncAt", String(ms)); }
 function scheduleCloudPush(){
   if(!fbUser) return;
   clearTimeout(cloudPushTimer);
@@ -1194,13 +1200,31 @@ function scheduleCloudPush(){
     fbDb.collection("users").doc(fbUser.uid).set({
       data: dumpLocalState(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(e=> console.warn("cloud sync failed", e));
+    }).then(()=> setLastCloudSyncMillis(Date.now()))
+      .catch(e=> console.warn("cloud sync failed", e));
   }, 2500);
 }
+/* Runs on every sign-in AND every reload of an already-signed-in session (Firebase re-fires
+   onAuthStateChanged with the persisted session on load) — so this is what actually makes
+   "edit on laptop A, open on laptop B, same config" work without re-asking on every single
+   page load. Only the genuinely ambiguous case (this device has never synced with this account
+   before, so its current local data might be something worth keeping) prompts at all; once
+   that's resolved once, catching up to a newer cloud version happens silently in the background,
+   and nothing happens at all when this device is already current. */
 function pullCloudState(){
   return fbDb.collection("users").doc(fbUser.uid).get().then(doc=>{
     if(doc.exists){
-      promptLoadCloudData(doc.data().data);
+      const cloudData = doc.data();
+      const cloudMillis = cloudData.updatedAt && cloudData.updatedAt.toMillis ? cloudData.updatedAt.toMillis() : Date.now();
+      const lastSync = getLastCloudSyncMillis();
+      if(!lastSync){
+        promptLoadCloudData(cloudData.data, cloudMillis);
+      } else if(cloudMillis > lastSync){
+        applyLocalDump(cloudData.data);
+        setLastCloudSyncMillis(cloudMillis);
+        location.reload();
+      }
+      // else: already caught up (or ahead, e.g. an edit mid-flight to this same device) — nothing to do
     } else {
       /* brand new account, nothing saved yet in the cloud — seed it with whatever's on this
          device right now instead of leaving the cloud doc empty until the next local edit */
@@ -1210,8 +1234,10 @@ function pullCloudState(){
 }
 /* Themed replacement for a native confirm() — same app-modal surface the hot bar's add/edit-link
    flow and every widget's full view already use, so "you have cloud data" reads as part of the
-   app instead of an unexplained browser popup interrupting whatever was on screen. */
-function promptLoadCloudData(cloudData){
+   app instead of an unexplained browser popup interrupting whatever was on screen. Only shown
+   once per device (see pullCloudState) — whichever button is clicked resolves that ambiguity, so
+   both record lastCloudSyncMillis, not just Load. */
+function promptLoadCloudData(cloudData, cloudMillis){
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
   modalTitle.textContent = "Cloud Settings Found";
   modalBody.innerHTML = `
@@ -1226,9 +1252,13 @@ function promptLoadCloudData(cloudData){
     </div>`;
   $("#cloud-load-btn").addEventListener("click", ()=>{
     applyLocalDump(cloudData);
+    setLastCloudSyncMillis(cloudMillis);
     location.reload();
   });
-  $("#cloud-keep-btn").addEventListener("click", ()=>{ closeModal(); });
+  $("#cloud-keep-btn").addEventListener("click", ()=>{
+    setLastCloudSyncMillis(cloudMillis);
+    closeModal();
+  });
   modalOverlay.classList.add("open");
 }
 function handleAuthChange(user){
@@ -5775,12 +5805,16 @@ function renderAccountModal(){
       clearTimeout(cloudPushTimer);
       fbDb.collection("users").doc(fbUser.uid).set({
         data: dumpLocalState(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(()=>{ $("#acct-status").textContent = "Synced just now."; })
+      }).then(()=>{ setLastCloudSyncMillis(Date.now()); $("#acct-status").textContent = "Synced just now."; })
         .catch(e=>{ $("#acct-status").textContent = "Sync failed: "+e.message; });
     });
     $("#acct-signout-btn").addEventListener("click", ()=>{
       fbAuth.signOut();
       localStorage.removeItem(NS+"authGateSeen");
+      /* otherwise signing into a DIFFERENT account later would inherit this account's sync
+         bookkeeping, and pullCloudState would wrongly treat that new account's cloud data as
+         "already seen" — skipping the one-time prompt it should actually show. */
+      localStorage.removeItem(NS+"lastCloudSyncAt");
       closeModal();
     });
   } else {
