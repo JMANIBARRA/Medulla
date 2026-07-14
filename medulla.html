@@ -781,6 +781,10 @@
     text-transform:uppercase;letter-spacing:.05em;
     box-shadow:0 4px 14px rgba(0,0,0,.5), 0 0 12px -3px var(--accent, var(--accent-amber));
   }
+  /* size applies uniformly to every minimized widget at once, set from the topbar (see
+     #capsule-size-s/m/l-btn) — not a per-widget control. M matches the base .capsule rule above. */
+  .capsule.capsule-s{height:22px;padding:0 10px;gap:6px;font-size:10px;}
+  .capsule.capsule-l{height:44px;padding:0 22px;gap:10px;font-size:14px;}
 
   .placeholder-tag{display:inline-block;font-family:var(--font-mono);font-weight:500;font-size:11px;color:var(--accent-rust);
     border:1px solid var(--accent-rust);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;text-shadow:0 0 6px var(--accent-rust);}
@@ -1076,6 +1080,9 @@
       </button>
       <button class="tbtn" id="pin-all-btn" title="Pin every open widget to the screen; click again to unpin them all">pin all</button>
       <button class="tbtn" id="min-all-btn" title="Minimize every open, unpinned widget; click again to restore them">min all</button>
+      <button class="tbtn hbtn-size" id="capsule-size-s-btn" title="Minimized widget size: Small">S</button>
+      <button class="tbtn hbtn-size" id="capsule-size-m-btn" title="Minimized widget size: Medium">M</button>
+      <button class="tbtn hbtn-size" id="capsule-size-l-btn" title="Minimized widget size: Large">L</button>
       <div class="tbtn-divider"></div>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">size</span>
       <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small">S</button>
@@ -1613,6 +1620,19 @@ function updateMinAllButtonState(){
 }
 $("#min-all-btn").addEventListener("click", toggleAllMinimized);
 
+/* topbar S/M/L for minimized-widget size — one global preset applied to every capsule at once,
+   not a per-widget control (no per-capsule size button). No "active" highlight is tracked on
+   these on purpose — which preset happens to be selected isn't worth the bookkeeping, only what
+   the capsules currently look like matters. */
+function setCapsuleSize(preset){
+  capsuleSizePreset = preset;
+  saveJSON(NS+"capsuleSize", preset);
+  renderWidgets();
+}
+$("#capsule-size-s-btn").addEventListener("click", ()=>setCapsuleSize("S"));
+$("#capsule-size-m-btn").addEventListener("click", ()=>setCapsuleSize("M"));
+$("#capsule-size-l-btn").addEventListener("click", ()=>setCapsuleSize("L"));
+
 /* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
    touching at their new size (same packWidgetsIntoGrid the Stacks button uses) — resizing without
@@ -1793,6 +1813,9 @@ function calendarTimeSortKey(timeStr){
 }
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
+/* one global size for every minimized widget's capsule, set from the topbar (S/M/L) — not a
+   per-widget setting, so there's nothing to track per capsule beyond this single preference. */
+let capsuleSizePreset = loadJSON(NS+"capsuleSize", "M");
 /* free, open-weight-model cloud API (Groq) backing Medulla's free-form AI chat — see tryGroq()
    near the AI conversation code. Works on any device with just this key, no local software
    install required (unlike the Ollama approach this replaced). Cerebras was tried first but
@@ -2893,7 +2916,7 @@ function moveWidgetSelectionLinear(dir){
 const CAPSULE_CLICK_MAX_DRIFT = 5;
 function renderCapsule(def,l){
   const cap = document.createElement("div");
-  cap.className="capsule";
+  cap.className="capsule"+(capsuleSizePreset!=="M" ? " capsule-"+capsuleSizePreset.toLowerCase() : "");
   cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
   cap.style.zIndex = l.z || 1;
   cap.style.setProperty("--accent", def.accent || "var(--accent-amber)");
