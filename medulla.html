@@ -595,6 +595,13 @@
   .yt-mini-suggestions .yt-suggestion-title{font-size:10.5px;}
   .yt-mini-suggestions .yt-suggestion-channel{display:none;}
   .yt-mini-suggestions-msg{text-align:center;font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--text-dim);padding:12px;}
+  /* the full-view search box is the main way to actually find something to watch (the "Suggestions"
+     feed above it is just a starting point) — sized and centered to read as the widget's primary
+     input instead of blending in with the plain-utility rows (mute/volume, paste-a-link) around it. */
+  .yt-search-bar{display:flex;gap:10px;width:100%;max-width:480px;margin:2px auto 8px;}
+  .yt-search-bar input{flex:1;padding:14px 18px;font-size:15px;border-color:var(--accent, var(--accent-teal));}
+  .yt-search-bar input:focus{outline:none;box-shadow:0 0 12px -2px var(--accent, var(--accent-teal));}
+  .yt-search-bar button{flex:none;padding:14px 22px;font-size:13px;}
   .hero-stat{
     font-family:var(--font-display);line-height:1;white-space:nowrap;
     font-size:clamp(20px, calc(min(var(--w, 270px), var(--h, 190px)) * 0.22), 110px);
@@ -3634,9 +3641,9 @@ function renderFull(id){
         <span id="yt-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
       </div>
       <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions</h3>
-      <div style="display:flex;gap:6px;">
-        <input id="yt-full-search" type="text" placeholder="Search YouTube… (empty = trending)" style="flex:1;"/>
-        <button class="btn" id="yt-full-search-btn">Search</button>
+      <div class="yt-search-bar">
+        <input id="yt-full-search" type="text" placeholder="Search YouTube… (empty = trending)"/>
+        <button class="btn primary" id="yt-full-search-btn">Search</button>
       </div>
       <div id="yt-full-suggestions" class="yt-suggestions"></div>
     </div>`;
@@ -3657,9 +3664,9 @@ function renderFull(id){
         <span id="ytg-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
       </div>
       <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions (from your Google account)</h3>
-      <div style="display:flex;gap:6px;">
-        <input id="ytg-full-search" type="text" placeholder="Search YouTube… (empty = your home feed)" style="flex:1;"/>
-        <button class="btn" id="ytg-full-search-btn">Search</button>
+      <div class="yt-search-bar">
+        <input id="ytg-full-search" type="text" placeholder="Search YouTube… (empty = your home feed)"/>
+        <button class="btn primary" id="ytg-full-search-btn">Search</button>
       </div>
       <div id="ytg-full-suggestions" class="yt-suggestions"></div>
     </div>`;
