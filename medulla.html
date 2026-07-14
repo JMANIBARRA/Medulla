@@ -2848,6 +2848,17 @@ function selectWidget(id){
     const el = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${id}"]`);
     if(el) el.classList.add("widget-selected");
   }
+}
+/* Keyboard nav only (see moveWidgetSelection/moveWidgetSelectionLinear below) — panning the
+   camera makes sense there since arrow-key selection can land on a widget that's off-screen and
+   you'd otherwise have no idea where it went. A plain mouse click has no such need (you're
+   already looking right at whatever you clicked), and panning the camera on pointerdown was
+   actively harmful there: bringToFront below calls selectWidget on pointerdown, and if that also
+   panned the camera, a widget sitting near the viewport edge would shift out from under the
+   cursor before mouseup — so the resulting click landed on the canvas behind it instead of
+   whatever button was actually pressed. That's why bringToFront calls selectWidget() alone. */
+function selectWidgetAndReveal(id){
+  selectWidget(id);
   ensureWidgetVisible(id);
 }
 function clearWidgetSelection(){
@@ -2873,7 +2884,7 @@ function moveWidgetSelection(dir){
   if(!selectedWidgetId || !candidates.some(d=>d.id===selectedWidgetId)){
     /* nothing valid selected yet (or the previous selection minimized/vanished/pinned away) —
        fall back to the topmost-then-leftmost widget, same one Medulla defaults to occupying. */
-    selectWidget(widgetTopmostLeftmost(candidates).id);
+    selectWidgetAndReveal(widgetTopmostLeftmost(candidates).id);
     return;
   }
   const fromL = state.layout[selectedWidgetId];
@@ -2892,7 +2903,7 @@ function moveWidgetSelection(dir){
     const score = primary + cross*2;
     if(score<bestScore){ bestScore=score; best=def.id; }
   });
-  if(best) selectWidget(best);
+  if(best) selectWidgetAndReveal(best);
 }
 
 /* Left/Right: word-processor-style "reading order" instead of pure spatial nearest-neighbor —
@@ -2930,12 +2941,12 @@ function moveWidgetSelectionLinear(dir){
   if(!candidates.length) return;
   const order = widgetReadingOrder(candidates);
   if(!selectedWidgetId || !order.some(d=>d.id===selectedWidgetId)){
-    selectWidget(widgetTopmostLeftmost(candidates).id);
+    selectWidgetAndReveal(widgetTopmostLeftmost(candidates).id);
     return;
   }
   const idx = order.findIndex(d=>d.id===selectedWidgetId);
   const nextIdx = dir==="ArrowRight" ? idx+1 : idx-1;
-  if(nextIdx>=0 && nextIdx<order.length) selectWidget(order[nextIdx].id);
+  if(nextIdx>=0 && nextIdx<order.length) selectWidgetAndReveal(order[nextIdx].id);
 }
 
 /* Minimized capsules are draggable too, same as a full widget's header — a plain click (barely
