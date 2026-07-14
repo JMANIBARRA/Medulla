@@ -5173,7 +5173,14 @@ function loadGoogleIdentityServices(){
   });
   return gisApiPromise;
 }
-function googleSignIn(){
+/* silent=true asks Google for a token with NO visible UI at all (prompt:"none") — it only
+   succeeds if you're still logged into the same Google account in this browser AND already
+   granted this app access before. Used automatically on page load (see
+   trySilentGoogleSignIn below) so a returning visit doesn't need the button clicked again; the
+   normal explicit flow (a real popup, shown when silent isn't possible — first time ever, or
+   access was revoked) is unchanged, just no longer the ONLY path. */
+function googleSignIn(opts){
+  opts = opts || {};
   if(!googleClientId) return Promise.reject(new Error("no Google OAuth Client ID set in Settings"));
   return loadGoogleIdentityServices().then(google=> new Promise((resolve, reject)=>{
     const client = google.accounts.oauth2.initTokenClient({
@@ -5185,8 +5192,18 @@ function googleSignIn(){
         resolve(googleAccessToken);
       }
     });
-    client.requestAccessToken();
+    client.requestAccessToken(opts.silent ? {prompt:"none"} : undefined);
   }));
+}
+/* Attempted once automatically on load (only if a Client ID is already configured) — fails
+   quietly in the background if it can't complete silently, leaving the normal "Sign in with
+   Google" button as the fallback exactly as before. This is what actually stops a page refresh
+   from requiring the button to be clicked again every single time. */
+function trySilentGoogleSignIn(){
+  if(!googleClientId) return;
+  googleSignIn({silent:true}).then(()=>{
+    window.dispatchEvent(new Event("medulla:google-signin-changed"));
+  }).catch(()=>{});
 }
 async function fetchYouTubeOAuthJSON(url){
   if(!googleAccessToken) return {error:"not-signed-in"};
@@ -5362,6 +5379,20 @@ function setupYouTubePlayer(scope, sel){
   if(vd.videoId) makePlayer(vd.videoId);
   else showMiniSuggestions();
 
+  /* the silent Google sign-in attempt on app load (see trySilentGoogleSignIn) resolves
+     asynchronously, after this widget's already rendered its initial "please sign in" state if
+     nothing was ready yet — this refreshes it once that resolves, instead of leaving a stale
+     "sign in" prompt showing even though it's actually already signed in a moment later. Only
+     meaningful for the Google Sign-In widget (sel.notReadyAction is only set there), and only
+     needs to do anything if the browse panel is actually the thing currently showing that state. */
+  function onGoogleSignInChanged(){
+    // only refresh if the panel is actually showing the "please sign in" prompt right now —
+    // leaves an in-progress search/results view alone rather than resetting it back to the
+    // default feed if this fires while the user's already interacting with it
+    if(browseOpen && suggestEl && suggestEl.querySelector("#__yt-mini-signin")) showMiniSuggestions();
+  }
+  if(sel.notReadyAction) window.addEventListener("medulla:google-signin-changed", onGoogleSignInChanged);
+
   const browseBtn = sel.browse ? scope.querySelector(sel.browse) : null;
   if(browseBtn) browseBtn.addEventListener("click", toggleMiniSuggestions);
 
@@ -5383,6 +5414,7 @@ function setupYouTubePlayer(scope, sel){
 
   return function cleanup(){
     destroyed = true;
+    if(sel.notReadyAction) window.removeEventListener("medulla:google-signin-changed", onGoogleSignInChanged);
     if(player && player.destroy){ try{ player.destroy(); }catch(e){} }
   };
 }
@@ -5482,7 +5514,18 @@ function setupYouTubeSuggestions(scope, sel){
   searchInp.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
   doSearch();
 
-  return function cleanup(){ destroyed = true; };
+  /* same "refresh once the silent sign-in resolves" idea as the mini widget's browse panel —
+     only meaningful for the Google Sign-In config (sel.notReadyAction set), and only refreshes
+     if still showing the "please sign in" state so it doesn't clobber an in-progress search. */
+  function onGoogleSignInChanged(){
+    if(listEl.querySelector("#__yt-full-signin")) doSearch();
+  }
+  if(sel.notReadyAction) window.addEventListener("medulla:google-signin-changed", onGoogleSignInChanged);
+
+  return function cleanup(){
+    destroyed = true;
+    if(sel.notReadyAction) window.removeEventListener("medulla:google-signin-changed", onGoogleSignInChanged);
+  };
 }
 function hydrateYouTubeFull(scope){
   const cleanupPlayer = setupYouTubePlayer(scope, {
@@ -8639,6 +8682,7 @@ maybeApplyLargeDefaultMigration();
 updateAccountButton();
 initAuthGate();
 initFirebaseSync();
+trySilentGoogleSignIn();
 
 /* one clear, hard-to-miss notice up front instead of leaving this to be discovered piecemeal
    through each individual widget's own "feed unavailable" message (see isFileOrigin() above). */
