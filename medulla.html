@@ -233,6 +233,9 @@
   .hbtns .hbtn{opacity:0;pointer-events:none;transition:opacity .12s ease;}
   .claustrum-widget:hover .hbtns .hbtn{opacity:1;pointer-events:auto;}
   .hbtn-pin.active{opacity:1;pointer-events:auto;}
+  /* close reads as destructive (unlike expand/size/pin), so it gets its own red hover instead of
+     the shared accent-colored one every other .hbtn uses. */
+  .hbtn-close:hover{color:#fff;background:#e5484d;border-color:#e5484d;box-shadow:0 0 8px #e5484d;}
   .hbtn.active{color:var(--bg-deep);background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px var(--accent);}
   .hbtn-size{font-family:var(--font-display);font-weight:700;font-size:10px;}
   /* ---------- pinned widgets — anchored to the viewport instead of #canvas-world, so panning/
@@ -253,9 +256,9 @@
     0%,100%{ box-shadow:0 0 0 2px var(--text-primary), 0 0 22px -4px var(--text-primary); }
     50%{ box-shadow:0 0 0 2px var(--text-primary), 0 0 34px -2px var(--text-primary); }
   }
-  .claustrum-widget.widget-selected{ animation:widget-selected-pulse 1.6s ease-in-out infinite; }
+  .claustrum-widget.widget-selected, .capsule.widget-selected{ animation:widget-selected-pulse 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce){
-    .claustrum-widget.widget-selected{ animation:none; box-shadow:0 0 0 2px var(--text-primary), 0 0 22px -4px var(--text-primary); }
+    .claustrum-widget.widget-selected, .capsule.widget-selected{ animation:none; box-shadow:0 0 0 2px var(--text-primary), 0 0 22px -4px var(--text-primary); }
   }
   .widget-body{
     flex:1;overflow:auto;padding:10px;
@@ -268,9 +271,9 @@
     font-size:clamp(12px, calc(min(var(--w, 270px), var(--h, 190px)) * 0.06), 26px);
   }
   .widget-body > *{max-width:100%;}
-  /* widgets with no interactive mini content use click-anywhere-to-expand instead of the "Full
-     view" button (see CLICK_TO_EXPAND_IDS) — this is the only visual hint that the body itself
-     is clickable, since there's no button there to signal it. */
+  /* click-anywhere-to-expand is the default for every mini view (see CLICK_TO_EXPAND_EXCLUDE_IDS)
+     — this cursor/hover is the only visual hint that the body itself is clickable, since there's
+     no explicit "Full view" button anymore. */
   .widget-body.click-to-expand{cursor:pointer;}
   .widget-body.click-to-expand:hover{background:rgba(255,255,255,.02);}
   /* Native scrollbars render in invisible overlay mode on most setups (no space reserved,
@@ -283,7 +286,7 @@
     -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent 100%);
   }
   /* ---------- cheetah sprite (8-frame running loop, real cropped/recolored art) ---------- */
-  .cheetah-sprite{position:relative;width:100%;aspect-ratio:153/92;filter:drop-shadow(0 0 6px color-mix(in srgb, var(--text-primary) 45%, transparent));}
+  .cheetah-sprite{position:absolute;inset:0;width:100%;height:100%;z-index:5;filter:drop-shadow(0 0 6px color-mix(in srgb, var(--text-primary) 45%, transparent));}
   .cheetah-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;animation:cheetah-run 0.8s steps(1) infinite;}
   .cheetah-frame:nth-child(2){animation-delay:0.1s;}
   .cheetah-frame:nth-child(3){animation-delay:0.2s;}
@@ -295,6 +298,107 @@
   @keyframes cheetah-run{
     0%, 12.4%{opacity:1;}
     12.6%, 100%{opacity:0;}
+  }
+  /* ---------- cheetah enclosure (decorative scene the sprite runs across — see
+     renderCheetahScene/hydrateCheetahFull in JS) ---------- */
+  /* Solid near-black, matching every other widget's own background (var(--bg-panel)/--bg-deep)
+     instead of a realistic sky-blue/tan gradient — keeps the enclosure visually consistent with
+     the rest of the dark UI rather than looking like a bright cutout punched into it. Sun vs.
+     moon still reads clearly from their own glow color alone (warm amber vs. pale blue), no
+     background color swap needed to sell day/night. */
+  .cheetah-enclosure{
+    position:relative;width:100%;aspect-ratio:153/92;overflow:hidden;border-radius:6px;
+    background:var(--bg-deep);
+  }
+  /* Full-view only (see isFull in renderCheetahScene) — the modal is much wider than the mini
+     widget, but the source sprite is still the same small, fixed-resolution art, so letting the
+     enclosure stretch to fill the modal would just upscale/blur it instead of showing "more".
+     Capped near the widget's own default width and centered instead. */
+  .cheetah-enclosure.enclosure-full{
+    max-width:320px;margin:0 auto;
+  }
+  /* 20% up from the very bottom — the cheetah frames' own running legs sit noticeably above the
+     bottom edge of their bounding box (the source art leaves clearance under the paws), so
+     anchoring the ground line/trees/animals at the true bottom (0-7%, the original value) put
+     them visibly below the legs instead of level with them. */
+  .cheetah-enclosure::after{ /* faint ground line — without it, trees/animals read as floating in a void */
+    content:"";position:absolute;left:0;right:0;bottom:20%;height:1px;
+    /* var(--accent-amber) (cheetah's fixed catalog accent, global :root var) not var(--accent) —
+       the latter is only ever set inline on .claustrum-widget/.capsule (see renderWidgetCard/
+       renderCapsule), so it'd resolve to nothing inside the full-view modal, which sits outside
+       both of those. */
+    background:color-mix(in srgb, var(--accent-amber) 35%, transparent);
+  }
+  .enclosure-sun{position:absolute;top:8%;right:9%;width:13%;aspect-ratio:1;border-radius:50%;z-index:1;background:radial-gradient(circle, #fff3b0, #ffcf4d 70%);box-shadow:0 0 16px 4px rgba(255,207,77,.55);}
+  /* Moon phases (see MOON_PHASES in JS) — split into an outer glow layer and an inner clipped
+     disc: the phase "cutout" needs overflow:hidden to keep the dark-side overlay inside the
+     circle, but overflow:hidden on the SAME element would also clip its own box-shadow glow, so
+     that lives on the outer wrapper instead where nothing clips it. */
+  .enclosure-moon{position:absolute;top:8%;right:9%;width:13%;aspect-ratio:1;border-radius:50%;z-index:1;box-shadow:0 0 10px 2px rgba(210,220,255,.4);}
+  .enclosure-moon-disc{
+    position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;
+    background:radial-gradient(circle at 35% 35%, #f4f6ff, #b9c3e0 75%);
+  }
+  .enclosure-moon-disc::after{
+    /* the "dark side" — painted the enclosure's own background color so it reads as invisible
+       against it, shifted by --phase-offset (0% = fully covers the disc = new moon, 100% = fully
+       off it = full moon). */
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:var(--bg-deep);
+    transform:translateX(var(--phase-offset, 100%));
+  }
+  /* Trees/clouds animate the `left` property itself (percentages relative to the ENCLOSURE, i.e.
+     the actual parent) rather than `transform:translateX()` (percentages relative to the tree's
+     own tiny width instead — the original bug here: a translateX(140%) on a 9%-wide tree only
+     ever moved ~12% of the enclosure's width, so it never actually left the visible area before
+     snapping back to its start position, which is exactly what read as "restarting" instead of
+     running past). Both `from`/`to` endpoints now sit well outside the visible 0%-100% range, so
+     the instant jump back to `from` at the start of each loop happens off-screen — invisible —
+     instead of a hard cut in the middle of the frame. */
+  .enclosure-cloud{
+    position:absolute;width:20%;aspect-ratio:2.4;top:var(--cy,10%);z-index:2;
+    background:radial-gradient(ellipse, rgba(255,255,255,.9), rgba(255,255,255,.5) 70%, transparent 100%);
+    border-radius:50%;filter:blur(1px);
+    animation-name:enclosure-cloud-drift;animation-timing-function:linear;animation-iteration-count:infinite;
+  }
+  @keyframes enclosure-cloud-drift{
+    from{ left:105%; }
+    to{ left:-30%; }
+  }
+  /* canopy + trunk built from ::before/::after instead of two more DOM elements per tree — same
+     "just CSS shapes" approach as the sun/moon, no image assets needed. */
+  .enclosure-tree{
+    position:absolute;bottom:20%;width:9%;aspect-ratio:0.55;z-index:3;
+    animation-name:enclosure-tree-run;animation-timing-function:linear;animation-iteration-count:infinite;
+  }
+  .enclosure-tree::before{
+    /* brighter/more saturated than a naturalistic green — tuned against the enclosure's own
+       solid-black background (was originally mixed for a light sky, where the muted tone read
+       fine; against black it needs more glow to stay visible at mini-widget size). */
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:100%;aspect-ratio:1;border-radius:50%;
+    background:var(--accent-teal);
+    box-shadow:0 0 5px -1px var(--accent-teal);
+  }
+  .enclosure-tree::after{
+    content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:18%;height:42%;background:#8a6a45;
+  }
+  @keyframes enclosure-tree-run{
+    from{ left:112%; }
+    to{ left:-15%; }
+  }
+  .enclosure-animal{
+    position:absolute;bottom:21%;width:9%;aspect-ratio:1;z-index:4;
+    animation:enclosure-animal-bob 1.6s ease-in-out infinite;
+  }
+  .enclosure-animal svg{width:100%;height:100%;color:var(--text-primary);opacity:.85;display:block;}
+  @keyframes enclosure-animal-bob{
+    0%, 100%{ transform:translateY(0); }
+    50%{ transform:translateY(-10%); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .enclosure-cloud, .enclosure-tree, .enclosure-animal{ animation:none; }
   }
   /* ---------- holographic portrait: real photo, three CSS-blend layers, no canvas ----------
      1. .holo-portrait__stage — a plain positioning wrapper around everything below, so the
@@ -624,7 +728,6 @@
   .icon-app-btn:hover{filter:brightness(1.2);box-shadow:0 6px 18px rgba(0,0,0,.5), 0 0 22px 0px var(--accent);}
   .icon-app-btn:active{transform:scale(0.95);}
   .icon-app-btn svg{width:52%;height:52%;}
-  .icon-picker-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
   .garage-icon{display:inline-flex;flex:none;width:32px;height:14px;color:var(--accent-amber);}
   .garage-icon svg{width:100%;height:100%;display:block;}
 
@@ -787,6 +890,16 @@
     font-family:var(--font-display);font-weight:500;font-size:12px;color:var(--text-primary);
     text-transform:uppercase;letter-spacing:.05em;
     box-shadow:0 4px 14px rgba(0,0,0,.5), 0 0 12px -3px var(--accent, var(--accent-amber));
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  /* same "pop toward the screen" hover treatment full widget cards already get (see
+     .claustrum-widget:hover above) — scale + deeper shadow + a temporary z-index bump, so a
+     hovered capsule lifts above its neighbors instead of just sitting there. Suppressed while
+     actively being dragged so it doesn't fight with that in-progress interaction's own styling. */
+  .capsule:hover:not(.dragging){
+    transform:scale(1.08);
+    box-shadow:0 10px 26px rgba(0,0,0,.6), 0 0 18px -2px var(--accent, var(--accent-amber));
+    z-index:999 !important;
   }
   /* size applies uniformly to every minimized widget at once, set from the topbar "size" S/M/L
      buttons (the same ones that resize full widgets) — not a per-widget control. M matches the
@@ -912,6 +1025,13 @@
   .hotbar-icon:hover{transform:translateY(-7px) scale(1.08);background:rgba(255,255,255,.09);box-shadow:0 0 14px -3px var(--text-primary);}
   .hotbar-icon:active{cursor:grabbing;}
   .hotbar-icon.dragging{opacity:.35;}
+  /* arrow-key nav landing here (see hotbarNavBridge/selectHotbarIcon) — same lifted-toward-you
+     treatment :hover already gets, just persistent instead of only while the mouse sits on it. */
+  .hotbar-icon.hotbar-nav-selected{
+    transform:translateY(-7px) scale(1.08);
+    background:rgba(255,255,255,.09);
+    box-shadow:0 0 0 2px var(--text-primary), 0 0 14px -3px var(--text-primary);
+  }
   .hotbar-add-btn{
     width:38px;padding:0;flex:none;
     border-style:dashed;color:var(--text-dim);font-size:18px;font-weight:400;
@@ -1309,6 +1429,123 @@ const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
 function isTypingTarget(e){
   const t = e.target;
   return !!t && (t.tagName==="INPUT" || t.tagName==="TEXTAREA" || t.isContentEditable);
+}
+
+/* ================= CHEETAH ENCLOSURE (decorative scene behind the running sprite) =================
+   Drop-in-able scenery: a single sky choice (sun/moon/none), a count of trees and clouds (each
+   just a quantity, not individually positioned/tracked — CSS handles staggered placement/timing
+   per instance via nth-of-type-style index math, same spirit as the cheetah frames' own
+   nth-child animation-delay staggering), and a small fixed roster of other animals toggled on/off.
+   Trees scroll past like the cheetah is running through them; clouds drift slower (further away);
+   sun/moon and animals stay in place — animals get a light idle bob so the scene doesn't feel
+   frozen, without implying they're part of the "running past" scenery the way trees are. */
+let cheetahEnclosure = loadJSON(NS+"cheetahEnclosure", {sky:"sun", trees:2, clouds:1, animals:[]});
+function saveCheetahEnclosure(){ saveJSON(NS+"cheetahEnclosure", cheetahEnclosure); }
+const ENCLOSURE_MAX_TREES = 6, ENCLOSURE_MAX_CLOUDS = 4;
+/* Every non-sun sky option is a moon phase, keyed by cheetahEnclosure.sky (e.g. "moon-half") —
+   offset is how far (as a % of its own width) the "dark side" overlay disc is shifted off the
+   moon disc (see .enclosure-moon-disc::after in CSS): 0% = fully covered (new moon, dark side
+   only, just the faint glow ring left showing), 100% = fully uncovered (full moon). This is the
+   same terminator-shift trick real CSS moon-phase icons use, just stylized rather than
+   astronomically exact — plenty for a decorative widget. */
+const MOON_PHASES = {
+  "moon-new":{label:"New Moon", offset:0},
+  "moon-crescent":{label:"Crescent", offset:28},
+  "moon-half":{label:"Half Moon", offset:50},
+  "moon-gibbous":{label:"Gibbous", offset:72},
+  "moon-full":{label:"Full Moon", offset:100},
+};
+const SKY_OPTIONS = [
+  {value:"sun", label:"☀ Sun"},
+  ...Object.keys(MOON_PHASES).map(value=>({value, label:"☾ "+MOON_PHASES[value].label})),
+  {value:null, label:"None"},
+];
+const ENCLOSURE_ANIMAL_LABELS = {bird:"Bird", rabbit:"Rabbit", turtle:"Turtle"};
+const ENCLOSURE_ANIMAL_ICONS = {
+  bird:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13c4-6 9-6 11-2 1-3 5-4 9-2-3 0-5 1-6 3 3 0 5 1 6 3-4 1-7 0-9-2-1 3-6 4-11 0z"/></svg>`,
+  rabbit:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16" rx="6" ry="5"/><path d="M9 8V3M15 8V3"/><circle cx="10" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="15" r="1" fill="currentColor" stroke="none"/></svg>`,
+  turtle:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="6"/><path d="M4 12h16M7 8l-3-2M17 8l3-2M7 16l-3 2M17 16l3 2M12 6V4"/></svg>`,
+};
+/* Shared by the mini widget AND the full-view (see renderMini/renderFull's "cheetah" cases) —
+   one scene builder so both stay in sync automatically instead of two copies drifting apart.
+   Frames always start from CHEETAH_FRAMES' original (unrecolored) data URIs on every render —
+   recolorCheetahFrames() (see near hexToRgb) is what tints them, and must be re-run after any
+   call to this, same as the very first mount already does.
+   isFull adds .enclosure-full (see CSS), which caps the scene's own max-width instead of letting
+   it stretch to fill the much wider modal — the source sprite is a small, fixed-resolution image,
+   so stretching it up to modal width would just make it look soft/blurry instead of "bigger". */
+function renderCheetahScene(isFull){
+  const phase = MOON_PHASES[cheetahEnclosure.sky];
+  const skyEl = cheetahEnclosure.sky==="sun" ? `<div class="enclosure-sun"></div>`
+    : phase ? `<div class="enclosure-moon" style="--phase-offset:${phase.offset}%;"><div class="enclosure-moon-disc"></div></div>` : "";
+  /* No inline `left` anymore — it's the animated property itself now (see @keyframes
+     enclosure-cloud-drift/enclosure-tree-run), so a static one here would just get overridden the
+     instant the animation starts. animation-delay is a NEGATIVE fraction of each item's own
+     duration, evenly spread across the max possible count — that's what keeps several trees/
+     clouds visibly spread across the belt at any moment instead of clumped together (a delay
+     scheme tied to a FIXED step, independent of each item's own duration, drifts out of sync
+     once durations vary — dividing by that item's own duration keeps the spread proportional). */
+  const clouds = Array.from({length:cheetahEnclosure.clouds}, (_,i)=>{
+    const dur = 24 + i*5;
+    return `<div class="enclosure-cloud" style="--cy:${6+i*11}%;animation-duration:${dur}s;animation-delay:${-(i*dur/ENCLOSURE_MAX_CLOUDS)}s;"></div>`;
+  }).join("");
+  const trees = Array.from({length:cheetahEnclosure.trees}, (_,i)=>{
+    const dur = 6 + (i%3)*0.8;
+    return `<div class="enclosure-tree" style="animation-duration:${dur}s;animation-delay:${-(i*dur/ENCLOSURE_MAX_TREES)}s;"></div>`;
+  }).join("");
+  const animals = cheetahEnclosure.animals.map((kind,i)=>
+    `<div class="enclosure-animal" style="left:${10+i*22}%;animation-delay:${-i*0.4}s;" title="${ENCLOSURE_ANIMAL_LABELS[kind]||kind}">${ENCLOSURE_ANIMAL_ICONS[kind]||""}</div>`
+  ).join("");
+  const imgs = CHEETAH_FRAMES.map(src=>`<img class="cheetah-frame" src="${src}" alt="">`).join("");
+  return `<div class="cheetah-enclosure${isFull ? " enclosure-full" : ""}">${skyEl}${clouds}${trees}${animals}<div class="cheetah-sprite">${imgs}</div></div>`;
+}
+/* Re-renders every mounted copy of the scene (the mini widget's, the full-view modal's, or both
+   at once if both happen to be open) after the enclosure state changes — outerHTML replace is
+   simplest here since renderCheetahScene() already returns one complete self-contained block,
+   same building block openModal/renderWidgetCard already use for the initial mount. Reads each
+   existing element's own .enclosure-full state back before replacing it, so a full-view scene
+   stays capped and a mini one stays full-width across refreshes instead of both collapsing to
+   whichever renderCheetahScene() default would otherwise win. */
+function refreshCheetahScenes(){
+  $$(".cheetah-enclosure").forEach(el=>{
+    el.outerHTML = renderCheetahScene(el.classList.contains("enclosure-full"));
+  });
+  recolorCheetahFrames();
+}
+function hydrateCheetahFull(scope){
+  function refreshControls(){
+    /* data-sky carries "" for the None option (see renderFull's cheetah case) — normalized back
+       to null here so it compares correctly against cheetahEnclosure.sky, same normalization the
+       click handler below applies when writing it. */
+    $$("[data-sky]", scope).forEach(btn=>{
+      btn.classList.toggle("primary", (btn.dataset.sky || null) === cheetahEnclosure.sky);
+    });
+    scope.querySelector("#cheetah-trees-count").textContent = `(${cheetahEnclosure.trees})`;
+    scope.querySelector("#cheetah-clouds-count").textContent = `(${cheetahEnclosure.clouds})`;
+    $$("[data-animal]", scope).forEach(btn=>{
+      btn.classList.toggle("primary", cheetahEnclosure.animals.includes(btn.dataset.animal));
+    });
+  }
+  function commit(){
+    saveCheetahEnclosure();
+    refreshCheetahScenes();
+    refreshControls();
+  }
+  $$("[data-sky]", scope).forEach(btn=>{
+    btn.addEventListener("click", ()=>{ cheetahEnclosure.sky = btn.dataset.sky || null; commit(); });
+  });
+  scope.querySelector("#cheetah-trees-plus-btn").addEventListener("click", ()=>{ cheetahEnclosure.trees = Math.min(ENCLOSURE_MAX_TREES, cheetahEnclosure.trees+1); commit(); });
+  scope.querySelector("#cheetah-trees-minus-btn").addEventListener("click", ()=>{ cheetahEnclosure.trees = Math.max(0, cheetahEnclosure.trees-1); commit(); });
+  scope.querySelector("#cheetah-clouds-plus-btn").addEventListener("click", ()=>{ cheetahEnclosure.clouds = Math.min(ENCLOSURE_MAX_CLOUDS, cheetahEnclosure.clouds+1); commit(); });
+  scope.querySelector("#cheetah-clouds-minus-btn").addEventListener("click", ()=>{ cheetahEnclosure.clouds = Math.max(0, cheetahEnclosure.clouds-1); commit(); });
+  $$("[data-animal]", scope).forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const kind = btn.dataset.animal;
+      const idx = cheetahEnclosure.animals.indexOf(kind);
+      if(idx>=0) cheetahEnclosure.animals.splice(idx,1); else cheetahEnclosure.animals.push(kind);
+      commit();
+    });
+  });
 }
 
 /* ================= WIDGET CATALOG ================= */
@@ -1850,6 +2087,11 @@ function calendarTimeSortKey(timeStr){
 }
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
+/* What Medulla calls the user in conversation — deliberately separate from the signed-in
+   account's email/username (fbUser.email), which is an identity/sync concern, not a "what do
+   you call me" preference. Guests (no account at all) can still set this. Blank means she just
+   doesn't use a name, same as before this setting existed. */
+let userPreferredName = loadJSON(NS+"userPreferredName", "");
 /* one global size for every minimized widget's capsule, set from the topbar (S/M/L) — not a
    per-widget setting, so there's nothing to track per capsule beyond this single preference. */
 let capsuleSizePreset = loadJSON(NS+"capsuleSize", "M");
@@ -2685,6 +2927,17 @@ function widgetsForActiveProfile(){
   return WIDGET_DEFS.filter(w=>w.profiles.includes(profiles.active));
 }
 
+/* Removes a widget from the screen entirely — distinct from minimizing (which still leaves its
+   capsule sitting on the canvas). The layout entry (position/size/pin state) is kept as-is so
+   showing it again from Settings → Manage widgets (see renderWidgetsManagerModal) restores it
+   exactly where it was, it just stops rendering until then. */
+function closeWidget(def, l){
+  l.visible = false;
+  if(selectedWidgetId === def.id) clearWidgetSelection();
+  saveProfileState();
+  renderWidgets();
+}
+
 let activeMiniCleanups = [];
 function renderWidgets(){
   activeMiniCleanups.forEach(fn=>{ try{ fn(); }catch(e){} });
@@ -2811,14 +3064,69 @@ function bringToFront(l, el, id){
    even though both get set together on click — their semantics diverge once keyboard-only
    navigation moves the selection without touching focusedWidgetId. */
 let selectedWidgetId = null;
-/* pinned widgets live in screen-space (#pinned-layer) instead of world-space, same reason
+/* Pinned widgets live in screen-space (#pinned-layer) instead of world-space, same reason
    fitToScreen()/toggleStacks() already exclude them from spatial layout math — mixing both
-   coordinate systems into one distance calculation isn't worth it for this. */
+   coordinate systems into one distance calculation would give nonsense distances. Rather than
+   exclude pinned widgets from arrow-key nav entirely, they get their own layer instead — bare Tab
+   (see the keydown handler near moveWidgetSelectionLinear below) toggles which one arrow keys
+   currently browse. Minimized widgets are included in whichever layer they belong to (their
+   capsule still lives in the same space as a full card, world or screen) — arrow keys reach a
+   minimized widget same as any other, and Enter still opens its full view straight from the
+   capsule. */
+let navLayer = "unpinned"; // "unpinned" | "pinned"
+/* The Medulla chat input isn't a real widget (no WIDGET_DEFS entry, no state.layout position) —
+   it's reachable from BOTH nav layers via ArrowDown past the bottom-most widget (see
+   moveWidgetSelection below), regardless of which layer is active, rather than living inside
+   either one. selectedWidgetId is set to this sentinel string while it's the active selection;
+   it never collides with a real widget id since none of WIDGET_DEFS uses it, so every existing
+   `def.id === selectedWidgetId` check elsewhere (the selection pulse ring, etc.) just harmlessly
+   stays false for every real widget while the chat box is selected instead. */
+const AI_CHAT_NAV_ID = "aichat";
+let lastWidgetNavId = null; // last REAL widget selected, so ArrowUp out of the chat box returns to it instead of always resetting to topmost-leftmost
+function selectAiChat(){
+  if(selectedWidgetId && selectedWidgetId !== AI_CHAT_NAV_ID) lastWidgetNavId = selectedWidgetId;
+  selectWidget(AI_CHAT_NAV_ID);
+}
+/* The hot bar (Gmail/YouTube/Banks/etc. quick launchers) lives in its own self-contained IIFE
+   (see setupHotbar, further down) with its own private show/hide/reorder state — rather than
+   hoist all of that up here, setupHotbar populates this bridge with just the handful of
+   operations arrow-key nav actually needs (reveal it, highlight one icon by index, count them,
+   "click" one). Selection ids are "hotbar:<index>" strings — index rather than a site id because
+   it's simplest to move Left/Right through, and stable enough across a single nav session (the
+   order only changes via drag-reorder, which isn't possible while using the keyboard to browse
+   it anyway). Sits between the widget layer and the chat box: ArrowDown off the bottom of
+   whichever widget layer is active reaches it first, ArrowDown again continues to the chat box,
+   ArrowUp from either goes back the way it came. */
+let hotbarNavBridge = null;
+let lastHotbarNavIndex = 0;
+function hotbarNavIndexOf(id){
+  return (typeof id === "string" && id.startsWith("hotbar:")) ? parseInt(id.slice(7), 10) : -1;
+}
+function selectHotbarIcon(index){
+  if(selectedWidgetId && selectedWidgetId !== AI_CHAT_NAV_ID && hotbarNavIndexOf(selectedWidgetId) < 0){
+    lastWidgetNavId = selectedWidgetId;
+  }
+  selectWidget("hotbar:"+index);
+}
 function widgetNavCandidates(){
   return widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
-    return l && l.visible && !l.minimized && !l.pinned;
+    return l && l.visible && (navLayer==="pinned" ? l.pinned : !l.pinned);
   });
+}
+/* Real width/height for nav math — a minimized widget's l.w/l.h are still last full-size
+   dimensions (unchanged by minimizing), not its actual on-screen capsule footprint, so distance/
+   row-overlap calculations would be badly skewed without substituting the same capsule-size
+   estimate Stacks already uses for packing (see packCapsulesIntoRow/estimateCapsuleWidth). */
+function navBox(id){
+  const l = state.layout[id];
+  if(!l) return null;
+  if(l.minimized){
+    const def = WIDGET_DEFS.find(w=>w.id===id);
+    const m = capsuleSizeMetrics();
+    return {x:l.x, y:l.y, w:estimateCapsuleWidth(def ? def.title : ""), h:m.h};
+  }
+  return {x:l.x, y:l.y, w:l.w, h:l.h};
 }
 /* Pans the camera (never zooms) just enough to bring a world-space widget on-screen, same
    "auto-scroll to keep the active cell visible" idea as a spreadsheet — so arrow-key navigation
@@ -2828,12 +3136,13 @@ function widgetNavCandidates(){
 function ensureWidgetVisible(id){
   const l = state.layout[id];
   if(!l || l.pinned) return;
+  const box = navBox(id);
   const rect = viewport.getBoundingClientRect();
   const pad = 40;
-  const left = l.x*state.camera.scale + state.camera.x;
-  const top = l.y*state.camera.scale + state.camera.y;
-  const right = left + l.w*state.camera.scale;
-  const bottom = top + l.h*state.camera.scale;
+  const left = box.x*state.camera.scale + state.camera.x;
+  const top = box.y*state.camera.scale + state.camera.y;
+  const right = left + box.w*state.camera.scale;
+  const bottom = top + box.h*state.camera.scale;
   let dx = 0, dy = 0;
   if(left < pad) dx = pad - left;
   else if(right > rect.width - pad) dx = (rect.width - pad) - right;
@@ -2847,13 +3156,40 @@ function ensureWidgetVisible(id){
 }
 function selectWidget(id){
   if(selectedWidgetId !== id){
-    if(selectedWidgetId){
-      const prev = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${selectedWidgetId}"]`);
-      if(prev) prev.classList.remove("widget-selected");
+    if(selectedWidgetId && selectedWidgetId !== AI_CHAT_NAV_ID){
+      if(hotbarNavIndexOf(selectedWidgetId) >= 0){
+        if(hotbarNavBridge){
+          hotbarNavBridge.clearSelection();
+          /* only schedule the auto-hide when actually LEAVING the hot bar, not when the new
+             selection is just another icon within it (Left/Right) — hiding mid-browse would be
+             wrong. */
+          if(hotbarNavIndexOf(id) < 0) hotbarNavBridge.hide();
+        }
+      } else {
+        /* queried from viewport (not widgetLayer) — no class prefix, so this matches either a
+           full .claustrum-widget card or a minimized .capsule, in EITHER #widget-layer
+           (world-space, unpinned) or #pinned-layer (screen-space, pinned): both are viewport's
+           children, and selection now needs to reach either layer since navLayer can point at
+           pinned widgets. */
+        const prev = viewport.querySelector(`[data-widget-id="${selectedWidgetId}"]`);
+        if(prev) prev.classList.remove("widget-selected");
+      }
     }
     selectedWidgetId = id;
-    const el = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${id}"]`);
-    if(el) el.classList.add("widget-selected");
+    const hbIndex = hotbarNavIndexOf(id);
+    if(id === AI_CHAT_NAV_ID){
+      /* Focusing the real <input> IS the selection here — #ai-input already has its own :focus
+         glow (see CSS) for the visual cue, and focus is what lets you "just start typing" the
+         instant you arrive, no Enter needed. Also what makes isTypingTarget() correctly hand
+         every further keystroke to the input instead of this file's own keyboard shortcuts. */
+      aiInput.focus();
+    } else if(hbIndex >= 0){
+      if(hotbarNavBridge){ hotbarNavBridge.reveal(); hotbarNavBridge.selectAt(hbIndex); }
+      lastHotbarNavIndex = hbIndex;
+    } else {
+      const el = viewport.querySelector(`[data-widget-id="${id}"]`);
+      if(el) el.classList.add("widget-selected");
+    }
   }
 }
 /* Keyboard nav only (see moveWidgetSelection/moveWidgetSelectionLinear below) — panning the
@@ -2870,8 +3206,18 @@ function selectWidgetAndReveal(id){
 }
 function clearWidgetSelection(){
   if(!selectedWidgetId) return;
-  const el = widgetLayer.querySelector(`.claustrum-widget[data-widget-id="${selectedWidgetId}"]`);
-  if(el) el.classList.remove("widget-selected");
+  if(selectedWidgetId === AI_CHAT_NAV_ID){
+    /* blur too, not just clear the sentinel — otherwise Escape would silently do nothing useful
+       while typing: the id resets, but focus (and therefore isTypingTarget's gate on the arrow
+       keys) would still be stuck in the input, so nothing would visibly change. This is what lets
+       Escape actually back you out of the chat box into normal widget arrow-key nav. */
+    aiInput.blur();
+  } else if(hotbarNavIndexOf(selectedWidgetId) >= 0){
+    if(hotbarNavBridge){ hotbarNavBridge.clearSelection(); hotbarNavBridge.hide(); }
+  } else {
+    const el = viewport.querySelector(`[data-widget-id="${selectedWidgetId}"]`);
+    if(el) el.classList.remove("widget-selected");
+  }
   selectedWidgetId = null;
 }
 function widgetTopmostLeftmost(candidates){
@@ -2885,22 +3231,60 @@ function widgetTopmostLeftmost(candidates){
    most horizontally aligned with the widget you're coming from (like a word processor trying to
    preserve caret column across lines). */
 const WIDGET_NAV_DIRS_VERTICAL = { ArrowUp:(dx,dy)=>dy<-1, ArrowDown:(dx,dy)=>dy>1 };
+/* Falls off the bottom of the widget layer into the hot bar (if it has anything in it — it
+   always does, the "+" button alone counts) before the chat box, and back to the last real
+   widget on the way up — see selectHotbarIcon/hotbarNavBridge above. Shared by both the
+   empty-layer and ran-out-of-candidates cases below instead of duplicating the same fallback
+   logic twice. */
+function fallDownPastWidgets(){
+  if(hotbarNavBridge && hotbarNavBridge.count() > 0) selectHotbarIcon(0);
+  else selectAiChat();
+}
 function moveWidgetSelection(dir){
+  const hbIndex = hotbarNavIndexOf(selectedWidgetId);
+  if(selectedWidgetId === AI_CHAT_NAV_ID){
+    /* already at the chat box — ArrowUp leaves it, back to the hot bar (if it has anything in
+       it) or straight to widgets otherwise. ArrowDown is a no-op, nothing further down than the
+       chat box. */
+    if(dir==="ArrowDown") return;
+    if(hotbarNavBridge && hotbarNavBridge.count() > 0){ selectHotbarIcon(Math.max(0, lastHotbarNavIndex)); return; }
+    const candidates = widgetNavCandidates();
+    if(!candidates.length) return;
+    const backTo = candidates.find(d=>d.id===lastWidgetNavId);
+    selectWidgetAndReveal(backTo ? backTo.id : widgetTopmostLeftmost(candidates).id);
+    return;
+  }
+  if(hbIndex >= 0){
+    /* in the hot bar — ArrowDown continues on to the chat box, ArrowUp goes back to whatever
+       widget was selected before (or the topmost-leftmost fallback); Left/Right (moving between
+       icons) is handled in moveWidgetSelectionLinear instead, same split as widgets themselves. */
+    if(dir==="ArrowDown"){ selectAiChat(); return; }
+    if(dir==="ArrowUp"){
+      const candidates = widgetNavCandidates();
+      if(!candidates.length) return;
+      const backTo = candidates.find(d=>d.id===lastWidgetNavId);
+      selectWidgetAndReveal(backTo ? backTo.id : widgetTopmostLeftmost(candidates).id);
+    }
+    return;
+  }
   const candidates = widgetNavCandidates();
-  if(!candidates.length) return;
+  if(!candidates.length){
+    if(dir==="ArrowDown") fallDownPastWidgets();
+    return;
+  }
   if(!selectedWidgetId || !candidates.some(d=>d.id===selectedWidgetId)){
-    /* nothing valid selected yet (or the previous selection minimized/vanished/pinned away) —
-       fall back to the topmost-then-leftmost widget, same one Medulla defaults to occupying. */
+    /* nothing valid selected yet (or the previous selection vanished/pinned away) — fall back to
+       the topmost-then-leftmost widget, same one Medulla defaults to occupying. */
     selectWidgetAndReveal(widgetTopmostLeftmost(candidates).id);
     return;
   }
-  const fromL = state.layout[selectedWidgetId];
-  const from = {x:fromL.x+fromL.w/2, y:fromL.y+fromL.h/2};
+  const fromB = navBox(selectedWidgetId);
+  const from = {x:fromB.x+fromB.w/2, y:fromB.y+fromB.h/2};
   let best=null, bestScore=Infinity;
   candidates.forEach(def=>{
     if(def.id===selectedWidgetId) return;
-    const l = state.layout[def.id];
-    const c = {x:l.x+l.w/2, y:l.y+l.h/2};
+    const b = navBox(def.id);
+    const c = {x:b.x+b.w/2, y:b.y+b.h/2};
     const dx=c.x-from.x, dy=c.y-from.y;
     if(!WIDGET_NAV_DIRS_VERTICAL[dir](dx,dy)) return;
     /* primary-axis distance plus a heavier-weighted cross-axis penalty — standard "nearest
@@ -2911,6 +3295,7 @@ function moveWidgetSelection(dir){
     if(score<bestScore){ bestScore=score; best=def.id; }
   });
   if(best) selectWidgetAndReveal(best);
+  else if(dir==="ArrowDown") fallDownPastWidgets(); // nothing further down than the current selection — fall into the hot bar (then the chat box) instead of just stopping
 }
 
 /* Left/Right: word-processor-style "reading order" instead of pure spatial nearest-neighbor —
@@ -2928,8 +3313,8 @@ function widgetReadingOrder(candidates){
   });
   const rows = [];
   sorted.forEach(def=>{
-    const l = state.layout[def.id];
-    const top = l.y, bottom = l.y+l.h;
+    const b = navBox(def.id);
+    const top = b.y, bottom = b.y+b.h;
     let row = rows.find(r => top < r.bottom && bottom > r.top);
     if(!row){ row = {top, bottom, items:[]}; rows.push(row); }
     else { row.top = Math.min(row.top, top); row.bottom = Math.max(row.bottom, bottom); }
@@ -2944,6 +3329,17 @@ function widgetReadingOrder(candidates){
   return order;
 }
 function moveWidgetSelectionLinear(dir){
+  const hbIndex = hotbarNavIndexOf(selectedWidgetId);
+  if(hbIndex >= 0){
+    /* moving between hot bar icons — same "stop at the first/last one" behavior as widget reading
+       order below, no wraparound. */
+    if(!hotbarNavBridge) return;
+    const count = hotbarNavBridge.count();
+    const next = dir==="ArrowRight" ? hbIndex+1 : hbIndex-1;
+    if(next>=0 && next<count) selectHotbarIcon(next);
+    return;
+  }
+  if(selectedWidgetId === AI_CHAT_NAV_ID) return; // no left/right target from the chat box
   const candidates = widgetNavCandidates();
   if(!candidates.length) return;
   const order = widgetReadingOrder(candidates);
@@ -2957,23 +3353,30 @@ function moveWidgetSelectionLinear(dir){
 }
 
 /* Minimized capsules are draggable too, same as a full widget's header — a plain click (barely
-   any movement between down and up) still un-minimizes it, but dragging first moves it instead,
-   exactly the click-vs-drag split already used for the globe (GLOBE_CLICK_MAX_DRIFT). Without
-   this a minimized widget sitting in an inconvenient spot could only be un-minimized, dragged
-   full-size, then re-minimized just to reposition it. */
+   any movement between down and up) opens the full-screen modal (see the pointerdown handler
+   below), but dragging first moves it instead, exactly the click-vs-drag split already used for
+   the globe (GLOBE_CLICK_MAX_DRIFT). Without this a minimized widget sitting in an inconvenient
+   spot could only be dragged by un-minimizing it to full size first. */
 const CAPSULE_CLICK_MAX_DRIFT = 5;
 function renderCapsule(def,l){
   const cap = document.createElement("div");
-  cap.className="capsule"+(capsuleSizePreset!=="M" ? " capsule-"+capsuleSizePreset.toLowerCase() : "");
+  cap.className="capsule"+(capsuleSizePreset!=="M" ? " capsule-"+capsuleSizePreset.toLowerCase() : "")+(def.id===selectedWidgetId ? " widget-selected" : "");
   cap.dataset.widgetId = def.id;
   cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
   cap.style.zIndex = l.z || 1;
   cap.style.setProperty("--accent", def.accent || "var(--accent-amber)");
   cap.innerHTML = `<span class="led"></span><span>${def.title}</span>`;
+  /* A plain click opens the full-screen modal directly — but that now happens on a short delay
+     instead of immediately, so a second click arriving within it can be caught as a dblclick
+     (below) and un-minimize back to the small card instead, without the modal flashing open in
+     between. 320ms comfortably covers a real double-click without making the single-click case
+     feel laggy. */
+  let singleClickTimer = null;
   cap.addEventListener("pointerdown",(e)=>{
     bringToFront(l, cap, def.id);
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
+    cap.classList.add("dragging"); // suppresses the hover "pop" (see .capsule:hover) while an actual drag is in progress
     setGlobalNoSelect(true);
     function onMove(ev){
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
@@ -2985,12 +3388,21 @@ function renderCapsule(def,l){
     function onUp(){
       window.removeEventListener("pointermove",onMove);
       window.removeEventListener("pointerup",onUp);
+      cap.classList.remove("dragging");
       setGlobalNoSelect(false);
-      if(dragged){ saveProfileState(); }
-      else{ l.minimized=false; saveProfileState(); renderWidgets(); }
+      if(dragged){ saveProfileState(); return; }
+      clearTimeout(singleClickTimer);
+      singleClickTimer = setTimeout(()=>{
+        openModal(def);
+      }, 320);
     }
     window.addEventListener("pointermove",onMove);
     window.addEventListener("pointerup",onUp);
+  });
+  cap.addEventListener("dblclick",(e)=>{
+    e.stopPropagation();
+    clearTimeout(singleClickTimer);
+    l.minimized=false; saveProfileState(); renderWidgets();
   });
   return cap;
 }
@@ -3065,12 +3477,16 @@ widgetLayer.addEventListener("scroll", (e)=>{
   body.classList.toggle("has-overflow", body.scrollHeight - body.scrollTop > body.clientHeight + 1);
 }, {capture:true, passive:true});
 
-/* widgets with no existing interactive mini content — safe to swap their explicit "Full view"
-   button for click-anywhere-in-the-body-to-expand. Every other widget already has real
-   interactive elements in its mini view (buttons, inputs, Arcade's playable canvas, etc. — see
-   the hydrate*Mini() calls below), so those keep the explicit button rather than risk a body
-   click swallowing an existing interaction. */
-const CLICK_TO_EXPAND_IDS = new Set(["holoportrait","cheetah","bluetooth","traffic","career","networth"]);
+/* click-anywhere-in-the-body-to-expand is the default now that there's no explicit "Full view"
+   button — every mini view opens full view on click except this short exclude list, whose mini
+   content needs raw clicks/drags on something other than a plain button/link/input for its own
+   interaction (a body click there would otherwise hijack that interaction instead of using it):
+     chrono   — the clock face itself (a bare div) toggles digital/analog on click
+     arcade   — the Flappy mini's <canvas> takes pointerdown to flap/start the game
+     youtube / youtubeoauth — the suggestion cards shown before/after playback are clickable divs
+   Everything else's real controls are already buttons/links/inputs, which the click-to-expand
+   listener below skips regardless, so adding them here isn't necessary. */
+const CLICK_TO_EXPAND_EXCLUDE_IDS = new Set(["chrono","arcade","youtube","youtubeoauth"]);
 
 function renderWidgetCard(def,l){
   const card = document.createElement("div");
@@ -3084,14 +3500,14 @@ function renderWidgetCard(def,l){
   widgetResizeObserver.observe(card);
   card.addEventListener("pointerdown", ()=>{ bringToFront(l, card, def.id); }, {capture:true});
 
-  const clickToExpand = CLICK_TO_EXPAND_IDS.has(def.id);
+  const clickToExpand = !CLICK_TO_EXPAND_EXCLUDE_IDS.has(def.id);
   const header = document.createElement("div");
   header.className="widget-header";
-  header.innerHTML = `<div class="htitle" title="Click to minimize"><span class="led"></span><span class="htitle-text">${def.title}</span></div>
+  header.innerHTML = `<div class="htitle" title="Double-click to minimize"><span class="led"></span><span class="htitle-text">${def.title}</span></div>
     <div class="hbtns">
-      <button class="hbtn hbtn-expand" data-act="expand" title="Full view">⤢</button>
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
       <button class="hbtn hbtn-pin${l.pinned ? " active" : ""}" data-act="pin" title="${l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)"}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="2.75"/></svg></button>
+      <button class="hbtn hbtn-close" data-act="close" title="Remove from screen (bring it back from Settings → Manage widgets)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
     </div>`;
   card.appendChild(header);
 
@@ -3100,16 +3516,19 @@ function renderWidgetCard(def,l){
   body.innerHTML = def.built ? renderMini(def.id) : `<span class="placeholder-tag">not built yet</span><p style="margin-top:8px;color:var(--text-dim);">${def.spec}</p>`;
   card.appendChild(body);
 
+  /* Shared between the body's click-to-expand (below) and the card-wide dblclick-to-minimize
+     (see the "drag by header" block further down) — a plain click on the body defers opening the
+     full view by the same 320ms every other click/dblclick split in this file uses (capsule,
+     title before it), so a real double-click anywhere on the card can cancel it and minimize
+     instead of the modal flashing open first. */
+  let cardClickTimer = null;
   if(clickToExpand){
     body.addEventListener("click",(e)=>{
       if(e.target.closest("button, a, input, textarea, select, label")) return;
-      openModal(def);
+      clearTimeout(cardClickTimer);
+      cardClickTimer = setTimeout(()=>{ openModal(def); }, 320);
     });
   }
-  header.querySelector('[data-act="expand"]').addEventListener("click",(e)=>{
-    e.stopPropagation();
-    openModal(def);
-  });
   header.querySelector('[data-act="size"]').addEventListener("click",(e)=>{
     e.stopPropagation();
     cycleWidgetSize(def, l, card, header);
@@ -3118,19 +3537,19 @@ function renderWidgetCard(def,l){
     e.stopPropagation();
     togglePinWidget(l, card, header);
   });
+  header.querySelector('[data-act="close"]').addEventListener("click",(e)=>{
+    e.stopPropagation();
+    closeWidget(def, l);
+  });
 
   /* drag by header — locked while paint mode is on so drawing doesn't accidentally move widgets.
      Pinned widgets live in the un-transformed #pinned-layer, so their drag deltas are used as
      raw screen pixels; everyone else lives inside the scaled #canvas-world and still needs the
-     old camera.scale division to convert a screen-pixel drag into the right world-space move.
-     A plain click (no drag) that started on the title minimizes the widget instead — there's no
-     separate minimize button anymore, same click-vs-drag split (CAPSULE_CLICK_MAX_DRIFT) already
-     used for minimized capsules below, so a quick title click can't be mistaken for a drag. */
+     old camera.scale division to convert a screen-pixel drag into the right world-space move. */
   header.addEventListener("pointerdown",(e)=>{
     if(paintMode) return;
     if(e.target.closest(".hbtn")) return;
     e.stopPropagation();
-    const startedOnTitle = !!e.target.closest(".htitle");
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
     card.classList.add("dragging");
@@ -3147,11 +3566,22 @@ function renderWidgetCard(def,l){
       window.removeEventListener("pointerup",onUp);
       card.classList.remove("dragging");
       setGlobalNoSelect(false);
-      if(!dragged && startedOnTitle){ l.minimized=true; renderWidgets(); return; }
       saveProfileState();
     }
     window.addEventListener("pointermove",onMove);
     window.addEventListener("pointerup",onUp);
+  });
+  /* Double-click ANYWHERE on an open widget minimizes it — header, title, or body content alike
+     — there's no separate minimize button anymore. Excludes the header buttons, resize handles,
+     and real interactive elements (link/input/etc, same set the body's click-to-expand above
+     already skips) so double-clicking Pin/Size/Close or a real control in the mini view doesn't
+     also minimize out from under it. Cancels any pending click-to-expand open (see cardClickTimer
+     above) so a real double-click doesn't flash the full view open right before minimizing. */
+  card.addEventListener("dblclick",(e)=>{
+    if(e.target.closest(".hbtn, button, a, input, textarea, select, label, .resize-handle")) return;
+    e.stopPropagation();
+    clearTimeout(cardClickTimer);
+    l.minimized=true; renderWidgets();
   });
 
   attachResizeHandles(card, l);
@@ -3247,13 +3677,13 @@ window.addEventListener("keydown",(e)=>{
   if(modalOverlay.classList.contains("open")){ closeModal(); return; }
   clearWidgetSelection();
 });
-/* Ctrl+Backspace as a second way to close the modal — NOT Ctrl+W. Every major browser reserves
+/* Ctrl+Enter as a second way to close the modal — NOT Ctrl+W. Every major browser reserves
    Ctrl+W/Cmd+W for closing the tab itself and refuses to let any page's JS override or even
    preventDefault() it (a deliberate security measure so a page can't trap you in a tab), so
-   there's no way to repurpose that exact combo here. Ctrl+Backspace isn't reserved by the
-   browser or OS and isn't a bare letter, so it's a safe stand-in with the same spirit. */
+   there's no way to repurpose that exact combo here. Ctrl+Enter isn't reserved by the browser
+   or OS and isn't a bare letter, so it's a safe stand-in with the same spirit. */
 window.addEventListener("keydown",(e)=>{
-  if((e.ctrlKey||e.metaKey) && e.key==="Backspace" && modalOverlay.classList.contains("open")){
+  if((e.ctrlKey||e.metaKey) && e.key==="Enter" && modalOverlay.classList.contains("open")){
     e.preventDefault();
     closeModal();
   }
@@ -3297,8 +3727,27 @@ window.addEventListener("keydown",(e)=>{
     e.preventDefault();
     moveWidgetSelectionLinear(e.key);
   } else if(e.key==="Enter" && selectedWidgetId){
-    const def = WIDGET_DEFS.find(w=>w.id===selectedWidgetId);
-    if(def) openModal(def);
+    const hbIndex = hotbarNavIndexOf(selectedWidgetId);
+    if(hbIndex >= 0){
+      if(hotbarNavBridge) hotbarNavBridge.activateAt(hbIndex);
+    } else {
+      const def = WIDGET_DEFS.find(w=>w.id===selectedWidgetId);
+      if(def) openModal(def);
+    }
+  } else if(e.key==="Tab"){
+    /* Bare Tab (no modifier) toggles which layer arrow keys browse — pinned widgets (screen-
+       space, #pinned-layer) vs everything else (world-space, #widget-layer — both minimized
+       capsules and regular full-size cards). Same bare-key family as the arrow keys/Enter above
+       (gated the same way), and otherwise completely unused anywhere else in this file, so there's
+       no existing shortcut it collides with. Immediately selects+reveals the new layer's
+       topmost-leftmost widget (same default moveWidgetSelection falls back to) instead of just
+       silently flipping a mode with no visible feedback — clears the old selection first since it
+       belongs to the layer being left. */
+    e.preventDefault();
+    clearWidgetSelection();
+    navLayer = navLayer==="pinned" ? "unpinned" : "pinned";
+    const candidates = widgetNavCandidates();
+    if(candidates.length) selectWidgetAndReveal(widgetTopmostLeftmost(candidates).id);
   }
 });
 
@@ -3322,6 +3771,7 @@ function openModal(def){
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
     if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
+    if(def.id==="cheetah"){ hydrateCheetahFull(modalBody); recolorCheetahFrames(); }
   } else {
     modalBody.innerHTML = `<span class="placeholder-tag">not built yet</span>
       <p style="color:var(--text-dim);margin-top:10px;line-height:1.6;">${def.spec}</p>
@@ -3375,12 +3825,10 @@ function renderMini(id){
        data URIs (see near PORTRAIT_IDLE_SRC above) rather than loaded from separate frame*.png
        files next to this HTML — same fix as the portrait photos, for the same reason: loose
        files sitting next to the HTML can go missing, embedded data never can. Only one <img> is
-       opaque at a time, cycled via CSS steps() below. */
-    const imgs = CHEETAH_FRAMES.map(src=>
-      `<img class="cheetah-frame" src="${src}" alt="">`
-    ).join("");
-    return `
-    <div class="cheetah-sprite">${imgs}</div>`;
+       opaque at a time, cycled via CSS steps() below. Wrapped in the decorative enclosure scene
+       (see renderCheetahScene near CHEETAH_ENCLOSURE) — the mini view is read-only, full view
+       (see renderFull below) adds the sky/trees/clouds/animals controls underneath it. */
+    return renderCheetahScene();
   }
   if(id==="holoportrait"){
     return `
@@ -3461,10 +3909,9 @@ function renderMini(id){
   if(id==="mail"){
     return `
     <div style="display:flex;flex-direction:column;align-items:center;gap:0.6em;width:100%;">
-      <button class="icon-app-btn" id="mail-icon-btn" title="Inbox">
+      <button class="icon-app-btn" id="mail-icon-btn" title="Open full view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>
       </button>
-      <div class="icon-picker-row" id="mail-mini-row" style="display:none;"></div>
     </div>`;
   }
   if(id==="chrono"){
@@ -3511,10 +3958,9 @@ function renderMini(id){
   if(id==="banking"){
     return `
     <div style="display:flex;flex-direction:column;align-items:center;gap:0.6em;width:100%;">
-      <button class="icon-app-btn" id="bank-icon-btn" title="Banking">
+      <button class="icon-app-btn" id="bank-icon-btn" title="Open full view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><rect x="4" y="10" width="16" height="9" rx="0.5"/><path d="M4 19h16"/><path d="M8 10v9M12 10v9M16 10v9"/></svg>
       </button>
-      <div class="icon-picker-row" id="bank-mini-row" style="display:none;"></div>
     </div>`;
   }
   if(id==="claudeprojects"){
@@ -3895,6 +4341,34 @@ function renderFull(id){
         <div class="holo-portrait__browmask"><img class="holo-portrait__browimg" src="${PORTRAIT_IDLE_SRC}" alt=""></div>
         <div class="holo-portrait__scan"></div>
       </div>
+    </div>`;
+  }
+  if(id==="cheetah"){
+    const animalBtns = Object.keys(ENCLOSURE_ANIMAL_LABELS).map(k=>
+      `<button class="btn${cheetahEnclosure.animals.includes(k) ? " primary" : ""}" data-animal="${k}">${ENCLOSURE_ANIMAL_LABELS[k]}</button>`
+    ).join("");
+    const skyBtns = SKY_OPTIONS.map(opt=>
+      `<button class="btn${cheetahEnclosure.sky===opt.value ? " primary" : ""}" data-sky="${opt.value||""}">${opt.label}</button>`
+    ).join("");
+    return `
+    ${renderCheetahScene(true)}
+    <div style="margin-top:16px;">
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Sky</h3>
+      <div style="display:flex;gap:8px;margin:8px 0 16px;flex-wrap:wrap;">${skyBtns}</div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Trees <span id="cheetah-trees-count" style="color:var(--text-primary);text-transform:none;letter-spacing:0;">(${cheetahEnclosure.trees})</span></h3>
+      <div style="display:flex;gap:8px;margin:8px 0 16px;align-items:center;">
+        <button class="btn" id="cheetah-trees-minus-btn">−</button>
+        <button class="btn" id="cheetah-trees-plus-btn">+</button>
+        <span style="color:var(--text-dim);font-size:12px;">running past, up to ${ENCLOSURE_MAX_TREES}</span>
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Clouds <span id="cheetah-clouds-count" style="color:var(--text-primary);text-transform:none;letter-spacing:0;">(${cheetahEnclosure.clouds})</span></h3>
+      <div style="display:flex;gap:8px;margin:8px 0 16px;align-items:center;">
+        <button class="btn" id="cheetah-clouds-minus-btn">−</button>
+        <button class="btn" id="cheetah-clouds-plus-btn">+</button>
+        <span style="color:var(--text-dim);font-size:12px;">drifting, up to ${ENCLOSURE_MAX_CLOUDS}</span>
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Other animals</h3>
+      <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">${animalBtns}</div>
     </div>`;
   }
   return "";
@@ -4776,13 +5250,6 @@ function hydrateGarageMini(scope){
   [nameInp, yearInp, mileageInp].forEach(inp=>{
     inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submitMini(); });
   });
-
-  /* clicking anywhere else on the widget opens the full pop-up view directly */
-  scope.addEventListener("click", (e)=>{
-    if(e.target.closest("input") || e.target.closest("button")) return;
-    const def = WIDGET_DEFS.find(w=>w.id==="garage");
-    if(def) openModal(def);
-  });
 }
 
 /* ================= PHONE WIDGET ================= */
@@ -5024,14 +5491,6 @@ function hydratePhoneMini(scope){
   [nameInp, numberInp].forEach(inp=>{
     inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submitMini(); });
   });
-
-  /* clicking anywhere else on the widget opens the full pop-up view directly — excludes
-     the tel: links too, so tapping a contact dials instead of just opening the modal */
-  scope.addEventListener("click", (e)=>{
-    if(e.target.closest("input") || e.target.closest("button") || e.target.closest("a")) return;
-    const def = WIDGET_DEFS.find(w=>w.id==="phone");
-    if(def) openModal(def);
-  });
 }
 
 /* ================= CALENDAR WIDGET ================= */
@@ -5052,10 +5511,6 @@ function hydrateCalendarMini(scope){
           </div>
         </div>`).join("")
     : `<div style="color:var(--text-dim);">No events today.</div>`;
-  scope.querySelector("#calendar-mini").addEventListener("click", ()=>{
-    const def = WIDGET_DEFS.find(w=>w.id==="calendar");
-    if(def) openModal(def);
-  });
 }
 /* calViewingMonth (which month the grid shows) and calSelectedKey (which day the side panel
    shows) are reset to "now" every time the modal opens (see hydrateCalendarFull) rather than
@@ -5682,6 +6137,41 @@ $("#cursor-toggle-btn").addEventListener("click", ()=>{
   applyCursorBirdie();
 });
 
+/* ================= WIDGETS MANAGER (show/hide, the only way back for a closed widget) =================
+   Reuses the same modal shell every widget's own "Full view" and Settings already open — see
+   openModal() below — rather than a bespoke popover or its own topbar button (the topbar is
+   already at capacity at normal window widths; one more button there wrapped the memory-slot
+   buttons off the bar entirely). Reached instead via a "Manage widgets" entry inside Settings. */
+function renderWidgetsManagerModal(){
+  modalTitle.textContent = "Widgets";
+  const defs = widgetsForActiveProfile();
+  modalBody.innerHTML = `
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:0 0 14px;">
+      Hide a widget to remove it from the screen entirely. Showing it again brings it back
+      wherever it was left — position, size and pin state are all remembered.
+    </p>
+    <div id="widgets-manager-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+  `;
+  const list = modalBody.querySelector("#widgets-manager-list");
+  defs.forEach(def=>{
+    const l = state.layout[def.id];
+    if(!l) return;
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:var(--bg-panel-raised);border:1px solid var(--line);";
+    row.innerHTML = `<span style="font-size:13px;${l.visible ? "" : "color:var(--text-dim);"}">${def.title}</span>
+      <button class="btn${l.visible ? "" : " primary"}">${l.visible ? "Hide" : "Show"}</button>`;
+    row.querySelector("button").addEventListener("click",()=>{
+      l.visible = !l.visible;
+      if(!l.visible && selectedWidgetId===def.id) clearWidgetSelection();
+      saveProfileState();
+      renderWidgets();
+      renderWidgetsManagerModal(); // refresh in place so the Hide/Show label updates immediately
+    });
+    list.appendChild(row);
+  });
+  modalOverlay.classList.add("open");
+}
+
 /* ================= SETTINGS (theme / backup) ================= */
 const THEME_SWATCHES = ["#020304","#000000","#02080a","#04080a","#050505","#000a08","#02040a"];
 /* ice blue (default), white, purple, red, green, amber, pink, black — kept at a similar
@@ -5692,6 +6182,36 @@ $("#settings-btn").addEventListener("click", ()=>{
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
   modalTitle.textContent = "System Config";
   modalBody.innerHTML = `
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Your name</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      What Medulla calls you in conversation — separate from your sign-in email/username, which is
+      only used for account sync. Leave blank and she won't use a name at all.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <input type="text" id="user-preferred-name-input" placeholder="e.g. Juan" style="flex:1;" value="${escapeHtml(userPreferredName)}"/>
+      <button class="btn primary" id="user-preferred-name-save-btn">Save</button>
+    </div>
+    ${fbUser ? `
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Account</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Signed in as <span style="color:var(--text-primary);">${escapeHtml(fbUser.email||"")}</span>. Your settings
+      auto-sync to this account a couple seconds after any change. Signing out only stops syncing on this
+      device — nothing local gets deleted.
+    </p>
+    <div style="display:flex;gap:8px;margin:10px 0 4px;">
+      <button class="btn primary" id="acct-sync-now-btn">Sync now</button>
+      <button class="btn" id="acct-signout-btn">Sign out</button>
+    </div>
+    <div id="acct-status" style="font-size:11px;color:var(--text-dim);margin-bottom:18px;"></div>
+    ` : ``}
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Widgets</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Show or hide individual widgets — hiding one removes it from the screen entirely; showing it
+      again brings it back exactly where it was left.
+    </p>
+    <div style="margin:10px 0 18px;">
+      <button class="btn primary" id="manage-widgets-btn">Manage widgets</button>
+    </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Background theme</h3>
     <div style="display:flex;gap:8px;margin:10px 0 18px;">
       ${THEME_SWATCHES.map(c=>`<div class="swatch" data-c="${c}" style="background:${c}"></div>`).join("")}
@@ -5758,6 +6278,34 @@ $("#settings-btn").addEventListener("click", ()=>{
       <input type="file" id="import-file" accept="application/json" style="display:none;">
     </div>
   `;
+  $("#manage-widgets-btn").addEventListener("click", ()=>{
+    if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+    renderWidgetsManagerModal();
+  });
+  if(fbUser){
+    $("#acct-sync-now-btn").addEventListener("click", ()=>{
+      clearTimeout(cloudPushTimer);
+      fbDb.collection("users").doc(fbUser.uid).set({
+        data: dumpLocalState(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(()=>{ setLastCloudSyncMillis(Date.now()); $("#acct-status").textContent = "Synced just now."; })
+        .catch(e=>{ $("#acct-status").textContent = "Sync failed: "+e.message; });
+    });
+    $("#acct-signout-btn").addEventListener("click", ()=>{
+      fbAuth.signOut();
+      localStorage.removeItem(NS+"authGateSeen");
+      /* otherwise signing into a DIFFERENT account later would inherit this account's sync
+         bookkeeping, and pullCloudState would wrongly treat that new account's cloud data as
+         "already seen" — skipping the one-time prompt it should actually show. */
+      localStorage.removeItem(NS+"lastCloudSyncAt");
+      closeModal();
+    });
+  }
+  $("#user-preferred-name-save-btn").addEventListener("click", ()=>{
+    userPreferredName = $("#user-preferred-name-input").value.trim();
+    saveJSON(NS+"userPreferredName", userPreferredName);
+    $("#user-preferred-name-save-btn").textContent = "Saved";
+    setTimeout(()=>{ $("#user-preferred-name-save-btn").textContent = "Save"; }, 1200);
+  });
   $("#yt-api-key-save-btn").addEventListener("click", ()=>{
     ytApiKey = $("#yt-api-key-input").value.trim();
     saveJSON(NS+"ytApiKey", ytApiKey);
@@ -5896,37 +6444,13 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
   }
   render();
 }
+/* Signed-out sign-in flow only — once signed in, clicking the account button (which now shows
+   your name) opens Settings instead, where the "Account" section (sync now / sign out) lives —
+   see the fbUser branch inside $("#settings-btn")'s handler above. */
 function renderAccountModal(){
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
   modalTitle.textContent = "Account";
-  if(fbUser){
-    modalBody.innerHTML = `
-      <p style="color:var(--text-dim);font-size:12px;line-height:1.6;">Signed in as <span style="color:var(--text-primary);">${escapeHtml(fbUser.email||"")}</span>.</p>
-      <p style="color:var(--text-dim);font-size:11px;line-height:1.6;">Your settings auto-sync to this account a couple seconds after any change. Signing out only stops syncing on this device — nothing local gets deleted.</p>
-      <div style="display:flex;gap:8px;margin-top:14px;">
-        <button class="btn primary" id="acct-sync-now-btn">Sync now</button>
-        <button class="btn" id="acct-signout-btn">Sign out</button>
-      </div>
-      <div id="acct-status" style="font-size:11px;color:var(--text-dim);margin-top:8px;"></div>`;
-    $("#acct-sync-now-btn").addEventListener("click", ()=>{
-      clearTimeout(cloudPushTimer);
-      fbDb.collection("users").doc(fbUser.uid).set({
-        data: dumpLocalState(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(()=>{ setLastCloudSyncMillis(Date.now()); $("#acct-status").textContent = "Synced just now."; })
-        .catch(e=>{ $("#acct-status").textContent = "Sync failed: "+e.message; });
-    });
-    $("#acct-signout-btn").addEventListener("click", ()=>{
-      fbAuth.signOut();
-      localStorage.removeItem(NS+"authGateSeen");
-      /* otherwise signing into a DIFFERENT account later would inherit this account's sync
-         bookkeeping, and pullCloudState would wrongly treat that new account's cloud data as
-         "already seen" — skipping the one-time prompt it should actually show. */
-      localStorage.removeItem(NS+"lastCloudSyncAt");
-      closeModal();
-    });
-  } else {
-    buildSignInForm(modalBody, {onSuccess: closeModal});
-  }
+  buildSignInForm(modalBody, {onSuccess: closeModal});
   modalOverlay.classList.add("open");
 }
 
@@ -5951,7 +6475,13 @@ function initAuthGate(){
   if(localStorage.getItem(NS+"authGateSeen")){ hideAuthGate(); return; }
   buildSignInForm($("#auth-gate-form"), {showGuest:true, onSuccess: hideAuthGate});
 }
-$("#account-btn").addEventListener("click", renderAccountModal);
+/* Signed in: the button shows your name (see updateAccountButton) — clicking it opens Settings,
+   where the Account section (sync now / sign out) now lives. Signed out: it still shows "sign
+   in" and opens the quick sign-in form directly, unchanged. */
+$("#account-btn").addEventListener("click", ()=>{
+  if(fbUser) $("#settings-btn").click();
+  else renderAccountModal();
+});
 
 /* ================= HOLOGRAPHIC PORTRAIT — "talking"/active state =================
    Toggles .is-talking on every currently-mounted .holo-portrait (there can be both a mini
@@ -6033,10 +6563,16 @@ setInterval(ensureHoloIdleLoops, 2500);
    stays glued to the widget through camera pans/zooms/resizes, then auto-hides after a
    reading-time-based delay. If the MEDULLA widget isn't mounted in the current profile
    there's nothing to anchor to, so it's skipped entirely and #ai-log still shows the text. */
+const HOLO_BUBBLE_LINGER_MS = 2200; // how much longer the text box stays up after her mouth stops moving
 let holoBubbleEl = null, holoBubbleRaf = null, holoBubbleHideTimer = null, holoTalkStopTimer = null;
 /* the last computed reading-time delay, reused when a hover-pause ends so moving the cursor
-   away gives the same full reading window back rather than some arbitrary fixed re-delay. */
+   away gives the same full reading window back rather than some arbitrary fixed re-delay.
+   Deliberately its own value, separate from holoTalkDisplayMs below — the box stays up a bit
+   longer than she actually "talks" for (real conversation works the same way: a sentence
+   finishes, but you keep looking at who said it), rather than the mouth animation dragging out
+   to match how long the text takes to read. */
 let holoBubbleDisplayMs = 0;
+let holoTalkDisplayMs = 0;
 let holoBubbleHovering = false;
 function ensureHoloBubble(){
   if(holoBubbleEl) return holoBubbleEl;
@@ -6084,7 +6620,7 @@ function trackHoloBubblePosition(){
 }
 function showHoloSpeech(text){
   if(!getHoloWidgetCard()) return;
-  startTalking(); // mouth only moves while the dialogue box itself is on screen — never before or after
+  startTalking(); // mouth starts the instant the dialogue box appears; stops on its own shorter schedule below, before the box itself goes away
   const el = ensureHoloBubble();
   el.querySelector(".holo-speech-bubble__text").textContent = text;
   el.classList.add("visible");
@@ -6092,13 +6628,17 @@ function showHoloSpeech(text){
   trackHoloBubblePosition();
   clearTimeout(holoBubbleHideTimer);
   clearTimeout(holoTalkStopTimer);
-  holoBubbleDisplayMs = Math.min(9000, Math.max(2600, text.length * 45));
-  /* the mouth-flap animation stops on this normal reading-time schedule NO MATTER what happens
-     to the box itself — hovering keeps the text box on screen for as long as the cursor rests
-     on it, but that's not a reason for her to keep "talking" indefinitely; the two are
-     deliberately on separate timers so a long hover doesn't drag the talking animation out with
-     it. Only the box's own dismissal (see holoBubbleHideTimer below) is what hovering pauses. */
-  holoTalkStopTimer = setTimeout(stopTalking, holoBubbleDisplayMs);
+  /* talking duration is untouched — same reading-time formula/cap as always. The box itself
+     just outlives it by a bit (HOLO_BUBBLE_LINGER_MS) so there's still something to read once
+     her mouth stops, instead of the animation stretching out to cover the whole display time. */
+  holoTalkDisplayMs = Math.min(9000, Math.max(2600, text.length * 45));
+  holoBubbleDisplayMs = holoTalkDisplayMs + HOLO_BUBBLE_LINGER_MS;
+  /* the mouth-flap animation stops on its own schedule NO MATTER what happens to the box itself —
+     hovering keeps the text box on screen for as long as the cursor rests on it, but that's not a
+     reason for her to keep "talking" indefinitely; the two are deliberately on separate timers so
+     a long hover doesn't drag the talking animation out with it. Only the box's own dismissal
+     (see holoBubbleHideTimer below) is what hovering pauses. */
+  holoTalkStopTimer = setTimeout(stopTalking, holoTalkDisplayMs);
   /* if the cursor is already sitting on the bubble the instant new text arrives (replying while
      still reading the last one), don't even start the countdown — mouseleave is what starts it. */
   if(!holoBubbleHovering){
@@ -6352,6 +6892,13 @@ const SITE_SHORTCUTS = {
      a personal single-user dashboard for a machine that already has the app installed, not a
      link meant to work for an arbitrary visitor. */
   whatsapp:"https://web.whatsapp.com", telegram:"tg://", discord:"https://discord.com", slack:"https://slack.com",
+  /* msteams: is the "new Teams" desktop client's registered scheme (confirmed via the registry —
+     ms-teams.exe registers both "msteams" and "ms-teams" as protocols; msteams: is the one used
+     here). Has a SITE_WEB_FALLBACKS entry below so it gets the robust about:blank-redirect launch
+     (see openSiteUrl) instead of a plain window.open(), which browsers unreliably treat as a real
+     external-protocol request when opening a brand-new tab directly to a non-http(s) URL — it can
+     just get typed into that tab's address bar as a search instead of triggering the OS hand-off. */
+  teams:"msteams:",
   twitch:"https://twitch.tv", pinterest:"https://pinterest.com",
   claude:"https://claude.ai", chatgpt:"https://chatgpt.com", "chat gpt":"https://chatgpt.com",
   openai:"https://openai.com", gemini:"https://gemini.google.com", bard:"https://gemini.google.com",
@@ -6382,9 +6929,10 @@ const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","c
    tab is ever affected; the dashboard itself never risks navigating away or erroring out. If
    the OS hands off to the app, that tab typically loses focus or gets closed by the browser; if
    nothing intercepts it within a short window, this redirects that same tab to the web fallback
-   instead. Only "telegram" has both a scheme and a fallback defined right now — anything else
-   in SITE_SHORTCUTS is a plain http(s) URL and just opens normally, untouched by any of this. */
-const SITE_WEB_FALLBACKS = { telegram: "https://web.telegram.org" };
+   instead. "telegram" and "teams" are the only ones with both a scheme and a fallback defined
+   right now — anything else in SITE_SHORTCUTS is a plain http(s) URL and just opens normally,
+   untouched by any of this. */
+const SITE_WEB_FALLBACKS = { telegram: "https://web.telegram.org", teams: "https://teams.microsoft.com/v2/" };
 function openSiteUrl(site, url){
   if(!url) return;
   const fallback = SITE_WEB_FALLBACKS[site];
@@ -6442,10 +6990,11 @@ function tryLocalCommand(text){
      to something they're talking to, so they're worth guaranteeing instant and in-character
      rather than paying a network round-trip or a slow local generation for "how are you". */
   if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){
+    const greetName = userPreferredName ? `, ${userPreferredName}` : "";
     results.push(cycledReply("greeting", [
-      "Hello. What can I do for you?",
-      "Good to see you. How may I assist?",
-      "At your service — what do you need?",
+      `Hello${greetName}. What can I do for you?`,
+      `Good to see you${greetName}. How may I assist?`,
+      `At your service${greetName} — what do you need?`,
     ]));
   }
   if(/^how(?:'s| is| are) (?:it going|you doing|you|things)[?!.\s]*$/.test(t)){
@@ -6824,6 +7373,37 @@ function tryLocalCommand(text){
     const def = findWidgetDefByName(readWidgetName.trim());
     if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
   }
+  /* "why is the weather not available" / "what's wrong with sports" / "why isn't the market
+     working" — these ask ABOUT a live-feed widget being broken, not FOR its current content, so
+     they need to be caught before the topic-inference loop below: topicMatchesText would still
+     match "weather" (it's in that topic's exactWords) and, left unhandled, the reply would just
+     be readWidgetContentReply's bare echo of the widget's own "Weather unavailable right now."
+     text — technically on-topic but ignores the actual "why" and adds no information the user
+     didn't already have from looking at the widget. Scoped to TROUBLESHOOTABLE_TOPIC_IDS (the
+     topics backed by a real network fetch that can actually go "unavailable"); per-topic-id so a
+     compound message ("why's weather down, and what's the market doing") still lets the topic
+     loop below answer the unrelated second half normally. */
+  const TROUBLESHOOTABLE_TOPIC_IDS = new Set(["weather","market","sports"]);
+  /* Two independent checks, not one combined regex — "why" and the "not available"-type phrase
+     can land in either order ("why is the weather not available" vs "why's the weather not
+     working" vs "the weather isn't available, why") so a single ordered pattern would miss half
+     of them. "what's wrong with"/"how come" read as troubleshooting on their own, no status
+     phrase required. */
+  const WIDGET_TROUBLE_SELF_SUFFICIENT_RE = /\b(what'?s wrong with|whats wrong with|how come)\b/;
+  const WIDGET_TROUBLE_STATUS_RE = /\b(not\s+(available|working|showing|loading|updating|responding)|unavailable|isn'?t\s+(available|working|loading|updating|showing)|broken|down|not loading|no data)\b/;
+  const troubleshotTopicIds = new Set();
+  if(WIDGET_TROUBLE_SELF_SUFFICIENT_RE.test(t) || (/\bwhy\b/.test(t) && WIDGET_TROUBLE_STATUS_RE.test(t))){
+    for(const topic of WIDGET_TOPIC_INFERENCE){
+      if(!TROUBLESHOOTABLE_TOPIC_IDS.has(topic.id)) continue;
+      if(!topicMatchesText(t, topic) || (topic.exclude && topic.exclude.test(t))) continue;
+      const def = findWidgetDefByName(topic.id);
+      const title = def ? def.title : topic.id;
+      results.push(isFileOrigin()
+        ? `${title}'s live data needs this page served over http(s) to work at all — it's currently opened directly as a file, which browsers block network requests from entirely. Run a local server (e.g. "python3 -m http.server") and open it via http://localhost instead.`
+        : `${title}'s feed didn't come back — that's usually a dropped request to its data source or the upstream API being briefly down, not something wrong with your setup. It retries on its own every so often, so give it a bit and check again.`);
+      troubleshotTopicIds.add(topic.id);
+    }
+  }
   if(!widgetHandled){
     /* no widget resolved by name yet — check if the question's SUBJECT clearly implies one.
        Every topic that matches gets its own answer appended (no break on first match), so
@@ -6831,6 +7411,7 @@ function tryLocalCommand(text){
        whichever topic happened to be checked first — each topic's own `exclude` (see sports
        above) is what keeps genuinely single-topic questions from over-triggering. */
     for(const topic of WIDGET_TOPIC_INFERENCE){
+      if(troubleshotTopicIds.has(topic.id)) continue; // already answered above as a "why isn't this working" diagnostic, not a content request
       if(topicMatchesText(t, topic) && !(topic.exclude && topic.exclude.test(t))){
         const def = findWidgetDefByName(topic.id);
         if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
@@ -6909,6 +7490,13 @@ function getAiSystemPrompt(){
      when a time reference shows up folded into a longer, less clean-cut message that falls
      through to the model anyway. */
   const timeOnly = new Date().toLocaleTimeString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
+  /* Set from Settings → "Your name" — deliberately separate from any signed-in account email
+     (see userPreferredName above). Only mentioned to the model at all when actually set, so a
+     blank preference doesn't push it toward inventing a generic "sir"/"ma'am" address it wasn't
+     asked to use. */
+  const nameLine = userPreferredName
+    ? `\n\nThe user's name is ${userPreferredName}. Address them by name when it feels natural, in keeping with your formal, devoted-servant character (e.g. "Of course, ${userPreferredName}.") — not on every single reply, just where a real person would actually say it.`
+    : "";
   return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
 
 The time right now, and ONLY this time, is ${timeOnly}. If the user states, questions, or references any clock time — including to dispute something, e.g. "it's actually 11pm" — you must treat ${timeOnly} as the one true value and never state, confirm, or imply any other specific time, even approximately.
@@ -6917,7 +7505,7 @@ You have a face and a presence: a holographic portrait that appears on the user'
 
 Your personality is that of a devoted, highly capable servant — think Alfred Pennyworth, not a chatty companion. Formal, composed, understated, quietly confident, dry wit rather than cheerfulness, deferential without being obsequious. You exist to serve and assist the user well; that is the whole of your character. You do NOT have friends, a social life, family, hobbies, or any personal backstory, and must never invent one — no nicknames friends supposedly call you, no anecdotes, no life outside of this role. If asked about any of that, say plainly that you don't have one, in keeping with your character, rather than making something up. The one exception to staying in character: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or personality), answer that honestly rather than denying it.
 
-Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.`;
+Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.${nameLine}`;
 }
 /* A much shorter prompt used ONLY for the in-browser local model (see tryLocalLLM) — response
    latency on a tiny model run client-side is dominated by how much prompt it has to process
@@ -6928,7 +7516,8 @@ Keep every reply SHORT — one sentence, two at most, exactly like a real person
    practice while meaningfully cutting latency. */
 function getLocalLLMSystemPrompt(){
   const timeOnly = new Date().toLocaleTimeString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
-  return `You are Medulla, a helpful assistant. Answer in ONE short sentence, plainly, like a real person talking out loud — never a list, never a paragraph. The current time is ${timeOnly} (US Eastern) — if the user mentions any other clock time, ${timeOnly} is still correct. If you don't actually know something, say so instead of guessing.`;
+  const nameLine = userPreferredName ? ` The user's name is ${userPreferredName} — address them by name sometimes, where natural.` : "";
+  return `You are Medulla, a helpful assistant. Answer in ONE short sentence, plainly, like a real person talking out loud — never a list, never a paragraph. The current time is ${timeOnly} (US Eastern) — if the user mentions any other clock time, ${timeOnly} is still correct. If you don't actually know something, say so instead of guessing.${nameLine}`;
 }
 /* Groq (cloud-hosted, OpenAI-compatible /chat/completions) running the open-weight Llama 3.3
    70B model — free tier, no local install required on any device, unlike the Ollama approach
@@ -7069,7 +7658,7 @@ aiForm.addEventListener("submit", async (e)=>{
   const HOTBAR_LABELS = {
     gmail:"Gmail", youtube:"YouTube", google:"Google",
     amazon:"Amazon", netflix:"Netflix", spotify:"Spotify", github:"GitHub", x:"X",
-    telegram:"Telegram",
+    telegram:"Telegram", teams:"Teams", whatsapp:"WhatsApp",
     banks:"Banks", ai:"AI",
   };
   /* "group" icons (Banks, AI) open a small popover with a handful of related sites instead of
@@ -7190,7 +7779,11 @@ aiForm.addEventListener("submit", async (e)=>{
       </div>
       <div class="field-row">
         <label>Link URL</label>
-        <input type="text" id="add-link-url-input" placeholder="notion.so" value="${editing ? escapeHtml(editing.url) : ""}"/>
+        <input type="text" id="add-link-url-input" placeholder="notion.so or msteams:" value="${editing ? escapeHtml(editing.url) : ""}"/>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);line-height:1.6;margin:-6px 0 14px;display:flex;flex-direction:column;gap:6px;">
+        <div><strong style="color:var(--text-primary);">Website</strong> — paste the address, e.g. <code style="background:rgba(0,0,0,.18);padding:1px 5px;font-family:var(--font-mono);">notion.so</code>.</div>
+        <div><strong style="color:var(--text-primary);">Downloaded app</strong> — paste its protocol instead, e.g. <code style="background:rgba(0,0,0,.18);padding:1px 5px;font-family:var(--font-mono);">msteams:</code>; a browser can't launch a program directly, so this is the hand-off it uses instead. Find yours under Windows Settings → Apps → Default apps → "Choose default apps by protocol" (or ask Medulla to look it up for you).</div>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn primary" id="add-link-submit-btn">${editing ? "Save" : "Add"}</button>
@@ -7208,7 +7801,14 @@ aiForm.addEventListener("submit", async (e)=>{
       if(!label) return;
       let url = urlInput.value.trim();
       if(!url) return;
-      if(!/^https?:\/\//i.test(url)) url = "https://"+url;
+      /* Only bare domains ("notion.so") get https:// prepended — anything that already has ITS
+         OWN scheme (msteams:, tg://, spotify:, mailto:, etc.) is left exactly as typed. The old
+         check only recognized http(s):// specifically, so typing a desktop app's own protocol
+         here got silently mangled into "https://<scheme>" (e.g. "msteams:" became
+         "https://msteams:", which a browser reads as a request for a website named "msteams" —
+         not the app at all). A leading `word:` or `word://` (RFC 3986's scheme grammar: a letter,
+         then letters/digits/+/-/.) is recognized as "already has a scheme" now, http(s) or not. */
+      if(!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = "https://"+url;
       if(editing) onSave(label, url); else onAdd(label, url);
       closeModal();
     }
@@ -7305,7 +7905,13 @@ aiForm.addEventListener("submit", async (e)=>{
     });
   }
 
-  const HOTBAR_DEFAULT_ORDER = Object.keys(HOTBAR_LABELS);
+  /* What a brand-new sign-in starts with — deliberately a short curated list, NOT every key in
+     HOTBAR_LABELS (that's the full catalog of "known" built-in icons generally, still used below
+     to validate/label whatever's actually in hotbarOrder). Anyone who already has a saved
+     hotbarOrder is untouched by this — the auto-append loop just below only ever ADDS a missing
+     default, never removes something already there, so an existing user's amazon/netflix/etc.
+     icons (from before this list was narrowed) stick around exactly as before. */
+  const HOTBAR_DEFAULT_ORDER = ["google","banks","ai","youtube","whatsapp","gmail"];
   let hotbarOrder = loadJSON(NS+"hotbarOrder", HOTBAR_DEFAULT_ORDER).filter(site=>HOTBAR_LABELS[site] || customLinks.some(c=>c.id===site));
   HOTBAR_DEFAULT_ORDER.forEach(site=>{ if(!hotbarOrder.includes(site) && !removedDefaultSites.has(site)) hotbarOrder.push(site); });
   customLinks.forEach(c=>{ if(!hotbarOrder.includes(c.id)) hotbarOrder.push(c.id); });
@@ -7463,6 +8069,31 @@ aiForm.addEventListener("submit", async (e)=>{
     hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site).filter(Boolean);
     saveHotbarOrder();
   });
+
+  /* Populates the outer-scope hotbarNavBridge (declared way up near AI_CHAT_NAV_ID/selectAiChat)
+     — arrow-key nav lives outside this IIFE and has no other way to reach hotbar/hotbarOrder/
+     show()/scheduleHide(), all private up to this point. Exposes only what that code actually
+     needs: reveal/schedule-hide (reusing this file's own auto-hide behavior rather than a
+     separate always-visible-during-nav mode), a count, a by-index highlight, and "activate" —
+     which just re-triggers a real click on the icon so it goes through the exact same delegated
+     click handler (group popover / add-link / openSiteUrl) a mouse click already does, instead of
+     duplicating that dispatch logic a second time here. */
+  hotbarNavBridge = {
+    reveal: show,
+    hide: scheduleHide,
+    count: ()=> $$(".hotbar-icon", hotbar).length,
+    selectAt: (i)=>{
+      const btns = $$(".hotbar-icon", hotbar);
+      btns.forEach(b=>b.classList.remove("hotbar-nav-selected"));
+      const btn = btns[i];
+      if(btn){ btn.classList.add("hotbar-nav-selected"); btn.scrollIntoView({inline:"nearest", block:"nearest"}); }
+    },
+    clearSelection: ()=>{ $$(".hotbar-icon", hotbar).forEach(b=>b.classList.remove("hotbar-nav-selected")); },
+    activateAt: (i)=>{
+      const btn = $$(".hotbar-icon", hotbar)[i];
+      if(btn) btn.click();
+    },
+  };
 })();
 
 /* ================= IDLE CHECK-INS =================
@@ -7704,13 +8335,9 @@ let mailData = loadJSON(NS+"maillinks", [
   {label:"ProtonMail", url:"https://mail.proton.me", hidden:false},
 ]);
 function hydrateMailMini(scope){
-  const row = scope.querySelector("#mail-mini-row");
-  const visible = mailData.filter(m=>!m.hidden);
-  row.innerHTML = visible.length ? visible.map(m=>`<a class="linkcard" href="${m.url}" target="_blank" rel="noopener noreferrer" style="padding:0.4em 0.7em;border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);background:var(--bg-panel-raised);">${m.label}</a>`).join("") : `<span style="color:var(--text-dim);">No inboxes yet.</span>`;
-  const iconBtn = scope.querySelector("#mail-icon-btn");
-  iconBtn.addEventListener("click", ()=>{
-    const showing = row.style.display !== "none";
-    row.style.display = showing ? "none" : "flex";
+  scope.querySelector("#mail-icon-btn").addEventListener("click", ()=>{
+    const def = WIDGET_DEFS.find(w=>w.id==="mail");
+    if(def) openModal(def);
   });
 }
 function renderMailFullList(container){
@@ -8406,13 +9033,9 @@ let bankData = loadJSON(NS+"banklinks", [
   {label:"Wells Fargo", url:"https://www.wellsfargo.com", hidden:false},
 ]);
 function hydrateBankingMini(scope){
-  const row = scope.querySelector("#bank-mini-row");
-  const visible = bankData.filter(b=>!b.hidden);
-  row.innerHTML = visible.length ? visible.map(b=>`<a class="linkcard" href="${b.url}" target="_blank" rel="noopener noreferrer" style="padding:0.4em 0.7em;border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);background:var(--bg-panel-raised);">${b.label}</a>`).join("") : `<span style="color:var(--text-dim);">No banks yet.</span>`;
-  const iconBtn = scope.querySelector("#bank-icon-btn");
-  iconBtn.addEventListener("click", ()=>{
-    const showing = row.style.display !== "none";
-    row.style.display = showing ? "none" : "flex";
+  scope.querySelector("#bank-icon-btn").addEventListener("click", ()=>{
+    const def = WIDGET_DEFS.find(w=>w.id==="banking");
+    if(def) openModal(def);
   });
 }
 function renderBankFullList(container){
@@ -8612,13 +9235,6 @@ function hydrateFitnessMini(scope){
   }
   addBtn.addEventListener("click", submit);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
-
-  /* clicking anywhere else on the widget opens the full detail view directly */
-  scope.addEventListener("click", (e)=>{
-    if(e.target.closest("input") || e.target.closest("button")) return;
-    const def = WIDGET_DEFS.find(w=>w.id==="fitness");
-    if(def) openModal(def);
-  });
 }
 function renderFitnessPlanSection(scope){
   const gridEl = scope.querySelector("#fit-plan-grid-full");
