@@ -5765,10 +5765,16 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
     const passInput = container.querySelector("#auth-password-input");
     const status = container.querySelector("#auth-status");
     function showError(e){ status.style.color="var(--accent-rust)"; status.textContent = e.message || String(e); }
-    container.querySelector("#auth-submit-btn").addEventListener("click", ()=>{
+    function submit(){
       const call = mode==="login" ? fbAuth.signInWithEmailAndPassword(emailInput.value.trim(), passInput.value)
                                    : fbAuth.createUserWithEmailAndPassword(emailInput.value.trim(), passInput.value);
       call.then(onSuccess).catch(showError);
+    }
+    container.querySelector("#auth-submit-btn").addEventListener("click", submit);
+    // Enter in either field submits, same as clicking Log In/Sign Up — matches the hot bar's
+    // add-link modal, which already does this for its own inputs.
+    [emailInput, passInput].forEach(inp=>{
+      inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
     });
     container.querySelector("#auth-mode-toggle").addEventListener("click", ()=>{
       mode = mode==="login" ? "signup" : "login";
