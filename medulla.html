@@ -781,10 +781,11 @@
     text-transform:uppercase;letter-spacing:.05em;
     box-shadow:0 4px 14px rgba(0,0,0,.5), 0 0 12px -3px var(--accent, var(--accent-amber));
   }
-  /* size applies uniformly to every minimized widget at once, set from the topbar (see
-     #capsule-size-s/m/l-btn) — not a per-widget control. M matches the base .capsule rule above. */
-  .capsule.capsule-s{height:22px;padding:0 10px;gap:6px;font-size:10px;}
-  .capsule.capsule-l{height:44px;padding:0 22px;gap:10px;font-size:14px;}
+  /* size applies uniformly to every minimized widget at once, set from the topbar "size" S/M/L
+     buttons (the same ones that resize full widgets) — not a per-widget control. M matches the
+     base .capsule rule above. */
+  .capsule.capsule-s{height:16px;padding:0 7px;gap:4px;font-size:9px;}
+  .capsule.capsule-l{height:60px;padding:0 30px;gap:14px;font-size:18px;}
 
   .placeholder-tag{display:inline-block;font-family:var(--font-mono);font-weight:500;font-size:11px;color:var(--accent-rust);
     border:1px solid var(--accent-rust);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;text-shadow:0 0 6px var(--accent-rust);}
@@ -1080,14 +1081,11 @@
       </button>
       <button class="tbtn" id="pin-all-btn" title="Pin every open widget to the screen; click again to unpin them all">pin all</button>
       <button class="tbtn" id="min-all-btn" title="Minimize every open, unpinned widget; click again to restore them">min all</button>
-      <button class="tbtn hbtn-size" id="capsule-size-s-btn" title="Minimized widget size: Small">S</button>
-      <button class="tbtn hbtn-size" id="capsule-size-m-btn" title="Minimized widget size: Medium">M</button>
-      <button class="tbtn hbtn-size" id="capsule-size-l-btn" title="Minimized widget size: Large">L</button>
       <div class="tbtn-divider"></div>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">size</span>
-      <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small">S</button>
-      <button class="tbtn hbtn-size" id="size-all-m-btn" title="Resize every open widget to Medium">M</button>
-      <button class="tbtn hbtn-size" id="size-all-l-btn" title="Resize every open widget to Large">L</button>
+      <button class="tbtn hbtn-size" id="size-all-s-btn" title="Resize every open widget to Small (also shrinks minimized widgets)">S</button>
+      <button class="tbtn hbtn-size" id="size-all-m-btn" title="Resize every open widget to Medium (also resizes minimized widgets)">M</button>
+      <button class="tbtn hbtn-size" id="size-all-l-btn" title="Resize every open widget to Large (also grows minimized widgets)">L</button>
       <div class="tbtn-divider"></div>
       <button class="tbtn tbtn-icon" id="zoom-out-btn" title="Zoom out (Ctrl+-)">−</button>
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);" id="zoom-readout">100%</span>
@@ -1620,19 +1618,6 @@ function updateMinAllButtonState(){
 }
 $("#min-all-btn").addEventListener("click", toggleAllMinimized);
 
-/* topbar S/M/L for minimized-widget size — one global preset applied to every capsule at once,
-   not a per-widget control (no per-capsule size button). No "active" highlight is tracked on
-   these on purpose — which preset happens to be selected isn't worth the bookkeeping, only what
-   the capsules currently look like matters. */
-function setCapsuleSize(preset){
-  capsuleSizePreset = preset;
-  saveJSON(NS+"capsuleSize", preset);
-  renderWidgets();
-}
-$("#capsule-size-s-btn").addEventListener("click", ()=>setCapsuleSize("S"));
-$("#capsule-size-m-btn").addEventListener("click", ()=>setCapsuleSize("M"));
-$("#capsule-size-l-btn").addEventListener("click", ()=>setCapsuleSize("L"));
-
 /* topbar "size all" preset buttons — same in-place resize as cycleWidgetSize, just applied to
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
    touching at their new size (same packWidgetsIntoGrid the Stacks button uses) — resizing without
@@ -1640,6 +1625,16 @@ $("#capsule-size-l-btn").addEventListener("click", ()=>setCapsuleSize("L"));
    would keep the wide L-sized spacing between now-small cards. */
 function setAllWidgetSizes(preset){
   ["S","M","L"].forEach(p=> $(`#size-all-${p.toLowerCase()}-btn`).classList.toggle("active", p===preset));
+
+  /* same preset also drives every minimized widget's capsule size — one set of S/M/L buttons
+     controls both, so there's nothing to confuse with a second near-identical button group. */
+  capsuleSizePreset = preset;
+  saveJSON(NS+"capsuleSize", preset);
+  document.querySelectorAll(".capsule").forEach(cap=>{
+    cap.classList.remove("capsule-s","capsule-l");
+    if(preset!=="M") cap.classList.add("capsule-"+preset.toLowerCase());
+  });
+
   const targets = widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
     /* pinned widgets are excluded — this repacks into a world-space grid, and a pinned
