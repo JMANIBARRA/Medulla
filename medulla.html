@@ -5262,7 +5262,35 @@ function setupYouTubePlayer(scope, sel){
      button via notReadyAction) without duplicating this whole block. */
   const suggestEl = sel.suggestionsInPlayer ? scope.querySelector(sel.suggestionsInPlayer) : null;
   let browseOpen = false;
+  let miniSearchSeq = 0;
   function hideMiniSuggestions(){ browseOpen = false; if(suggestEl) suggestEl.innerHTML = ""; }
+  /* query="" runs the default feed (trending / your subscriptions), same "empty = default,
+     otherwise search" behavior as the full view's search box — this overlay used to only ever
+     show the default feed with no way to look for anything specific short of opening the full
+     view just to search. */
+  function runMiniSearch(query){
+    if(!suggestEl || !sel.fetchSearch) return;
+    const seq = ++miniSearchSeq;
+    const resultsEl = suggestEl.querySelector("#__yt-mini-results");
+    if(!resultsEl) return;
+    resultsEl.innerHTML = `<div class="yt-mini-suggestions-msg">Loading…</div>`;
+    const fetchP = query ? sel.fetchSearch(query) : sel.fetchDefault();
+    fetchP.then(result=>{
+      if(destroyed || !browseOpen || seq !== miniSearchSeq) return; // dismissed/superseded while in flight
+      if(result.error){
+        resultsEl.innerHTML = `<div class="yt-mini-suggestions-msg">Couldn't load suggestions — ${result.error}</div>`;
+        return;
+      }
+      if(!result.items || !result.items.length){
+        resultsEl.innerHTML = `<div class="yt-mini-suggestions-msg">No results.</div>`;
+        return;
+      }
+      resultsEl.innerHTML = result.items.map(ytSuggestionCard).join("");
+      resultsEl.querySelectorAll(".yt-suggestion").forEach(card=>{
+        card.addEventListener("click", ()=>{ urlInp.value = card.dataset.id; load(); });
+      });
+    });
+  }
   function showMiniSuggestions(){
     if(!suggestEl) return;
     browseOpen = true;
@@ -5276,22 +5304,16 @@ function setupYouTubePlayer(scope, sel){
       });
       return;
     }
-    suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Loading suggestions…</div>`;
-    sel.fetchDefault().then(result=>{
-      if(destroyed || !browseOpen) return; // dismissed (or superseded) while this fetch was in flight
-      if(result.error){
-        suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Couldn't load suggestions — ${result.error}</div>`;
-        return;
-      }
-      if(!result.items || !result.items.length){
-        suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">No results.</div>`;
-        return;
-      }
-      suggestEl.innerHTML = result.items.map(ytSuggestionCard).join("");
-      suggestEl.querySelectorAll(".yt-suggestion").forEach(card=>{
-        card.addEventListener("click", ()=>{ urlInp.value = card.dataset.id; load(); });
-      });
-    });
+    suggestEl.innerHTML = `
+      <div style="display:flex;gap:4px;flex:none;">
+        <input type="text" id="__yt-mini-search" placeholder="Search…" style="flex:1;font-size:11px;padding:4px 6px;">
+        <button class="hbtn" id="__yt-mini-search-btn" title="Search" style="flex:none;font-size:11px;">🔍</button>
+      </div>
+      <div id="__yt-mini-results" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>`;
+    const searchInp = suggestEl.querySelector("#__yt-mini-search");
+    suggestEl.querySelector("#__yt-mini-search-btn").addEventListener("click", ()=>runMiniSearch(searchInp.value.trim()));
+    searchInp.addEventListener("keydown", e=>{ if(e.key==="Enter") runMiniSearch(searchInp.value.trim()); });
+    runMiniSearch("");
   }
   function toggleMiniSuggestions(){ if(browseOpen) hideMiniSuggestions(); else showMiniSuggestions(); }
 
@@ -5370,7 +5392,7 @@ function hydrateYouTubeMini(scope){
     mute:"#yt-mini-mute-btn", volume:"#yt-mini-volume",
     mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
     suggestionsInPlayer:"#yt-mini-suggestions", browse:"#yt-mini-browse-btn",
-    fetchDefault:fetchYouTubeTrending, readyCheck:()=>!!ytApiKey,
+    fetchDefault:fetchYouTubeTrending, fetchSearch:fetchYouTubeSearch, readyCheck:()=>!!ytApiKey,
     notReadyMsg:"Add a YouTube Data API key in Settings to see suggestions here.",
     videoData:videoData, videoDataKey:NS+"video"
   });
@@ -5381,7 +5403,7 @@ function hydrateYouTubeOAuthMini(scope){
     mute:"#ytg-mini-mute-btn", volume:"#ytg-mini-volume",
     mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
     suggestionsInPlayer:"#ytg-mini-suggestions", browse:"#ytg-mini-browse-btn",
-    fetchDefault:fetchYouTubeOAuthHomeFeed, readyCheck:()=>!!googleAccessToken,
+    fetchDefault:fetchYouTubeOAuthHomeFeed, fetchSearch:fetchYouTubeOAuthSearch, readyCheck:()=>!!googleAccessToken,
     notReadyMsg:"Sign in with Google to see your subscriptions/home feed here.",
     notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google",
     videoData:videoDataOAuth, videoDataKey:NS+"videoOAuth"
