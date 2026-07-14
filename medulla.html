@@ -1390,12 +1390,24 @@ function packWidgetsIntoGrid(targets, originX, originY, maxRowWidth){
 /* Minimized widgets aren't real cards — their capsule's rendered width varies with the title
    (padding + text, see .capsule) and state.layout's own l.w/l.h still hold whatever the
    pre-minimize full size was, not the capsule's actual footprint — so Stacks packs them
-   separately from full-size widgets, using an estimate of that rendered width instead of l.w/l.h. */
+   separately from full-size widgets, using an estimate of that rendered width instead of l.w/l.h.
+   The estimate scales with capsuleSizePreset (see .capsule-s/.capsule-l) so packing stays snug
+   at every size instead of assuming the Medium footprint. */
+/* base/charW below are calibrated against the actual rendered .capsule width at each size preset
+   (measured, not derived from the CSS padding/gap) plus a few px of safety margin, since the
+   .capsule-s/.capsule-l font-size changes how many px each character actually takes. */
+function capsuleSizeMetrics(){
+  if(capsuleSizePreset==="S") return {h:16, gap:8, base:30, charW:6, minW:40};
+  if(capsuleSizePreset==="L") return {h:60, gap:20, base:87, charW:12, minW:100};
+  return {h:32, gap:12, base:52, charW:8, minW:60};
+}
 function estimateCapsuleWidth(title){
-  return Math.max(90, title.length*7 + 56);
+  const m = capsuleSizeMetrics();
+  return Math.max(m.minW, title.length*m.charW + m.base);
 }
 function packCapsulesIntoRow(targets, originX, originY, maxRowWidth){
-  const gap = 12, capsuleH = 32;
+  const m = capsuleSizeMetrics();
+  const gap = m.gap, capsuleH = m.h;
   let cursorX = originX, cursorY = originY, rowHeight = 0;
   targets.forEach(def=>{
     const l = state.layout[def.id];
@@ -1622,18 +1634,12 @@ $("#min-all-btn").addEventListener("click", toggleAllMinimized);
    every open (visible, non-minimized) widget at once instead of one at a time. Also repacks them
    touching at their new size (same packWidgetsIntoGrid the Stacks button uses) — resizing without
    repositioning would leave gaps sized for whatever the old preset was, e.g. shrinking L -> S
-   would keep the wide L-sized spacing between now-small cards. */
+   would keep the wide L-sized spacing between now-small cards. Minimized widgets get the exact
+   same treatment: their capsules resize AND repack into a snug row (packCapsulesIntoRow, the
+   same helper Stacks uses for capsules) instead of just shrinking/growing in place, which would
+   otherwise leave gappy spacing (shrink) or overlapping capsules (grow). */
 function setAllWidgetSizes(preset){
   ["S","M","L"].forEach(p=> $(`#size-all-${p.toLowerCase()}-btn`).classList.toggle("active", p===preset));
-
-  /* same preset also drives every minimized widget's capsule size — one set of S/M/L buttons
-     controls both, so there's nothing to confuse with a second near-identical button group. */
-  capsuleSizePreset = preset;
-  saveJSON(NS+"capsuleSize", preset);
-  document.querySelectorAll(".capsule").forEach(cap=>{
-    cap.classList.remove("capsule-s","capsule-l");
-    if(preset!=="M") cap.classList.add("capsule-"+preset.toLowerCase());
-  });
 
   const targets = widgetsForActiveProfile().filter(def=>{
     const l = state.layout[def.id];
@@ -1641,31 +1647,50 @@ function setAllWidgetSizes(preset){
        widget's x/y are screen coordinates, not world ones (see togglePinWidget) */
     return l && l.visible && !l.minimized && !l.pinned;
   });
-  if(!targets.length) return;
+  const minimizedTargets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && l.minimized && !l.pinned;
+  });
+  if(!targets.length && !minimizedTargets.length) return;
 
   /* snapshot pre-repack positions like the Stacks button does, so it can still restore your
      manual layout afterward — skip if already stacked so we don't clobber that snapshot. */
   if(!state.stacked){
     const snapshot = {};
-    targets.forEach(def=>{
+    targets.concat(minimizedTargets).forEach(def=>{
       const l = state.layout[def.id];
       snapshot[def.id] = {x:l.x, y:l.y};
     });
     state.stackSnapshot = snapshot;
   }
 
-  targets.forEach(def=>{
-    const l = state.layout[def.id];
-    const sz = presetSize(def.id, preset);
-    l.w = Math.max(MIN_W, sz.w);
-    l.h = Math.max(MIN_H, sz.h);
-    l.sizePreset = preset;
-  });
-
   const rect = viewport.getBoundingClientRect();
   const origin = screenToWorld(rect.left + 40, rect.top + 40);
   const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
-  packWidgetsIntoGrid(targets, origin.x, origin.y, maxRowWidth);
+
+  let bottomY = origin.y;
+  if(targets.length){
+    targets.forEach(def=>{
+      const l = state.layout[def.id];
+      const sz = presetSize(def.id, preset);
+      l.w = Math.max(MIN_W, sz.w);
+      l.h = Math.max(MIN_H, sz.h);
+      l.sizePreset = preset;
+    });
+    bottomY = packWidgetsIntoGrid(targets, origin.x, origin.y, maxRowWidth);
+  }
+
+  /* same preset also drives every minimized widget's capsule size — one set of S/M/L buttons
+     controls both, so there's nothing to confuse with a second near-identical button group.
+     Capsule size must change before packCapsulesIntoRow runs, since its row-packing math
+     (capsuleSizeMetrics) reads capsuleSizePreset. */
+  capsuleSizePreset = preset;
+  saveJSON(NS+"capsuleSize", preset);
+  if(minimizedTargets.length){
+    const capsuleOriginY = targets.length ? bottomY + 24 : origin.y;
+    packCapsulesIntoRow(minimizedTargets, origin.x, capsuleOriginY, maxRowWidth);
+  }
+
   state.stacked = true;
   $("#stacks-btn").classList.add("active");
 
@@ -1679,6 +1704,16 @@ function setAllWidgetSizes(preset){
     card.style.top = l.y+"px";
     const sizeBtn = card.querySelector(".hbtn-size");
     if(sizeBtn) sizeBtn.textContent = preset;
+  });
+  minimizedTargets.forEach(def=>{
+    const l = state.layout[def.id];
+    const cap = widgetLayer.querySelector(`.capsule[data-widget-id="${def.id}"]`)
+      || pinnedLayer.querySelector(`.capsule[data-widget-id="${def.id}"]`);
+    if(!cap) return;
+    cap.className = "capsule"+(preset!=="M" ? " capsule-"+preset.toLowerCase() : "");
+    cap.dataset.widgetId = def.id;
+    cap.style.left = l.x+"px";
+    cap.style.top = l.y+"px";
   });
   saveProfileState();
 }
@@ -2912,6 +2947,7 @@ const CAPSULE_CLICK_MAX_DRIFT = 5;
 function renderCapsule(def,l){
   const cap = document.createElement("div");
   cap.className="capsule"+(capsuleSizePreset!=="M" ? " capsule-"+capsuleSizePreset.toLowerCase() : "");
+  cap.dataset.widgetId = def.id;
   cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
   cap.style.zIndex = l.z || 1;
   cap.style.setProperty("--accent", def.accent || "var(--accent-amber)");
