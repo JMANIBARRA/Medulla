@@ -785,6 +785,20 @@
   .placeholder-tag{display:inline-block;font-family:var(--font-mono);font-weight:500;font-size:11px;color:var(--accent-rust);
     border:1px solid var(--accent-rust);padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;text-shadow:0 0 6px var(--accent-rust);}
 
+  /* ---------- file:// warning banner ---------- */
+  #file-origin-banner{
+    position:absolute;top:0;left:0;right:0;z-index:150;
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    padding:9px 16px;background:var(--accent-rust);color:var(--bg-deep);
+    font-family:var(--font-body);font-weight:600;font-size:12px;line-height:1.5;text-align:center;
+    box-shadow:0 2px 14px -2px rgba(0,0,0,.6);
+  }
+  #file-origin-banner code{background:rgba(0,0,0,.18);padding:1px 5px;font-family:var(--font-mono);}
+  #file-origin-banner-dismiss{
+    flex:none;background:none;border:1px solid var(--bg-deep);color:var(--bg-deep);
+    width:20px;height:20px;cursor:pointer;font-size:11px;line-height:1;
+  }
+
   /* ---------- top chrome ---------- */
   #topbar{
     position:absolute;top:0;left:0;right:0;height:52px;z-index:40;
@@ -1036,6 +1050,15 @@
 <body>
 <div id="app">
 
+  <!-- shown once via JS (see initFileOriginBanner) if opened as file:// instead of http(s)://
+       — most widgets need real network requests, which browsers block entirely from a file://
+       page, so this explains why up front instead of leaving it to be discovered piecemeal
+       through individual widgets' own "feed unavailable" messages. -->
+  <div id="file-origin-banner" style="display:none;">
+    <span>⚠ Opened directly as a file — most widgets need live data feeds, which only work when this is served over http(s), not file://. Run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/medulla.html</code> instead.</span>
+    <button id="file-origin-banner-dismiss" title="Dismiss">✕</button>
+  </div>
+
   <div id="topbar">
     <div class="brand"><div class="mark"></div>MEDULLA</div>
     <div class="topbar-controls">
@@ -1177,16 +1200,36 @@ function scheduleCloudPush(){
 function pullCloudState(){
   return fbDb.collection("users").doc(fbUser.uid).get().then(doc=>{
     if(doc.exists){
-      if(confirm("This account already has saved settings in the cloud. Load them and replace what's on this device?")){
-        applyLocalDump(doc.data().data);
-        location.reload();
-      }
+      promptLoadCloudData(doc.data().data);
     } else {
       /* brand new account, nothing saved yet in the cloud — seed it with whatever's on this
          device right now instead of leaving the cloud doc empty until the next local edit */
       scheduleCloudPush();
     }
   });
+}
+/* Themed replacement for a native confirm() — same app-modal surface the hot bar's add/edit-link
+   flow and every widget's full view already use, so "you have cloud data" reads as part of the
+   app instead of an unexplained browser popup interrupting whatever was on screen. */
+function promptLoadCloudData(cloudData){
+  if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+  modalTitle.textContent = "Cloud Settings Found";
+  modalBody.innerHTML = `
+    <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin:0 0 20px;">
+      This account already has a saved workspace in the cloud from a previous session — widget
+      layout, pins, sizes, everything. Load it and replace what's on this device, or keep using
+      what's already here?
+    </p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" id="cloud-load-btn">Load Cloud Data</button>
+      <button class="btn" id="cloud-keep-btn">Keep This Device's Data</button>
+    </div>`;
+  $("#cloud-load-btn").addEventListener("click", ()=>{
+    applyLocalDump(cloudData);
+    location.reload();
+  });
+  $("#cloud-keep-btn").addEventListener("click", ()=>{ closeModal(); });
+  modalOverlay.classList.add("open");
 }
 function handleAuthChange(user){
   fbUser = user;
@@ -5754,7 +5797,11 @@ function hideAuthGate(){
   const gate = $("#auth-gate");
   if(gate) gate.classList.add("hidden");
   localStorage.setItem(NS+"authGateSeen", "1");
-  preloadLocalLLMIfNeeded(); // start the local model loading now (if needed) instead of on the first chat message
+  /* no longer preloaded here — downloading a few-hundred-MB model the instant someone clicks
+     Guest (before they've typed anything at all) was a surprising, unexplained multi-minute
+     stall with no context. ensureLocalLLMEngine() still runs lazily, the first time a chat
+     message actually needs it (see tryLocalLLM) — same fallback, just triggered by an action
+     that actually explains why something's loading. */
 }
 function initAuthGate(){
   /* remembered across reloads (for guests too, not just signed-in users) so it only ever
@@ -6781,12 +6828,13 @@ async function tryGroq(text){
    than Groq's much larger 70B cloud model, but needs zero setup and nothing ever leaves the
    device. Same system prompt/history handling as tryGroq, so personality stays consistent
    regardless of which one answers.
-   Loading is kicked off from preloadLocalLLMIfNeeded() (called once the auth gate closes — see
-   hideAuthGate — whether by signing in or continuing as Guest), NOT on the first chat message,
-   so by the time someone actually types something the multi-hundred-MB download/compile has
-   already been running in the background instead of stalling their first message. Shared as a
-   promise (not a plain boolean flag) so a chat message sent while it's still loading just awaits
-   the SAME in-flight load instead of kicking off a second, redundant one. */
+   Loading only ever starts from tryLocalLLM below — i.e. the first time a chat message actually
+   needs it (no Groq key configured) — not preloaded the moment the app opens. It used to kick off
+   automatically as soon as the auth gate closed (sign-in or Guest), which meant a multi-hundred-MB
+   download could start before someone had done anything at all, with no obvious reason why the
+   app was suddenly busy. Shared as a promise (not a plain boolean flag) so a chat message sent
+   while it's still loading just awaits the SAME in-flight load instead of kicking off a second,
+   redundant one. */
 let localLLMEngine = null;
 let localLLMEnginePromise = null;
 function ensureLocalLLMEngine(){
@@ -6799,24 +6847,6 @@ function ensureLocalLLMEngine(){
       .catch(e=>{ localLLMEnginePromise = null; throw e; }); // failed load doesn't get permanently stuck — a later call can retry
   }
   return localLLMEnginePromise;
-}
-/* Only preloads when there's no Groq key configured — Groq users never touch this path at all,
-   so there's no reason to spend their bandwidth/battery downloading a model they'll never use. */
-function preloadLocalLLMIfNeeded(retriesLeft){
-  if(groqApiKey) return;
-  /* window.webllm comes from a <script type="module"> in <head>, which (per spec) only runs
-     once the whole document finishes parsing — later than a classic script's own synchronous
-     execution. For a returning visitor, hideAuthGate() fires immediately/synchronously from
-     inside that same classic script (see initAuthGate's "already seen" fast path), which can be
-     BEFORE the module has had a chance to run yet. Retrying a few times a tick apart covers that
-     without needing a real event to hang this off of. */
-  if(!window.webllm){
-    if(retriesLeft === undefined) retriesLeft = 20;
-    if(retriesLeft > 0) setTimeout(()=> preloadLocalLLMIfNeeded(retriesLeft-1), 100);
-    return;
-  }
-  if(!navigator.gpu) return;
-  ensureLocalLLMEngine().catch(()=>{}); // errors surface later from an actual chat attempt instead of here
 }
 async function tryLocalLLM(text){
   if(!window.webllm) return "The local model library hasn't loaded (needs an internet connection at least once) — add a free Groq key in Settings instead.";
@@ -8547,6 +8577,16 @@ maybeApplyLargeDefaultMigration();
 updateAccountButton();
 initAuthGate();
 initFirebaseSync();
+
+/* one clear, hard-to-miss notice up front instead of leaving this to be discovered piecemeal
+   through each individual widget's own "feed unavailable" message (see isFileOrigin() above). */
+if(isFileOrigin()){
+  const banner = $("#file-origin-banner");
+  if(banner){
+    banner.style.display = "flex";
+    $("#file-origin-banner-dismiss").addEventListener("click", ()=>{ banner.style.display = "none"; });
+  }
+}
 
 })();
 </script>
