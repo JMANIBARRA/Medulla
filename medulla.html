@@ -233,9 +233,6 @@
   .hbtns .hbtn{opacity:0;pointer-events:none;transition:opacity .12s ease;}
   .claustrum-widget:hover .hbtns .hbtn{opacity:1;pointer-events:auto;}
   .hbtn-pin.active{opacity:1;pointer-events:auto;}
-  /* close reads as destructive (unlike expand/size/pin), so it gets its own red hover instead of
-     the shared accent-colored one every other .hbtn uses. */
-  .hbtn-close:hover{color:#fff;background:#e5484d;border-color:#e5484d;box-shadow:0 0 8px #e5484d;}
   .hbtn.active{color:var(--bg-deep);background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px var(--accent);}
   .hbtn-size{font-family:var(--font-display);font-weight:700;font-size:10px;}
   /* ---------- pinned widgets — anchored to the viewport instead of #canvas-world, so panning/
@@ -913,16 +910,49 @@
   /* ---------- file:// warning banner ---------- */
   #file-origin-banner{
     position:absolute;top:0;left:0;right:0;z-index:150;
-    display:flex;align-items:center;justify-content:center;gap:14px;
-    padding:9px 16px;background:var(--accent-rust);color:var(--bg-deep);
-    font-family:var(--font-body);font-weight:600;font-size:12px;line-height:1.5;text-align:center;
+    display:flex;align-items:flex-start;justify-content:center;gap:14px;
+    padding:14px 20px;background:var(--accent-rust);color:var(--bg-deep);
+    font-family:var(--font-body);font-weight:600;font-size:12px;line-height:1.5;text-align:left;
     box-shadow:0 2px 14px -2px rgba(0,0,0,.6);
+    max-height:70vh;overflow-y:auto;
   }
   #file-origin-banner code{background:rgba(0,0,0,.18);padding:1px 5px;font-family:var(--font-mono);}
   #file-origin-banner-dismiss{
     flex:none;background:none;border:1px solid var(--bg-deep);color:var(--bg-deep);
     width:20px;height:20px;cursor:pointer;font-size:11px;line-height:1;
   }
+  .fob-inner{display:flex;flex-direction:column;gap:10px;max-width:520px;}
+  .fob-head{display:flex;flex-direction:column;gap:4px;}
+  .fob-warn{font-size:14px;font-weight:800;letter-spacing:.02em;}
+  .fob-step-detail{font-weight:500;opacity:.9;}
+  .fob-step-detail code{white-space:nowrap;}
+  .fob-sublist{list-style-type:lower-alpha;margin:2px 0 0 0;padding-left:18px;display:flex;flex-direction:column;gap:2px;}
+  .fob-cmd-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .fob-cmd-row code{font-size:13px;padding:5px 8px;}
+  #fob-copy-btn{
+    flex:none;cursor:pointer;border:1px solid var(--bg-deep);background:none;color:var(--bg-deep);
+    font-family:var(--font-body);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.03em;
+    padding:5px 10px;
+  }
+  #fob-copy-btn:hover{background:var(--bg-deep);color:var(--accent-rust);}
+  #fob-copy-btn.copied{background:var(--bg-deep);color:var(--accent-rust);}
+  .fob-os-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:500;opacity:.9;}
+  .fob-os-switch button{
+    cursor:pointer;border:1px solid var(--bg-deep);background:none;color:var(--bg-deep);
+    font-family:var(--font-body);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.03em;
+    padding:3px 8px;opacity:.75;
+  }
+  .fob-os-switch button.active{opacity:1;background:var(--bg-deep);color:var(--accent-rust);}
+  .fob-steps{display:flex;flex-direction:column;gap:10px;}
+  .fob-step{display:flex;gap:10px;align-items:flex-start;}
+  .fob-num{
+    flex:none;width:20px;height:20px;border-radius:50%;
+    background:var(--bg-deep);color:var(--accent-rust);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:800;
+  }
+  .fob-step-body{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .fob-step-title{font-weight:800;}
 
   /* ---------- top chrome ---------- */
   #topbar{
@@ -1037,6 +1067,56 @@
     border-style:dashed;color:var(--text-dim);font-size:18px;font-weight:400;
   }
   .hotbar-add-btn:hover{color:var(--text-primary);}
+  /* ---------- widget trash — drop target for deleting a widget (drag a full widget's header or
+     a minimized capsule onto it — see the pointerdown handlers in renderWidgetCard/renderCapsule).
+     #widget-trash is an invisible band spanning the same bottom strip as #ai-dock (same
+     height/min-height) so the icon sits at that same vertical level, just pushed to the far
+     right instead of the chat bar's own centered column — pointer-events:none throughout since
+     it's a pure visual target, hit-tested by rect in JS (isPointOverWidgetTrash), never actually
+     clicked.
+     #widget-trash-icon is the real circular target: invisible until a drag actually starts
+     (.armed, added by showWidgetTrash) — then it pops in with a bright pulsing amber glow so
+     it's impossible to miss, and hovering the dragged item over it (.hover) swaps to a solid red
+     glow — same red the old per-widget close button used. */
+  #widget-trash{
+    position:fixed;left:0;right:0;bottom:0;height:15%;min-height:100px;z-index:210;
+    display:flex;align-items:center;justify-content:flex-end;
+    padding-right:32px;
+    pointer-events:none;
+  }
+  /* see the HTML comment on #drag-ghost-layer — no background, no overflow rule, so its own
+     full-viewport box never clips or visually shows up; pointer-events:none so it never
+     intercepts clicks either. Above #widget-trash (z-index:210) so the widget being dragged is
+     the topmost thing on screen. */
+  #drag-ghost-layer{position:fixed;inset:0;pointer-events:none;z-index:220;}
+  #widget-trash-icon{
+    width:72px;height:72px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text-primary);border:1px solid var(--accent-amber);background:rgba(4,10,14,.82);backdrop-filter:blur(6px);
+    opacity:0;transform:scale(.7);
+    transition:opacity .14s ease, transform .14s ease, color .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  /* same pulsing-glow language as the keyboard widget-selection ring (widget-selected-pulse)
+     elsewhere in this file, with the same reduced-motion fallback to a static glow. Two stacked
+     glow layers (a tight bright one plus a wide soft one) read as a much brighter halo than one
+     shadow alone. */
+  @keyframes widget-trash-pulse-armed{
+    0%,100%{ box-shadow:0 10px 24px -10px rgba(0,0,0,.7), 0 0 26px 4px var(--accent-amber), 0 0 50px 10px color-mix(in srgb, var(--accent-amber) 75%, transparent); }
+    50%{ box-shadow:0 10px 24px -10px rgba(0,0,0,.7), 0 0 40px 8px var(--accent-amber), 0 0 70px 16px color-mix(in srgb, var(--accent-amber) 85%, transparent); }
+  }
+  #widget-trash.armed #widget-trash-icon{
+    opacity:1;transform:scale(1.08);
+    animation:widget-trash-pulse-armed .9s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    #widget-trash.armed #widget-trash-icon{ animation:none; box-shadow:0 10px 24px -10px rgba(0,0,0,.7), 0 0 34px 6px var(--accent-amber); }
+  }
+  #widget-trash-icon.hover{
+    color:#fff;background:#e5484d;border-color:#e5484d;
+    box-shadow:0 0 30px 2px #e5484d;
+    transform:scale(1.18);
+    animation:none;
+  }
   /* small flyout for a hot bar "group" icon (Banks, AI) — same visual language as the hot bar
      itself, just a wrapping panel instead of a single scrollable row since each only ever holds
      a handful of items. Positioned above the hot bar (JS measures its real height each time one
@@ -1182,12 +1262,46 @@
 <body>
 <div id="app">
 
-  <!-- shown once via JS (see initFileOriginBanner) if opened as file:// instead of http(s)://
-       — most widgets need real network requests, which browsers block entirely from a file://
-       page, so this explains why up front instead of leaving it to be discovered piecemeal
-       through individual widgets' own "feed unavailable" messages. -->
+  <!-- shown once via JS (see the isFileOrigin() block near the end of the script) if opened as
+       file:// instead of http(s):// — most widgets need real network requests, which browsers
+       block entirely from a file:// page. The pasted command below cd's to this file's actual
+       folder itself (read straight off window.location.pathname — a file:// URL IS a filesystem
+       path — see fobDirPath), so step 1 is just "open any terminal, anywhere" — no downloaded
+       script (blocked by SmartScreen/IT policy on locked-down machines) and no File Explorer
+       address-bar trick (too obscure) needed. OS-specific copy comes from
+       renderFileOriginBanner(); the three OS buttons let anyone whose OS was guessed wrong (or
+       who's on a shared/VM machine) switch it manually. -->
   <div id="file-origin-banner" style="display:none;">
-    <span>⚠ Opened directly as a file — most widgets need live data feeds, which only work when this is served over http(s), not file://. Run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/medulla.html</code> instead.</span>
+    <div class="fob-inner">
+      <div class="fob-head">
+        <span class="fob-warn">⚠ This file needs a local server</span>
+      </div>
+      <div class="fob-os-switch" id="fob-os-switch">
+        <span>OS:</span>
+        <button type="button" data-os="windows">Windows</button>
+        <button type="button" data-os="mac">Mac</button>
+        <button type="button" data-os="linux">Linux</button>
+      </div>
+      <div class="fob-steps">
+        <div class="fob-step">
+          <span class="fob-num">1</span>
+          <div class="fob-step-body">
+            <div class="fob-step-title">Copy this</div>
+            <div class="fob-cmd-row">
+              <code id="fob-cmd"></code>
+              <button id="fob-copy-btn" type="button">Copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="fob-step">
+          <span class="fob-num">2</span>
+          <div class="fob-step-body">
+            <div class="fob-step-title">Open a terminal, paste, press Enter</div>
+            <div class="fob-step-detail" id="fob-os-tip"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <button id="file-origin-banner-dismiss" title="Dismiss">✕</button>
   </div>
 
@@ -1254,6 +1368,23 @@
     <div class="hud-corner bl"></div>
     <div class="hud-corner br"></div>
   </div>
+
+  <!-- drop target for deleting a widget: dragging a full widget's header or a minimized capsule
+       onto this removes it, same as the old per-widget close button used to (see wireWidgetDrag).
+       Fixed/screen-space and outside #canvas-viewport so it's never affected by the camera's
+       pan/zoom transform or clipped by that viewport's overflow:hidden. Hidden until a drag
+       starts (see showWidgetTrash/hideWidgetTrash). -->
+  <div id="widget-trash">
+    <div id="widget-trash-icon" title="Drop here to remove"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></div>
+  </div>
+
+  <!-- while a widget/capsule is actively being dragged, it's reparented in here (see the
+       pointerdown handlers in renderWidgetCard/renderCapsule) so it can render above #ai-dock /
+       #hotbar / #widget-trash and isn't clipped by #canvas-viewport's overflow:hidden — a plain
+       descendant of canvas-viewport can never out-rank those regardless of its own z-index,
+       since canvas-viewport's own stacking position (z-index:0) already sits below them. Empty
+       and invisible outside of an active drag. -->
+  <div id="drag-ghost-layer"></div>
 
   <!-- populated by renderHotbarIcons() in JS, in whatever order the user last dragged them to
        (persisted to localStorage) -->
@@ -2938,6 +3069,47 @@ function closeWidget(def, l){
   renderWidgets();
 }
 
+/* Drop target for the "drag to delete" gesture shared by both a full widget's header-drag and a
+   minimized capsule's drag (see the pointerdown handlers in renderWidgetCard/renderCapsule) —
+   this replaced the old per-widget close (X) button as the one way to remove a widget, full-size
+   or minimized alike, so there's now a single consistent gesture for both.
+   widgetTrashEl is the full-width positioning band (see #widget-trash CSS) — only its "armed"
+   class is toggled, to fade the real target in/out. widgetTrashIconEl is that real target, the
+   small circle at the band's right edge — hit-testing and the "hover" glow both key off its rect
+   specifically, not the invisible band's, or literally anywhere along the bottom of the screen
+   would count as a drop. */
+const widgetTrashEl = $("#widget-trash");
+const widgetTrashIconEl = $("#widget-trash-icon");
+function showWidgetTrash(){ widgetTrashEl.classList.add("armed"); }
+function hideWidgetTrash(){ widgetTrashEl.classList.remove("armed"); widgetTrashIconEl.classList.remove("hover"); }
+function isPointOverWidgetTrash(x,y){
+  const r = widgetTrashIconEl.getBoundingClientRect();
+  return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+}
+
+/* #canvas-viewport clips (overflow:hidden) short of the bottom strip #ai-dock/#widget-trash live
+   in, and even without that clip, z-index alone can't lift a canvas-viewport descendant above
+   them — canvas-viewport's own stacking position (z-index:0) already sits below #ai-dock's (40),
+   so nothing inside it can out-rank #ai-dock no matter how high its z-index goes. Dragging a
+   widget/capsule down toward the trash needs it to actually escape that container, so once a
+   drag crosses the click-vs-drag threshold, the element gets pulled out into #drag-ghost-layer
+   (a plain body-level, unclipped layer above everything — see its CSS) and switched to
+   position:fixed, tracking the raw pointer 1:1 in screen space from then on. l.x/l.y keep
+   updating in parallel with the normal world/pinned-screen math (see the callers) purely so the
+   final position is right if the drag *doesn't* end on the trash; the fixed ghost element itself
+   just follows the cursor. Callers finish the drag by removing the returned node from the ghost
+   layer and re-rendering (closeWidget already does this when the drop lands on the trash). */
+const dragGhostLayer = $("#drag-ghost-layer");
+function ghostifyForDrag(el){
+  const rect = el.getBoundingClientRect();
+  el.style.position = "fixed";
+  el.style.margin = "0";
+  el.style.left = rect.left+"px";
+  el.style.top = rect.top+"px";
+  dragGhostLayer.appendChild(el);
+  return {left:rect.left, top:rect.top};
+}
+
 let activeMiniCleanups = [];
 function renderWidgets(){
   activeMiniCleanups.forEach(fn=>{ try{ fn(); }catch(e){} });
@@ -3376,21 +3548,41 @@ function renderCapsule(def,l){
     bringToFront(l, cap, def.id);
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
+    let ghostOrigin = null;
     cap.classList.add("dragging"); // suppresses the hover "pop" (see .capsule:hover) while an actual drag is in progress
     setGlobalNoSelect(true);
     function onMove(ev){
+      const wasDragged = dragged;
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
       if(Math.abs(ev.clientX-startX) > CAPSULE_CLICK_MAX_DRIFT || Math.abs(ev.clientY-startY) > CAPSULE_CLICK_MAX_DRIFT) dragged = true;
       l.x=ox+dx; l.y=oy+dy;
-      cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
+      if(dragged && !wasDragged) ghostOrigin = ghostifyForDrag(cap);
+      if(ghostOrigin){
+        cap.style.left = (ghostOrigin.left + (ev.clientX-startX))+"px";
+        cap.style.top = (ghostOrigin.top + (ev.clientY-startY))+"px";
+      } else {
+        cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
+      }
+      if(dragged){
+        showWidgetTrash();
+        widgetTrashIconEl.classList.toggle("hover", isPointOverWidgetTrash(ev.clientX, ev.clientY));
+      }
     }
-    function onUp(){
+    function onUp(ev){
       window.removeEventListener("pointermove",onMove);
       window.removeEventListener("pointerup",onUp);
       cap.classList.remove("dragging");
       setGlobalNoSelect(false);
-      if(dragged){ saveProfileState(); return; }
+      if(dragged){
+        const dropOnTrash = isPointOverWidgetTrash(ev.clientX, ev.clientY);
+        hideWidgetTrash();
+        if(ghostOrigin) cap.remove(); // discard the ghosted node — renderWidgets() below (or inside closeWidget) rebuilds a fresh one in the right layer
+        if(dropOnTrash){ closeWidget(def, l); return; }
+        saveProfileState();
+        if(ghostOrigin) renderWidgets();
+        return;
+      }
       clearTimeout(singleClickTimer);
       singleClickTimer = setTimeout(()=>{
         openModal(def);
@@ -3507,7 +3699,6 @@ function renderWidgetCard(def,l){
     <div class="hbtns">
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
       <button class="hbtn hbtn-pin${l.pinned ? " active" : ""}" data-act="pin" title="${l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)"}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="2.75"/></svg></button>
-      <button class="hbtn hbtn-close" data-act="close" title="Remove from screen (bring it back from Settings → Manage widgets)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
     </div>`;
   card.appendChild(header);
 
@@ -3537,36 +3728,51 @@ function renderWidgetCard(def,l){
     e.stopPropagation();
     togglePinWidget(l, card, header);
   });
-  header.querySelector('[data-act="close"]').addEventListener("click",(e)=>{
-    e.stopPropagation();
-    closeWidget(def, l);
-  });
 
   /* drag by header — locked while paint mode is on so drawing doesn't accidentally move widgets.
      Pinned widgets live in the un-transformed #pinned-layer, so their drag deltas are used as
      raw screen pixels; everyone else lives inside the scaled #canvas-world and still needs the
-     old camera.scale division to convert a screen-pixel drag into the right world-space move. */
+     old camera.scale division to convert a screen-pixel drag into the right world-space move.
+     Dropping it over #widget-trash removes it instead — see closeWidget/showWidgetTrash — the
+     replacement for the old per-widget close (X) button. */
   header.addEventListener("pointerdown",(e)=>{
     if(paintMode) return;
     if(e.target.closest(".hbtn")) return;
     e.stopPropagation();
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
+    let ghostOrigin = null;
     card.classList.add("dragging");
     setGlobalNoSelect(true);
     function onMove(ev){
+      const wasDragged = dragged;
       if(Math.abs(ev.clientX-startX) > CAPSULE_CLICK_MAX_DRIFT || Math.abs(ev.clientY-startY) > CAPSULE_CLICK_MAX_DRIFT) dragged = true;
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
       l.x=ox+dx; l.y=oy+dy;
-      card.style.left=l.x+"px"; card.style.top=l.y+"px";
+      if(dragged && !wasDragged) ghostOrigin = ghostifyForDrag(card);
+      if(ghostOrigin){
+        card.style.left = (ghostOrigin.left + (ev.clientX-startX))+"px";
+        card.style.top = (ghostOrigin.top + (ev.clientY-startY))+"px";
+      } else {
+        card.style.left=l.x+"px"; card.style.top=l.y+"px";
+      }
+      if(dragged){
+        showWidgetTrash();
+        widgetTrashIconEl.classList.toggle("hover", isPointOverWidgetTrash(ev.clientX, ev.clientY));
+      }
     }
-    function onUp(){
+    function onUp(ev){
       window.removeEventListener("pointermove",onMove);
       window.removeEventListener("pointerup",onUp);
       card.classList.remove("dragging");
       setGlobalNoSelect(false);
+      const dropOnTrash = dragged && isPointOverWidgetTrash(ev.clientX, ev.clientY);
+      hideWidgetTrash();
+      if(ghostOrigin) card.remove(); // discard the ghosted node — renderWidgets() below (or inside closeWidget) rebuilds a fresh one in the right layer
+      if(dropOnTrash){ closeWidget(def, l); return; }
       saveProfileState();
+      if(ghostOrigin) renderWidgets();
     }
     window.addEventListener("pointermove",onMove);
     window.addEventListener("pointerup",onUp);
@@ -3574,7 +3780,7 @@ function renderWidgetCard(def,l){
   /* Double-click ANYWHERE on an open widget minimizes it — header, title, or body content alike
      — there's no separate minimize button anymore. Excludes the header buttons, resize handles,
      and real interactive elements (link/input/etc, same set the body's click-to-expand above
-     already skips) so double-clicking Pin/Size/Close or a real control in the mini view doesn't
+     already skips) so double-clicking Pin/Size or a real control in the mini view doesn't
      also minimize out from under it. Cancels any pending click-to-expand open (see cardClickTimer
      above) so a real double-click doesn't flash the full view open right before minimizing. */
   card.addEventListener("dblclick",(e)=>{
@@ -4375,6 +4581,73 @@ function renderFull(id){
 }
 
 function isFileOrigin(){ return window.location.protocol==="file:"; }
+
+/* ---------- file:// banner content (see #file-origin-banner in the HTML) ----------
+   Best-effort OS sniff from the UA string just to pick a sensible default tab — the explicit
+   Windows/Mac/Linux buttons in the banner exist specifically so a wrong guess (or a shared/VM
+   machine) is one click to fix, not a dead end. */
+function detectOS(){
+  const ua = navigator.userAgent||"";
+  if(/Mac OS X|Macintosh/i.test(ua)) return "mac";
+  if(/Linux/i.test(ua) && !/Android/i.test(ua)) return "linux";
+  return "windows";
+}
+/* each terminalTip is its own little ordered sub-list (lettered a/b/c via CSS, see .fob-sublist)
+   so "press the Windows key, type cmd, press Enter" can't be misread as one simultaneous action
+   (e.g. holding the Windows key down while typing) — every action, including the final paste and
+   run, gets its own line, in the exact order to do them. */
+const FOB_OS_INFO = {
+  windows:{
+    label:"Windows",
+    terminalTip:'<ol class="fob-sublist"><li>Press the <b>Windows key</b></li><li>Type <code>cmd</code></li><li>Press <b>Enter</b> (opens the terminal)</li><li>Paste (<code>Ctrl+V</code>)</li><li>Press <b>Enter</b> again (runs it)</li></ol>',
+    open:"start", server:"python -m http.server 8000",
+  },
+  mac:{
+    label:"Mac",
+    terminalTip:'<ol class="fob-sublist"><li>Press <code>Cmd+Space</code></li><li>Type <b>Terminal</b></li><li>Press <b>Enter</b> (opens the terminal)</li><li>Paste (<code>Cmd+V</code>)</li><li>Press <b>Enter</b> again (runs it)</li></ol>',
+    open:"open", server:"python3 -m http.server 8000",
+  },
+  linux:{
+    label:"Linux",
+    terminalTip:'<ol class="fob-sublist"><li>Open your terminal app (often <code>Ctrl+Alt+T</code>)</li><li>Paste (<code>Ctrl+V</code>)</li><li>Press <b>Enter</b> (runs it)</li></ol>',
+    open:"xdg-open", server:"python3 -m http.server 8000",
+  },
+};
+/* the actual on-disk filename, so the auto-opened URL matches even if this file's been renamed
+   or copied elsewhere — falls back to the real filename if anything about the path is unusual. */
+function fobFileName(){
+  try{
+    const raw = decodeURIComponent(window.location.pathname.split(/[\\/]/).pop());
+    return raw || "medulla.html";
+  }catch(e){ return "medulla.html"; }
+}
+/* a file:// URL's pathname IS the real filesystem path, so this file's actual folder can be read
+   straight off it — no need to send anyone into File Explorer/Finder to find it, or to trust a
+   downloaded script (which SmartScreen/IT policy can block outright on a locked-down machine).
+   Windows pathnames look like "/C:/Users/name/Downloads/medulla.html" — strip the leading slash
+   and flip to backslashes; Mac/Linux pathnames are already plain POSIX paths. */
+function fobDirPath(osKey){
+  try{
+    const parts = decodeURIComponent(window.location.pathname).split("/");
+    parts.pop(); // drop the filename, keep just the folder
+    let dir = parts.join("/");
+    if(osKey==="windows") dir = dir.replace(/^\//, "").replace(/\//g, "\\");
+    return dir;
+  }catch(e){ return ""; }
+}
+/* the pasted command does three jobs in one line: cd to this file's own folder (so it works from
+   a terminal opened anywhere, not just one already sitting in the right place), launch the
+   browser tab pointed at the eventual localhost URL, then start the server. The tab briefly shows
+   "can't connect" until the server (which starts in well under a second) is up. */
+function renderFileOriginBanner(osKey){
+  const info = FOB_OS_INFO[osKey];
+  const dir = fobDirPath(osKey);
+  const url = "http://localhost:8000/"+fobFileName();
+  const cd = dir ? (osKey==="windows" ? `cd /d "${dir}" && ` : `cd "${dir}" && `) : "";
+  $("#fob-os-tip").innerHTML = info.terminalTip;
+  $("#fob-cmd").textContent = `${cd}${info.open} ${url} && ${info.server}`;
+  $$("#fob-os-switch button").forEach(b=>b.classList.toggle("active", b.dataset.os===osKey));
+}
 
 async function fetchCoinPrices(ids, attempt=0){
   if(!ids.length) return {ok:true, data:{}};
@@ -9336,12 +9609,39 @@ initAuthGate();
 initFirebaseSync();
 
 /* one clear, hard-to-miss notice up front instead of leaving this to be discovered piecemeal
-   through each individual widget's own "feed unavailable" message (see isFileOrigin() above). */
+   through each individual widget's own "feed unavailable" message (see isFileOrigin() above) —
+   a single terminal command (which cd's to this file's own folder itself — see fobDirPath) beats
+   a downloaded script, since IT policy/SmartScreen can block downloaded executables outright on
+   a locked-down machine but can't stop someone typing a command into their own terminal. See
+   renderFileOriginBanner/FOB_OS_INFO above. */
 if(isFileOrigin()){
   const banner = $("#file-origin-banner");
   if(banner){
+    renderFileOriginBanner(detectOS());
     banner.style.display = "flex";
     $("#file-origin-banner-dismiss").addEventListener("click", ()=>{ banner.style.display = "none"; });
+    $$("#fob-os-switch button").forEach(b=>{
+      b.addEventListener("click", ()=> renderFileOriginBanner(b.dataset.os));
+    });
+    $("#fob-copy-btn").addEventListener("click", async ()=>{
+      const btn = $("#fob-copy-btn");
+      const cmd = $("#fob-cmd").textContent;
+      try{
+        await navigator.clipboard.writeText(cmd);
+      }catch(e){
+        // clipboard API unavailable (e.g. no secure context on some setups) — fall back to a
+        // manual select-all so the user can still Ctrl/Cmd+C it themselves
+        const range = document.createRange();
+        range.selectNodeContents($("#fob-cmd"));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      const original = btn.textContent;
+      btn.textContent = "Copied!";
+      btn.classList.add("copied");
+      setTimeout(()=>{ btn.textContent = original; btn.classList.remove("copied"); }, 1600);
+    });
   }
 }
 
