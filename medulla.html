@@ -268,6 +268,12 @@
     font-size:clamp(12px, calc(min(var(--w, 270px), var(--h, 190px)) * 0.06), 26px);
   }
   .widget-body > *{max-width:100%;}
+  /* a link widget's mini view is just its hotbar button, re-rendered here (same .hotbar-icon
+     class) — dropped in from the hot bar with the source icon's own drag, so it should look like
+     the exact same button, not a scaled-down card. The lift-on-hover .hotbar-icon normally gets
+     doesn't fit sitting inside a widget card, so it's turned off here specifically. */
+  .widget-body .link-widget-btn{cursor:pointer;}
+  .widget-body .link-widget-btn:hover{transform:none;}
   /* click-anywhere-to-expand is the default for every mini view (see CLICK_TO_EXPAND_EXCLUDE_IDS)
      — this cursor/hover is the only visual hint that the body itself is clickable, since there's
      no explicit "Full view" button anymore. */
@@ -1021,6 +1027,21 @@
   #ai-send{border-radius:50%;width:44px;height:44px;padding:0;flex:none;border:1px solid var(--accent-rust);color:var(--accent-rust);background:rgba(2,3,4,.55);cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:17px;}
   #ai-send:hover{background:var(--accent-rust);color:var(--bg-deep);box-shadow:0 0 14px var(--accent-rust);}
   #ai-log{width:100%;max-width:820px;font-family:var(--font-mono);font-size:12px;color:var(--accent-teal);height:18px;overflow:hidden;text-align:center;}
+  /* background-ambience mute toggle — small and out of the way near the chat bar rather than
+     competing for space on the topbar (see the HTML comment above #ambient-mute-btn for why it
+     moved). Bare icon, no border/background/glow — just a plain, quiet toggle, not another chip
+     competing visually with everything else on screen. .active = currently unmuted (sound
+     playing), toggled in setupAmbientSound; dimmed the rest of the time so it stays unobtrusive. */
+  #ambient-mute-btn{
+    position:fixed;left:20px;bottom:38px;z-index:41;
+    width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:none;border:none;color:var(--text-dim);
+    cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.55;
+    transition:opacity .12s ease, color .12s ease;
+  }
+  #ambient-mute-btn:hover{opacity:1;color:var(--accent-teal);}
+  #ambient-mute-btn.active{opacity:.85;}
 
   /* ---------- hot bar — mac-Dock-style quick site launcher, hidden until you approach the
      chat bar, then rises directly above it. JS (setupHotbar) drives .visible and the exact
@@ -1401,6 +1422,12 @@
     </form>
     <div id="ai-log"></div>
   </div>
+  <!-- mute/unmute only — the actual volume slider lives in Settings (see setupAmbientSound) so
+       it's not something a stray click here can accidentally change. Fixed near the chat bar
+       (bottom-left) rather than the topbar — it kept getting clipped/crowding the other topbar
+       controls even shrunk down, and this is a low-priority toggle that doesn't need to live
+       among the main widget/zoom/memory controls anyway. -->
+  <button id="ambient-mute-btn" title="Mute/unmute background ambience — volume is in Settings">🔊</button>
 
   <div id="modal-overlay">
     <div id="modal-panel">
@@ -2399,16 +2426,19 @@ $("#zoom-reset-btn").addEventListener("click", ()=>{
 });
 
 /* ---------- "memory seats" — save the WHOLE workspace (every widget's position, size, pinned
-   and minimized state, plus the camera's pan/zoom) into one of 3 slots and jump straight back
-   to that exact arrangement later, same idea as a car's memory seat buttons remembering the
-   seat/mirrors/wheel together as one setup rather than separately. Clicking a numbered slot
-   SELECTS it (and restores it right away if it already has something saved); "save config"
-   then captures the CURRENT arrangement into whichever slot is selected. Splitting select and
-   save into two separate, explicit actions means there's no ambiguous gesture to get wrong.
-   Per-profile (each profile's state.cameraMemories is its own 3-slot array), since a saved
-   arrangement only makes sense relative to that profile's own set of widgets; which slot is
-   selected is deliberately NOT persisted — reselecting slot 1 on every load is a saner default
-   than picking up on whatever was selected last session. */
+   and minimized state, the camera's pan/zoom, AND the hot bar's own order/custom links/removed
+   defaults/group items, via hotbarConfigBridge — see its declaration above) into one of 3 slots
+   and jump straight back to that exact arrangement later, same idea as a car's memory seat
+   buttons remembering the seat/mirrors/wheel together as one setup rather than separately.
+   Clicking a numbered slot SELECTS it (and restores it right away if it already has something
+   saved); "save config" then captures the CURRENT arrangement into whichever slot is selected.
+   Splitting select and save into two separate, explicit actions means there's no ambiguous
+   gesture to get wrong. Per-profile (each profile's state.cameraMemories is its own 3-slot
+   array), since a saved arrangement only makes sense relative to that profile's own set of
+   widgets — the hot bar itself is global (not per-profile), so restoring an older memory's hot
+   bar config here does mean it now applies everywhere, same as editing the hot bar directly
+   always has; which slot is selected is deliberately NOT persisted — reselecting slot 1 on every
+   load is a saner default than picking up on whatever was selected last session. */
 let activeMemSlot = 0;
 function refreshCameraMemoryButtons(){
   $$(".mem-btn").forEach(btn=>{
@@ -2429,7 +2459,15 @@ function setupCameraMemoryButtons(){
          restored widget's position/size afterward can never reach back in and mutate the
          saved memory itself. */
       state.layout = JSON.parse(JSON.stringify(mem.layout));
+      // link widgets (see linkWidgetDefs) live outside state.layout — without restoring this
+      // too, a restored layout entry for one could point at a link-widget def that either no
+      // longer exists or (worse) now belongs to a totally different link than when this memory
+      // was saved.
+      state.linkWidgets = mem.linkWidgets ? JSON.parse(JSON.stringify(mem.linkWidgets)) : {};
       state.camera.x = mem.camera.x; state.camera.y = mem.camera.y; state.camera.scale = mem.camera.scale;
+      // mem.hotbar is only present on memories saved after this existed — an older save simply
+      // leaves the hot bar as whatever it currently is, rather than blanking it out.
+      if(mem.hotbar && hotbarConfigBridge) hotbarConfigBridge.setConfig(mem.hotbar);
       backfillMissingWidgetLayouts(state); // a widget added to WIDGET_DEFS since this memory was saved needs a real entry
       recalcTopZ();
       renderWidgets();
@@ -2441,6 +2479,8 @@ function setupCameraMemoryButtons(){
     state.cameraMemories[activeMemSlot] = {
       camera: {x:state.camera.x, y:state.camera.y, scale:state.camera.scale},
       layout: JSON.parse(JSON.stringify(state.layout)),
+      linkWidgets: JSON.parse(JSON.stringify(state.linkWidgets||{})),
+      hotbar: hotbarConfigBridge ? hotbarConfigBridge.getConfig() : null,
     };
     saveProfileState();
     refreshCameraMemoryButtons();
@@ -2450,6 +2490,173 @@ function setupCameraMemoryButtons(){
   refreshCameraMemoryButtons();
 }
 setupCameraMemoryButtons();
+
+/* ================= AMBIENT SOUND =================
+   A continuous, quiet game-menu-style ambient bed — a warm sustained chord (root/third/fifth/
+   octave/ninth, sine/triangle voices each slowly breathing its own volume on an independent LFO)
+   with a slow, sparse bell/pluck melody wandering over it through a soft delay, generated
+   entirely with the Web Audio API rather than shipping/loading an actual audio file (also
+   sidesteps any licensing question a real game/movie soundtrack would raise). No noise/static
+   anywhere in the signal path — that was the first version's actual problem, not volume or pitch.
+   Global (not per-profile) preference, same as the hot bar: mute/unmute is the small button by
+   the chat bar (#ambient-mute-btn); the actual volume is deliberately only in Settings (see
+   ambientSoundBridge/#ambient-volume-input there) so it's not something a stray click nudges by
+   accident.
+   ambientSoundBridge (same cross-scope bridge pattern as hotbarNavBridge/hotbarConfigBridge
+   elsewhere in this file) is declared right here rather than grouped with those two — this IIFE
+   runs immediately, long before the script reaches where those two are declared further down, so
+   a `let` there would still be in its temporal dead zone by the time this tries to assign it. */
+let ambientSoundBridge = null;
+(function setupAmbientSound(){
+  let muted = loadJSON(NS+"ambientMuted", false);
+  let volume = loadJSON(NS+"ambientVolume", 0.18); // quiet by default — background, not foreground
+  let ctx = null, masterGain = null, muteGain = null, delay = null, started = false;
+  let bellTimer = null;
+
+  /* One chord voice: a steady tone plus its own slow LFO breathing the gain up/down by roughly
+     ±35% around its base level, each voice's LFO rate randomized slightly (0.04–0.10Hz, i.e. a
+     10–25 second cycle) so they drift in and out of phase with each other instead of all
+     swelling/fading in lockstep — that gradual, uncoordinated movement is most of what makes a
+     static chord read as an evolving ambient pad instead of a held organ note. Returns the
+     voice's output node; the caller wires it into both the dry mix and the delay send. */
+  function addPadVoice(freq, gain, type){
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const voiceGain = ctx.createGain();
+    voiceGain.gain.value = gain;
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.025 + Math.random()*0.04; // slower still — less "pulsing," more glacial drift
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = gain*0.2;
+    lfo.connect(lfoDepth).connect(voiceGain.gain);
+    lfo.start();
+    osc.connect(voiceGain);
+    osc.start();
+    return voiceGain;
+  }
+
+  /* A single soft "pluck" — quick attack, slow exponential decay into the delay's echo trail —
+     is what actually reads as "game menu" rather than "ambient drone": a sparse, wandering
+     melody note every few seconds, always drawn from the same A-minor-pentatonic set so nothing
+     it lands on can ever clash with the pad chord underneath. */
+  const BELL_NOTES = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; // A3 C4 D4 E4 G4 A4 C5
+  function playBell(freq, time){
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, time);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(0.05, time+0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, time+2.6);
+    osc.connect(g);
+    g.connect(masterGain);
+    g.connect(delay);
+    osc.start(time);
+    osc.stop(time+2.8);
+  }
+  function scheduleBell(){
+    const wait = 3000 + Math.random()*5000; // 3–8s apart — sparse, not a repeating riff
+    bellTimer = setTimeout(()=>{
+      if(ctx) playBell(BELL_NOTES[Math.floor(Math.random()*BELL_NOTES.length)], ctx.currentTime+0.05);
+      scheduleBell();
+    }, wait);
+  }
+
+  /* Browsers refuse to produce actual sound from a freshly-created AudioContext until a real
+     user gesture happens on the page — so the graph gets built and started right away regardless
+     (silently, if still suspended), and a one-time listener resumes it the moment any click or
+     keypress happens anywhere, whether or not that gesture had anything to do with the mute
+     button itself. */
+  /* Wrapped entirely in try/catch — on the off chance AudioContext throws (unsupported browser,
+     a locked-down environment, whatever), this fails silently into a no-op ambient module rather
+     than taking the Settings modal down with it (its volume slider goes through
+     ambientSoundBridge, which must exist and stay callable regardless). */
+  function start(){
+    if(started) return;
+    started = true;
+    try{
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = volume;
+      muteGain = ctx.createGain();
+      muteGain.gain.value = muted ? 0 : 1;
+      masterGain.connect(muteGain).connect(ctx.destination);
+
+      // soft feedback delay — a lightweight stand-in for reverb (no impulse-response file to
+      // load), giving both the chord and the bell notes some sense of space rather than sitting
+      // bone-dry; this is most of what makes the bell notes shimmer/trail off instead of just
+      // "beeping"
+      delay = ctx.createDelay(2.0);
+      delay.delayTime.value = 0.4;
+      const delayFeedback = ctx.createGain();
+      delayFeedback.gain.value = 0.32;
+      const delayFilter = ctx.createBiquadFilter(); // darkens each repeat so they never build up harshness
+      delayFilter.type = "lowpass";
+      delayFilter.frequency.value = 1800;
+      delay.connect(delayFilter).connect(delayFeedback).connect(delay);
+      const delayWet = ctx.createGain();
+      delayWet.gain.value = 0.5;
+      delay.connect(delayWet).connect(masterGain);
+
+      // warm sustained chord: root, third, fifth, octave, ninth — the third is what turns this
+      // from "neutral sci-fi drone" into "warm game-menu pad"; A minor for a gentle, contemplative
+      // feel rather than anything triumphant/major. Kept quiet relative to the bell melody above
+      // it — this is meant to barely register as a floor under the melody, not as its own
+      // persistent, attention-grabbing hum.
+      [
+        {freq:110.00, gain:0.022, type:"sine"},     // A2 — root
+        {freq:130.81, gain:0.013, type:"sine"},     // C3 — minor third
+        {freq:164.81, gain:0.015, type:"sine"},     // E3 — fifth
+        {freq:220.00, gain:0.011, type:"triangle"}, // A3 — octave (triangle for a touch more color)
+        {freq:246.94, gain:0.007, type:"sine"},     // B3 — ninth, gentle color
+      ].forEach(({freq,gain,type})=>{
+        const voiceOut = addPadVoice(freq, gain, type);
+        voiceOut.connect(masterGain);
+        voiceOut.connect(delay);
+      });
+
+      scheduleBell();
+
+      if(ctx.state === "suspended"){
+        const resume = ()=> ctx.resume();
+        document.addEventListener("pointerdown", resume, {once:true});
+        document.addEventListener("keydown", resume, {once:true});
+      }
+    }catch(e){
+      ctx = null; masterGain = null; muteGain = null;
+    }
+  }
+
+  function updateMuteBtn(){
+    const btn = $("#ambient-mute-btn");
+    if(!btn) return;
+    btn.textContent = muted ? "🔇" : "🔊";
+    btn.classList.toggle("active", !muted);
+  }
+
+  if(!muted) start();
+  updateMuteBtn();
+
+  $("#ambient-mute-btn").addEventListener("click", ()=>{
+    muted = !muted;
+    saveJSON(NS+"ambientMuted", muted);
+    if(!started) start();
+    if(muteGain) muteGain.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.05);
+    updateMuteBtn();
+  });
+
+  ambientSoundBridge = {
+    getVolume: ()=>volume,
+    setVolume: (v)=>{
+      volume = Math.min(1, Math.max(0, v));
+      saveJSON(NS+"ambientVolume", volume);
+      if(!started) start();
+      if(masterGain) masterGain.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
+    },
+  };
+})();
 
 /* bounding box of every visible widget/capsule, in world space — used by the recenter button
    to bring the cluster of apps back into view regardless of how far the camera has panned off. */
@@ -3054,16 +3261,36 @@ window.addEventListener("keydown",(e)=>{
 });
 
 /* ================= WIDGETS ================= */
+/* Widgets created by dragging a hot bar link onto the canvas (see createLinkWidgetFromHotbar in
+   setupHotbar) — a live def object built fresh from state.linkWidgets on every call rather than
+   a fixed WIDGET_DEFS entry, since there's no way to know these ids ahead of time. isLink/url/
+   site are read by renderWidgetCard/renderCapsule (mini view + click-to-open) and closeWidget
+   (full delete instead of hide, since there's no "Manage widgets" catalog entry to restore these
+   from). Not profile-scoped — a link widget shows up on every profile, same everywhere. */
+function linkWidgetDefs(){
+  return Object.entries(state.linkWidgets||{}).map(([id, lw])=>({
+    id, title:lw.label, profiles:[profiles.active], built:true,
+    accent:"var(--accent-teal)", isLink:true, url:lw.url, site:lw.site,
+  }));
+}
 function widgetsForActiveProfile(){
-  return WIDGET_DEFS.filter(w=>w.profiles.includes(profiles.active));
+  return WIDGET_DEFS.filter(w=>w.profiles.includes(profiles.active)).concat(linkWidgetDefs());
 }
 
 /* Removes a widget from the screen entirely — distinct from minimizing (which still leaves its
    capsule sitting on the canvas). The layout entry (position/size/pin state) is kept as-is so
    showing it again from Settings → Manage widgets (see renderWidgetsManagerModal) restores it
-   exactly where it was, it just stops rendering until then. */
+   exactly where it was, it just stops rendering until then.
+   Link widgets (see linkWidgetDefs) are the one exception — they're not in WIDGET_DEFS, so
+   there's no catalog entry for Settings to ever offer back; hiding one would just leave a dead,
+   unreachable layout entry behind forever. Dropping one on the trash deletes it outright instead. */
 function closeWidget(def, l){
-  l.visible = false;
+  if(def.isLink){
+    delete state.linkWidgets[def.id];
+    delete state.layout[def.id];
+  } else {
+    l.visible = false;
+  }
   if(selectedWidgetId === def.id) clearWidgetSelection();
   saveProfileState();
   renderWidgets();
@@ -3270,6 +3497,14 @@ function selectAiChat(){
    whichever widget layer is active reaches it first, ArrowDown again continues to the chat box,
    ArrowUp from either goes back the way it came. */
 let hotbarNavBridge = null;
+/* same cross-IIFE bridge pattern as hotbarNavBridge just above, populated by setupHotbar further
+   down — lets the memory-seat buttons (setupCameraMemoryButtons, defined earlier in the file than
+   setupHotbar even exists) snapshot/restore the hot bar's own order/custom links/removed
+   defaults/group items as part of a memory slot, alongside the widget layout and camera. Declared
+   this early (rather than waiting for setupHotbar to run) purely so it's a stable binding other
+   top-level code can close over before it's actually populated — by the time anyone clicks a
+   memory button, the whole script (including setupHotbar) has already finished running once. */
+let hotbarConfigBridge = null;
 let lastHotbarNavIndex = 0;
 function hotbarNavIndexOf(id){
   return (typeof id === "string" && id.startsWith("hotbar:")) ? parseInt(id.slice(7), 10) : -1;
@@ -3537,12 +3772,12 @@ function renderCapsule(def,l){
   cap.style.left=l.x+"px"; cap.style.top=l.y+"px";
   cap.style.zIndex = l.z || 1;
   cap.style.setProperty("--accent", def.accent || "var(--accent-amber)");
-  cap.innerHTML = `<span class="led"></span><span>${def.title}</span>`;
-  /* A plain click opens the full-screen modal directly — but that now happens on a short delay
-     instead of immediately, so a second click arriving within it can be caught as a dblclick
-     (below) and un-minimize back to the small card instead, without the modal flashing open in
-     between. 320ms comfortably covers a real double-click without making the single-click case
-     feel laggy. */
+  cap.innerHTML = `<span class="led"></span><span>${escapeHtml(def.title)}</span>`;
+  /* A plain click opens the full-screen modal directly (or, for a link widget, its URL — see
+     openSiteUrl below) — but that now happens on a short delay instead of immediately, so a
+     second click arriving within it can be caught as a dblclick (below) and un-minimize back to
+     the small card instead, without the modal flashing open in between. 320ms comfortably covers
+     a real double-click without making the single-click case feel laggy. */
   let singleClickTimer = null;
   cap.addEventListener("pointerdown",(e)=>{
     bringToFront(l, cap, def.id);
@@ -3585,7 +3820,7 @@ function renderCapsule(def,l){
       }
       clearTimeout(singleClickTimer);
       singleClickTimer = setTimeout(()=>{
-        openModal(def);
+        def.isLink ? openSiteUrl(def.site, def.url) : openModal(def);
       }, 320);
     }
     window.addEventListener("pointermove",onMove);
@@ -3695,7 +3930,7 @@ function renderWidgetCard(def,l){
   const clickToExpand = !CLICK_TO_EXPAND_EXCLUDE_IDS.has(def.id);
   const header = document.createElement("div");
   header.className="widget-header";
-  header.innerHTML = `<div class="htitle" title="Double-click to minimize"><span class="led"></span><span class="htitle-text">${def.title}</span></div>
+  header.innerHTML = `<div class="htitle" title="Double-click to minimize"><span class="led"></span><span class="htitle-text">${escapeHtml(def.title)}</span></div>
     <div class="hbtns">
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
       <button class="hbtn hbtn-pin${l.pinned ? " active" : ""}" data-act="pin" title="${l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)"}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="2.75"/></svg></button>
@@ -3704,20 +3939,22 @@ function renderWidgetCard(def,l){
 
   const body = document.createElement("div");
   body.className="widget-body"+(clickToExpand ? " click-to-expand" : "");
-  body.innerHTML = def.built ? renderMini(def.id) : `<span class="placeholder-tag">not built yet</span><p style="margin-top:8px;color:var(--text-dim);">${def.spec}</p>`;
+  body.innerHTML = def.isLink ? `<div class="hotbar-icon link-widget-btn">${escapeHtml(def.title)}</div>`
+    : def.built ? renderMini(def.id) : `<span class="placeholder-tag">not built yet</span><p style="margin-top:8px;color:var(--text-dim);">${def.spec}</p>`;
   card.appendChild(body);
 
   /* Shared between the body's click-to-expand (below) and the card-wide dblclick-to-minimize
      (see the "drag by header" block further down) — a plain click on the body defers opening the
      full view by the same 320ms every other click/dblclick split in this file uses (capsule,
      title before it), so a real double-click anywhere on the card can cancel it and minimize
-     instead of the modal flashing open first. */
+     instead of the modal flashing open first. A link widget has no "full view" at all — clicking
+     it just launches its URL the same way clicking it in the hot bar always did (see openSiteUrl). */
   let cardClickTimer = null;
   if(clickToExpand){
     body.addEventListener("click",(e)=>{
       if(e.target.closest("button, a, input, textarea, select, label")) return;
       clearTimeout(cardClickTimer);
-      cardClickTimer = setTimeout(()=>{ openModal(def); }, 320);
+      cardClickTimer = setTimeout(()=>{ def.isLink ? openSiteUrl(def.site, def.url) : openModal(def); }, 320);
     });
   }
   header.querySelector('[data-act="size"]').addEventListener("click",(e)=>{
@@ -6431,7 +6668,7 @@ function renderWidgetsManagerModal(){
     if(!l) return;
     const row = document.createElement("div");
     row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:var(--bg-panel-raised);border:1px solid var(--line);";
-    row.innerHTML = `<span style="font-size:13px;${l.visible ? "" : "color:var(--text-dim);"}">${def.title}</span>
+    row.innerHTML = `<span style="font-size:13px;${l.visible ? "" : "color:var(--text-dim);"}">${escapeHtml(def.title)}</span>
       <button class="btn${l.visible ? "" : " primary"}">${l.visible ? "Hide" : "Show"}</button>`;
     row.querySelector("button").addEventListener("click",()=>{
       l.visible = !l.visible;
@@ -6484,6 +6721,15 @@ $("#settings-btn").addEventListener("click", ()=>{
     </p>
     <div style="margin:10px 0 18px;">
       <button class="btn primary" id="manage-widgets-btn">Manage widgets</button>
+    </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Ambient sound</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      A soft background hum that plays continuously while Medulla's open. Mute/unmute from the
+      🔊 button on the top bar — volume only lives here, so it can't be nudged by accident.
+    </p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <input type="range" id="ambient-volume-input" min="0" max="100" value="${Math.round(ambientSoundBridge.getVolume()*100)}" style="flex:1;"/>
+      <span id="ambient-volume-readout" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);min-width:34px;text-align:right;">${Math.round(ambientSoundBridge.getVolume()*100)}%</span>
     </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Background theme</h3>
     <div style="display:flex;gap:8px;margin:10px 0 18px;">
@@ -6554,6 +6800,11 @@ $("#settings-btn").addEventListener("click", ()=>{
   $("#manage-widgets-btn").addEventListener("click", ()=>{
     if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
     renderWidgetsManagerModal();
+  });
+  $("#ambient-volume-input").addEventListener("input", (e)=>{
+    const v = Number(e.target.value)/100;
+    ambientSoundBridge.setVolume(v);
+    $("#ambient-volume-readout").textContent = e.target.value+"%";
   });
   if(fbUser){
     $("#acct-sync-now-btn").addEventListener("click", ()=>{
@@ -8289,6 +8540,12 @@ aiForm.addEventListener("submit", async (e)=>{
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", btn.dataset.site); // Firefox requires real data to permit the drag
     setTimeout(()=> btn.classList.add("dragging"), 0); // deferred so the drag preview image isn't captured already-faded
+    // shown the instant the drag starts, not on the first dragover — dragover only fires once the
+    // pointer actually crosses a valid drop target, which native HTML5 DnD doesn't reliably fire
+    // everywhere the way the widget system's own pointermove-based dragging does; a document-level
+    // dragover (below) still drives the closer-in "hover" red glow once it does fire, but the
+    // trash icon showing up at all shouldn't depend on that.
+    showWidgetTrash();
   });
   hotbar.addEventListener("dragover", (e)=>{
     if(!draggedIcon) return;
@@ -8307,6 +8564,15 @@ aiForm.addEventListener("submit", async (e)=>{
     target.parentNode.insertBefore(draggedIcon, before ? target : target.nextSibling);
   });
   hotbar.addEventListener("drop", (e)=> e.preventDefault());
+  /* Same drag-to-delete target the dashboard's own widgets use (see showWidgetTrash/
+     isPointOverWidgetTrash near closeWidget) — native HTML5 drag-and-drop never fires the plain
+     pointermove events that system normally reacts to, so it needs its own document-level
+     dragover listener to drive the same glow while a hot bar icon is what's being dragged. */
+  document.addEventListener("dragover", (e)=>{
+    if(!draggedIcon) return;
+    showWidgetTrash();
+    widgetTrashIconEl.classList.toggle("hover", isPointOverWidgetTrash(e.clientX, e.clientY));
+  });
   /* Drag an icon off the hot bar entirely (dropped outside its bounds, same "toss it off the
      dock" gesture as removing an app from a phone's home screen) to remove it — dragend fires on
      the source element regardless of where the drop actually happened, so checking the final
@@ -8315,14 +8581,23 @@ aiForm.addEventListener("submit", async (e)=>{
      fires once the pointer leaves the hot bar, so the DOM is left in whatever order it was in
      right before that — this is the one place that final position actually gets checked). A
      removed custom link is deleted outright (same as right-clicking one already does); a removed
-     built-in is only hidden (see removedDefaultSites) so it can be brought back later via +. */
+     built-in is only hidden (see removedDefaultSites) so it can be brought back later via +.
+     Dropped specifically on the trash icon: gone, no widget. Dropped anywhere else off the hot
+     bar (i.e. onto the dashboard): still removed from the hot bar, but reappears as a widget in
+     its place — see createLinkWidgetFromHotbar — so it isn't just a dead end for anything with an
+     actual URL (group icons like Banks/AI have none, so they only ever get removed, same as
+     before this existed). */
   hotbar.addEventListener("dragend", (e)=>{
+    hideWidgetTrash();
     if(draggedIcon){
       const rect = hotbar.getBoundingClientRect();
       const droppedOutside = e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
       if(droppedOutside){
         const site = draggedIcon.dataset.site;
         const isCustom = draggedIcon.dataset.custom === "true";
+        const label = draggedIcon.textContent;
+        const url = urlForSite(site);
+        const overTrash = isPointOverWidgetTrash(e.clientX, e.clientY);
         draggedIcon.remove();
         draggedIcon = null;
         if(isCustom){
@@ -8334,6 +8609,7 @@ aiForm.addEventListener("submit", async (e)=>{
         }
         hotbarOrder = hotbarOrder.filter(s=>s!==site);
         saveHotbarOrder();
+        if(!overTrash && url) createLinkWidgetFromHotbar({site, label, url, clientX:e.clientX, clientY:e.clientY});
         return;
       }
       draggedIcon.classList.remove("dragging");
@@ -8342,6 +8618,53 @@ aiForm.addEventListener("submit", async (e)=>{
     hotbarOrder = $$(".hotbar-icon", hotbar).map(b=>b.dataset.site).filter(Boolean);
     saveHotbarOrder();
   });
+
+  /* Turns a hot bar icon dragged onto the dashboard into a real widget (see linkWidgetDefs/
+     closeWidget/renderWidgetCard/renderCapsule for the other half of this) — same id-keyed
+     state.layout entry as every other widget, so it's draggable/pinnable/resizable/minimizable
+     for free; only state.linkWidgets is new, holding just enough (label/url/site) to rebuild its
+     def on every render. Positioned centered on the drop point, converted from the raw
+     screen-space drop coordinates into world-space the same way zoomAtScreenPoint does (viewport
+     rect, then undo the camera's pan/zoom) — dropping it exactly under the cursor instead of
+     wherever the default packing logic would otherwise put it. */
+  function createLinkWidgetFromHotbar({site, label, url, clientX, clientY}){
+    const id = "link-"+site+"-"+Date.now().toString(36);
+    const rect = viewport.getBoundingClientRect();
+    const worldX = (clientX-rect.left-state.camera.x)/state.camera.scale;
+    const worldY = (clientY-rect.top-state.camera.y)/state.camera.scale;
+    const w = 170, h = 100;
+    state.linkWidgets = state.linkWidgets || {};
+    state.linkWidgets[id] = {label, url, site};
+    state.layout[id] = {x:worldX-w/2, y:worldY-h/2, w, h, minimized:false, visible:true, pinned:false, sizePreset:"S", z:++globalTopZ};
+    saveProfileState();
+    renderWidgets();
+  }
+
+  /* Populates the outer-scope hotbarConfigBridge (declared way up near hotbarNavBridge) — lets
+     setupCameraMemoryButtons snapshot/restore the hot bar's own state as part of a memory slot
+     without needing to reach into any of this IIFE's private variables directly. getConfig
+     returns a plain-JSON-cloneable snapshot; setConfig writes it back (falling back to sane
+     defaults for anything missing/malformed) and re-renders everything the hot bar itself
+     renders — icons, and both group popovers, since a restored customGroupItems could add or
+     remove entries from either. */
+  hotbarConfigBridge = {
+    getConfig: ()=>({
+      hotbarOrder: [...hotbarOrder],
+      customLinks: JSON.parse(JSON.stringify(customLinks)),
+      removedDefaultSites: [...removedDefaultSites],
+      customGroupItems: JSON.parse(JSON.stringify(customGroupItems)),
+    }),
+    setConfig: (cfg)=>{
+      if(!cfg) return;
+      hotbarOrder = Array.isArray(cfg.hotbarOrder) ? [...cfg.hotbarOrder] : [...HOTBAR_DEFAULT_ORDER];
+      customLinks = Array.isArray(cfg.customLinks) ? JSON.parse(JSON.stringify(cfg.customLinks)) : [];
+      removedDefaultSites = new Set(Array.isArray(cfg.removedDefaultSites) ? cfg.removedDefaultSites : []);
+      customGroupItems = cfg.customGroupItems ? JSON.parse(JSON.stringify(cfg.customGroupItems)) : {};
+      saveHotbarOrder(); saveCustomLinks(); saveRemovedDefaultSites(); saveCustomGroupItems();
+      renderHotbarIcons();
+      GROUPS.forEach(({key})=> renderGroupPopover(key));
+    },
+  };
 
   /* Populates the outer-scope hotbarNavBridge (declared way up near AI_CHAT_NAV_ID/selectAiChat)
      — arrow-key nav lives outside this IIFE and has no other way to reach hotbar/hotbarOrder/
