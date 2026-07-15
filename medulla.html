@@ -7275,6 +7275,162 @@ function readWidgetContentReply(def){
   const content = [body.innerText.trim(), ...fieldValues].filter(Boolean).join("\n").replace(/\n{3,}/g,"\n\n").trim();
   return content ? `${def.title}: ${content}` : `The ${def.title} widget is open but there's nothing showing on it right now.`;
 }
+/* readWidgetContentReply above only ever reports what's LITERALLY rendered on a widget's mini
+   card right now — for Calendar, that's hardcoded to today (see the mini view's own render code),
+   so "what's my appointment next week" was silently answering about today instead: it matched
+   the calendar topic fine, but had no way to act on "next week" at all, and just echoed today's
+   (empty) list. Rather than hand this off to the LLM to guess at — the whole point of
+   readWidgetContentReply existing is to never let this app hallucinate calendar contents — this
+   parses the handful of common relative-date phrases itself and answers from the REAL
+   calendarData for that actual date/range. Returns null (meaning "no relative date reference
+   found, fall back to the normal today-based widget read") for anything it doesn't recognize,
+   rather than guessing. */
+function parseCalendarDateQuery(t){
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const addDays = (d,n)=>{ const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+  const mondayOf = (d)=>{ const day = d.getDay(); return addDays(d, day===0 ? -6 : 1-day); }; // Mon-start week
+
+  if(/\btomorrow\b/.test(t)) return {label:"tomorrow", dates:[addDays(today,1)]};
+  if(/\byesterday\b/.test(t)) return {label:"yesterday", dates:[addDays(today,-1)]};
+  if(/\bnext week\b/.test(t)){
+    const start = addDays(mondayOf(today), 7);
+    return {label:"next week", dates:Array.from({length:7},(_,i)=>addDays(start,i))};
+  }
+  if(/\bthis week\b/.test(t)){
+    const start = mondayOf(today);
+    return {label:"this week", dates:Array.from({length:7},(_,i)=>addDays(start,i))};
+  }
+  const WEEKDAYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const wdMatch = t.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if(wdMatch){
+    const targetDow = WEEKDAYS.indexOf(wdMatch[2]);
+    let delta = (targetDow - today.getDay() + 7) % 7;
+    if(delta===0 && wdMatch[1]) delta = 7; // "next <today's weekday>" means the one after this one, not today
+    return {label: (wdMatch[1]?"next ":"")+wdMatch[2], dates:[addDays(today,delta)]};
+  }
+  return null;
+}
+function calendarDateQueryReply(query){
+  const dayParts = query.dates.map(d=>{
+    const key = calendarDateKey(d);
+    const evs = (calendarData.events[key]||[]).slice().sort((a,b)=>calendarTimeSortKey(a.time)-calendarTimeSortKey(b.time));
+    if(!evs.length) return null;
+    const dayLabel = d.toLocaleDateString(undefined,{weekday:"long", month:"short", day:"numeric"});
+    return `${dayLabel}: ${evs.map(ev=> ev.time ? `${ev.title} (${ev.time})` : ev.title).join(", ")}`;
+  }).filter(Boolean);
+  return dayParts.length
+    ? `Calendar, ${query.label}:\n${dayParts.join("\n")}`
+    : `Nothing on your calendar ${query.label} — it's clear.`;
+}
+/* "when is my laser appointment" doesn't name a date at all — it's a lookup by NAME across the
+   whole calendar, not a question about any particular day, so parseCalendarDateQuery above (which
+   only ever recognizes date phrases) correctly returns null for it and it would otherwise have
+   fallen all the way through to the today-only widget read. Captures the searched-for phrase out
+   of "when is/are my X", "do i have (a/an/any) X", or "what day is my X". */
+function parseCalendarNameQuery(t){
+  const m = t.match(/\bwhen\s+(?:is|are|'s)\s+(?:my |the )?(.+?)[?.\s]*$/)
+    || t.match(/\bdo i have\s+(?:a |an |any |my )?(.+?)[?.\s]*$/)
+    || t.match(/\bwhat day is\s+(?:my |the )?(.+?)[?.\s]*$/);
+  return m ? m[1].trim() : null;
+}
+/* "appointment"/"event"/etc are the generic NOUN every calendar entry is, not a name — "when is
+   my appointment" (nothing else) and "when is my laser appointment" (an actual distinguishing
+   word) need to end up in completely different places. This strips every filler/generic bit
+   ("my", "next", "on the calendar", the trailing "appointment"/"event" noun itself, ...) and
+   returns whatever's left. Empty result = there was never a real name in there at all — the
+   caller falls back to "what's coming up" instead of literally searching for the word
+   "appointment". Non-empty ("laser") = an actual name to search titles for. */
+const CALENDAR_GENERIC_NOUN_RE = /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|call|thing|things)\b/g;
+function extractCalendarSearchCore(rawPhrase){
+  let p = " "+rawPhrase.toLowerCase().trim()+" ";
+  p = p.replace(/\b(on|for)\s+(my|the)\s+calendar\b/g, " ");
+  p = p.replace(/^\s*(what else|else)\s+/, " ");
+  p = p.replace(CALENDAR_GENERIC_NOUN_RE, " ");
+  p = p.replace(/\b(a|an|any|my|the|next|upcoming)\b/g, " ");
+  return p.replace(/\s+/g," ").trim();
+}
+/* Matching is tried against both the full original phrase and the stripped-down core, plus a
+   per-word fallback, so it's forgiving of the event actually being titled just "Laser" or "Laser
+   Hair Removal" or "Laser Appointment - Dr. Kim", not just an exact phrase match. Searches every
+   saved date, not just today/upcoming — asking "when is X" implies you don't already know, which
+   includes not knowing whether it's already passed. */
+function findCalendarEventsByName(phrase){
+  const p = phrase.toLowerCase().trim();
+  const core = extractCalendarSearchCore(phrase);
+  const words = core.split(/\s+/).filter(w=>w.length>2);
+  const matches = [];
+  Object.keys(calendarData.events).forEach(key=>{
+    (calendarData.events[key]||[]).forEach(ev=>{
+      const title = (ev.title||"").toLowerCase();
+      if(title.includes(p) || (core && title.includes(core)) || words.some(w=>title.includes(w))) matches.push({key, ev});
+    });
+  });
+  matches.sort((a,b)=> a.key===b.key ? calendarTimeSortKey(a.ev.time)-calendarTimeSortKey(b.ev.time) : (a.key<b.key ? -1 : 1));
+  return matches;
+}
+function calendarEventDayLabel(key){
+  return key===calendarDateKey(new Date()) ? "today" : new Date(key+"T00:00:00").toLocaleDateString(undefined,{weekday:"long", month:"short", day:"numeric"});
+}
+function calendarNameQueryReply(phrase){
+  const matches = findCalendarEventsByName(phrase);
+  if(!matches.length) return `I don't see anything called "${phrase}" on your calendar.`;
+  const parts = matches.slice(0,5).map(({key,ev})=>
+    ev.time ? `${ev.title} — ${calendarEventDayLabel(key)} at ${ev.time}` : `${ev.title} — ${calendarEventDayLabel(key)}`);
+  return `Calendar: ${parts.join("; ")}`;
+}
+/* "what's my next event", "when's my next appointment", "what else do i have on my calendar",
+   "anything upcoming" — none of these name a specific event OR a specific date, they're asking
+   for whatever's chronologically closest from today onward. Checked directly (not by going
+   through parseCalendarNameQuery/extractCalendarSearchCore first) since "next event"/"what else"
+   can show up in phrasings ("what's my next event") that parseCalendarNameQuery's stricter
+   "when is/do i have/what day is" prefixes wouldn't even catch in the first place. */
+function isGenericCalendarNextQuery(t){
+  return /\bnext\s+(appointment|appointments|event|events|meeting|meetings|thing|things)\b/.test(t)
+    || /\bwhat else\b/.test(t)
+    || /\bupcoming\b/.test(t)
+    || /\banything (else )?(coming up)\b/.test(t);
+}
+function calendarUpcomingEvents(limit){
+  const todayKey = calendarDateKey(new Date());
+  const list = [];
+  for(const key of Object.keys(calendarData.events).filter(k=>k>=todayKey).sort()){
+    for(const ev of (calendarData.events[key]||[]).slice().sort((a,b)=>calendarTimeSortKey(a.time)-calendarTimeSortKey(b.time))){
+      list.push({key, ev});
+      if(list.length>=limit) return list;
+    }
+  }
+  return list;
+}
+function calendarNextEventsReply(){
+  const upcoming = calendarUpcomingEvents(3);
+  if(!upcoming.length) return "Nothing upcoming on your calendar right now.";
+  const parts = upcoming.map(({key,ev})=>
+    ev.time ? `${ev.title} — ${calendarEventDayLabel(key)} at ${ev.time}` : `${ev.title} — ${calendarEventDayLabel(key)}`);
+  return `Calendar: ${parts.join("; ")}`;
+}
+/* Shared by both places that call readWidgetContentReply for a resolved widget (explicit "what's
+   on my calendar" naming it, and the topic-inference fallback below) — Calendar is the one widget
+   whose mini view can't just be read verbatim and trusted to answer the actual question, since
+   that view is always pinned to today regardless of what date (or which specific event) the user
+   actually asked about. Checked in order: an explicit "next event"/"what else" style generic
+   request; then a named lookup IF there's an actual name left after stripping filler/generic
+   words (a bare "when is my appointment" has nothing left, so it falls into the same generic
+   "what's coming up" bucket rather than literally searching for the word "appointment"); then a
+   specific date/range; only then the original today-only read, for anything not asking about a
+   date, a name, or "what's next" at all (e.g. plain "what's on my calendar"). */
+function widgetContentReplyFor(def, t){
+  if(def.id === "calendar"){
+    if(isGenericCalendarNextQuery(t)) return calendarNextEventsReply();
+    const namePhrase = parseCalendarNameQuery(t);
+    if(namePhrase){
+      return extractCalendarSearchCore(namePhrase) ? calendarNameQueryReply(namePhrase) : calendarNextEventsReply();
+    }
+    const q = parseCalendarDateQuery(t);
+    if(q) return calendarDateQueryReply(q);
+  }
+  return readWidgetContentReply(def);
+}
 /* Some questions don't name a widget at all ("what's the score", "who's playing today", "any
    games on") but clearly belong to one — mapped here so those still get the real, live widget
    content instead of falling through to the LLM. Only checked when no widget was named
@@ -7895,7 +8051,7 @@ function tryLocalCommand(text){
   else if((m = t.match(/^what does (?:the |my )?([a-z0-9 ]+?)(?:\s*(?:tab|widget|window|panel))? say[?.\s]*$/))) readWidgetName = m[1];
   if(!widgetHandled && readWidgetName){
     const def = findWidgetDefByName(readWidgetName.trim());
-    if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
+    if(def){ results.push(widgetContentReplyFor(def, t)); widgetHandled = true; }
   }
   /* "why is the weather not available" / "what's wrong with sports" / "why isn't the market
      working" — these ask ABOUT a live-feed widget being broken, not FOR its current content, so
@@ -7938,7 +8094,7 @@ function tryLocalCommand(text){
       if(troubleshotTopicIds.has(topic.id)) continue; // already answered above as a "why isn't this working" diagnostic, not a content request
       if(topicMatchesText(t, topic) && !(topic.exclude && topic.exclude.test(t))){
         const def = findWidgetDefByName(topic.id);
-        if(def){ results.push(readWidgetContentReply(def)); widgetHandled = true; }
+        if(def){ results.push(widgetContentReplyFor(def, t)); widgetHandled = true; }
       }
     }
   }
