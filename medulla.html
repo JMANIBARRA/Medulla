@@ -973,7 +973,18 @@
   /* auto margin here (rather than on #account-btn) pushes the whole control cluster — plus
      account-btn right after it — over to hug the right edge of the bar as one group, leaving
      the empty space between it and the brand instead of splitting it before account-btn alone */
-  .topbar-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;}
+  /* nowrap + horizontal scroll rather than flex-wrap:wrap — #topbar has a fixed height, so a
+     second wrapped row would overlap the canvas below it instead of pushing it down. This also
+     has to hold up when button text length changes at runtime (EN<->ES translation swaps
+     "recenter"/"pin all"/etc. for longer Spanish equivalents): wrapping made the row's occupied
+     width unpredictable moment-to-moment, opening gaps or overlaps between buttons; a fixed
+     single-row scroll container never reflows regardless of how long the label text gets.
+     justify-content:flex-start (not flex-end) + min-width:0 avoid the well-known flexbox bug
+     where flex-end/center on an overflowing scroll container makes the overflowing content
+     unreachable/backwards to scroll to — with flex-start this only matters once content actually
+     overflows, and looks identical to flex-end whenever it still fits (the common case). */
+  .topbar-controls{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;justify-content:flex-start;margin-left:auto;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;min-width:0;}
+  .topbar-controls::-webkit-scrollbar{display:none;}
   /* thin separator between logical clusters of topbar buttons (edit / layout / size / zoom / memory) */
   .tbtn-divider{width:1px;height:22px;background:var(--line);margin:0 3px;flex:none;}
   /* icon-only variant for buttons whose symbol is already self-explanatory (title still carries the full description) */
@@ -1032,8 +1043,12 @@
      moved). Bare icon, no border/background/glow — just a plain, quiet toggle, not another chip
      competing visually with everything else on screen. .active = currently unmuted (sound
      playing), toggled in setupAmbientSound; dimmed the rest of the time so it stays unobtrusive. */
-  #ambient-mute-btn{
+  #ambient-volume-control{
     position:fixed;left:20px;bottom:38px;z-index:41;
+    display:flex;align-items:center;
+  }
+  #ambient-mute-btn{
+    flex:none;
     width:24px;height:24px;
     display:flex;align-items:center;justify-content:center;
     background:none;border:none;color:var(--text-dim);
@@ -1042,6 +1057,21 @@
   }
   #ambient-mute-btn:hover{opacity:1;color:var(--accent-teal);}
   #ambient-mute-btn.active{opacity:.85;}
+  /* hidden by default (0-width, clipped) and revealed by expanding on hover/focus — a lightweight
+     "slide open" rather than an absolutely-positioned popover, so it never overlaps the hotbar
+     that can rise directly above this same bottom-left corner. */
+  #ambient-volume-popover{
+    display:flex;align-items:center;overflow:hidden;
+    max-width:0;opacity:0;margin-left:0;
+    transition:max-width .16s ease, opacity .16s ease, margin-left .16s ease;
+  }
+  #ambient-volume-control:hover #ambient-volume-popover,
+  #ambient-volume-control:focus-within #ambient-volume-popover{
+    max-width:100px;opacity:1;margin-left:8px;
+  }
+  #ambient-hover-volume-input{
+    width:90px;height:16px;accent-color:var(--accent-teal);cursor:pointer;
+  }
 
   /* ---------- hot bar — mac-Dock-style quick site launcher, hidden until you approach the
      chat bar, then rises directly above it. JS (setupHotbar) drives .visible and the exact
@@ -1417,17 +1447,23 @@
 
   <div id="ai-dock">
     <form id="ai-form">
-      <input id="ai-input" type="text" placeholder="Tell Medulla what to do — e.g. &quot;zoom out&quot;, &quot;add BTC to my ticker&quot;, &quot;what's the weather&quot;..." autocomplete="off" />
+      <input id="ai-input" type="text" placeholder="Ask me a question" autocomplete="off" />
       <button id="ai-send" type="submit" title="Send">✦</button>
     </form>
     <div id="ai-log"></div>
   </div>
-  <!-- mute/unmute only — the actual volume slider lives in Settings (see setupAmbientSound) so
-       it's not something a stray click here can accidentally change. Fixed near the chat bar
+  <!-- mute/unmute plus a hover-reveal volume slider (see setupAmbientSound); the same volume
+       also stays adjustable from Settings (#ambient-volume-input) and from hardware/keyboard
+       media volume keys, all three kept in sync via ambientSoundBridge. Fixed near the chat bar
        (bottom-left) rather than the topbar — it kept getting clipped/crowding the other topbar
-       controls even shrunk down, and this is a low-priority toggle that doesn't need to live
+       controls even shrunk down, and this is a low-priority control that doesn't need to live
        among the main widget/zoom/memory controls anyway. -->
-  <button id="ambient-mute-btn" title="Mute/unmute background ambience — volume is in Settings">🔊</button>
+  <div id="ambient-volume-control">
+    <button id="ambient-mute-btn" title="Mute/unmute background ambience — hover for volume, or use your keyboard's volume keys">🔊</button>
+    <div id="ambient-volume-popover">
+      <input type="range" id="ambient-hover-volume-input" min="0" max="100" title="Ambient volume">
+    </div>
+  </div>
 
   <div id="modal-overlay">
     <div id="modal-panel">
@@ -1807,13 +1843,21 @@ function estimateCapsuleWidth(title){
   const m = capsuleSizeMetrics();
   return Math.max(m.minW, title.length*m.charW + m.base);
 }
+/* The capsule actually renders whatever applyTranslations has swapped its title text to (see
+   the LANGUAGE section further down) — measuring against the raw English def.title here would
+   underestimate the footprint of a longer translated title (Spanish widget names run longer than
+   their English originals) and pack capsules too close together, overlapping once translated.
+   Falls back to the raw title whenever nothing's translated (English mode, or no entry). */
+function displayedWidgetTitle(def){
+  return (typeof appLang!=="undefined" && appLang==="es" && typeof I18N_ES!=="undefined" && I18N_ES[def.title]) || def.title;
+}
 function packCapsulesIntoRow(targets, originX, originY, maxRowWidth){
   const m = capsuleSizeMetrics();
   const gap = m.gap, capsuleH = m.h;
   let cursorX = originX, cursorY = originY, rowHeight = 0;
   targets.forEach(def=>{
     const l = state.layout[def.id];
-    const w = estimateCapsuleWidth(def.title);
+    const w = estimateCapsuleWidth(displayedWidgetTitle(def));
     if(cursorX !== originX && (cursorX - originX + w) > maxRowWidth){
       cursorX = originX;
       cursorY += rowHeight + gap;
@@ -1823,6 +1867,31 @@ function packCapsulesIntoRow(targets, originX, originY, maxRowWidth){
     l.y = cursorY;
     cursorX += w + gap;
     rowHeight = Math.max(rowHeight, capsuleH);
+  });
+  return cursorY + rowHeight;
+}
+/* Same idea as packCapsulesIntoRow, but wraps by a fixed COUNT per row instead of by pixel
+   width — what "organize it 2x5"/"put these in 3 rows" (see the AI dock's grid-arrange command)
+   actually needs: a specific row/column shape regardless of how wide any individual capsule's
+   title happens to render. */
+function packCapsulesIntoGrid(targets, originX, originY, itemsPerRow){
+  const m = capsuleSizeMetrics();
+  const gap = m.gap, capsuleH = m.h;
+  let cursorX = originX, cursorY = originY, rowHeight = 0, countInRow = 0;
+  targets.forEach(def=>{
+    const l = state.layout[def.id];
+    const w = estimateCapsuleWidth(displayedWidgetTitle(def));
+    if(countInRow >= itemsPerRow){
+      cursorX = originX;
+      cursorY += rowHeight + gap;
+      rowHeight = 0;
+      countInRow = 0;
+    }
+    l.x = cursorX;
+    l.y = cursorY;
+    cursorX += w + gap;
+    rowHeight = Math.max(rowHeight, capsuleH);
+    countInRow++;
   });
   return cursorY + rowHeight;
 }
@@ -1960,6 +2029,17 @@ function togglePinWidget(l, card, header){
   saveProfileState();
   updatePinAllButtonState();
   updateMinAllButtonState();
+}
+/* Lets the AI dock ("pin Fitness" / "unpin Market" — see tryLocalCommand) drive the exact same
+   pin/unpin toggling the header button does, reusing togglePinWidget's own camera-space
+   conversion rather than re-deriving it — it just needs that widget's actually-mounted card +
+   header DOM nodes to call it with, which only exist while the widget is open as a full card
+   (not minimized to a capsule, not just hidden). */
+function findWidgetCardAndHeader(id){
+  const card = document.querySelector('.claustrum-widget[data-widget-id="'+id+'"]');
+  if(!card) return null;
+  const header = card.querySelector(".widget-header");
+  return header ? {card, header} : null;
 }
 
 /* topbar "pin all" — same "already-pinned widgets are left alone" idea as a checkbox's
@@ -2156,6 +2236,556 @@ function loadJSON(key, fallback){
 }
 function saveJSON(key,val){
   try{ localStorage.setItem(key, JSON.stringify(val)); scheduleCloudPush(); }catch(e){ console.warn("save failed",e); }
+}
+
+/* ================= LANGUAGE (EN <-> ES) =================
+   App-wide interface translation. Deliberately NOT a per-string wrapper threaded through every
+   template literal in this file (thousands of call sites) — instead a single dictionary of exact
+   English UI strings mapped to Spanish, applied by walking the live DOM after every render and
+   swapping text nodes / placeholder / title / aria-label attributes whose full trimmed content
+   matches a dictionary entry exactly. Anything NOT in the dictionary (user-typed fitness entries,
+   calendar event titles, project notes, followed team names, chat messages, input VALUES, live
+   data pulled from weather/market/sports APIs, etc.) never matches and is silently left alone —
+   this is what keeps translation scoped to interface chrome only, with no separate exclusion-list
+   needed. A MutationObserver re-applies the pass to any newly-rendered widget/modal content
+   automatically, so no render function anywhere needs to know this feature exists.
+   Reverse (ES -> EN) lookup is derived from the same dictionary, so dictionary values must be
+   unique — no two English keys may share one Spanish translation, or switching back to English
+   becomes ambiguous. */
+/* I18N_ES_DICTIONARY — populated separately; keep this the only dictionary edit point. */
+const I18N_ES = {
+  /* ---- topbar / global chrome ---- */
+  "Dismiss": "Descartar",
+  "Undo last stroke/note": "Deshacer el último trazo o nota",
+  "Redo": "Rehacer",
+  "Toggle middle-finger cursor": "Alternar el cursor de dedo medio",
+  "recenter": "recentrar",
+  "Pan back to your apps": "Volver a centrar tus aplicaciones",
+  "Arrange open widgets into a tidy grid, click again to restore their positions": "Organiza los widgets abiertos en una cuadrícula ordenada; vuelve a hacer clic para restaurar sus posiciones",
+  "pin all": "fijar todo",
+  "unpin all": "desfijar todo",
+  "Pin every open widget to the screen; click again to unpin them all": "Fija todos los widgets abiertos en la pantalla; vuelve a hacer clic para desfijarlos todos",
+  "min all": "minimizar todo",
+  "restore all": "restaurar todo",
+  "Minimize every open, unpinned widget; click again to restore them": "Minimiza todos los widgets abiertos y sin fijar; vuelve a hacer clic para restaurarlos",
+  "size": "tamaño",
+  "Resize every open widget to Small (also shrinks minimized widgets)": "Cambia el tamaño de todos los widgets abiertos a Pequeño (también reduce los minimizados)",
+  "Resize every open widget to Medium (also resizes minimized widgets)": "Cambia el tamaño de todos los widgets abiertos a Mediano (también redimensiona los minimizados)",
+  "Resize every open widget to Large (also grows minimized widgets)": "Cambia el tamaño de todos los widgets abiertos a Grande (también agranda los minimizados)",
+  "Zoom out (Ctrl+-)": "Alejar (Ctrl+-)",
+  "Zoom in (Ctrl+=)": "Acercar (Ctrl+=)",
+  "reset": "restablecer",
+  "Reset zoom to 100% (Ctrl+0)": "Restablece el zoom al 100% (Ctrl+0)",
+  "Select Memory 1 (Ctrl+1) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 1 (Ctrl+1) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "Select Memory 2 (Ctrl+2) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 2 (Ctrl+2) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "Select Memory 3 (Ctrl+3) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 3 (Ctrl+3) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "save": "guardar",
+  "Save the current widget arrangement (Ctrl+S) — every widget's position, size, pin state — and camera view into the selected memory slot": "Guarda la disposición actual de los widgets (Ctrl+S) — la posición, el tamaño y el estado de fijado de cada widget — y la vista de cámara en la ranura de memoria seleccionada",
+  "Switch interface language to Spanish (Cambiar a español)": "Cambiar el idioma de la interfaz a español (Switch to Spanish)",
+  "Switch interface language to English": "Cambiar el idioma de la interfaz a inglés",
+  "Settings": "Configuración",
+  "Cloud account — sign in to sync your settings across devices": "Cuenta en la nube — inicia sesión para sincronizar tu configuración entre dispositivos",
+  "sign in": "iniciar sesión",
+  "Hold to stop, drag to rotate · click for move options": "Mantén pulsado para detener, arrastra para rotar · haz clic para opciones de movimiento",
+  "HOLD TO ROTATE": "MANTÉN PULSADO PARA ROTAR",
+  "Drag to move": "Arrastra para mover",
+  "Move Globe": "Mover globo",
+  "Drop here to remove": "Suelta aquí para eliminar",
+  "Ask me a question": "Hazme una pregunta",
+  "Send": "Enviar",
+  "Mute/unmute background ambience — hover for volume, or use your keyboard's volume keys": "Silenciar o activar el ambiente de fondo — pasa el cursor para ver el volumen, o usa las teclas de volumen de tu teclado",
+  "Ambient volume": "Volumen ambiental",
+  "Custom color": "Color personalizado",
+
+  /* ---- auth gate / sign-in ---- */
+  "Sign in to sync your settings across devices, or continue as a guest to use this device only.": "Inicia sesión para sincronizar tu configuración entre dispositivos, o continúa como invitado para usar solo este dispositivo.",
+  "Continue as Guest →": "Continuar como invitado →",
+  "Email": "Correo electrónico",
+  "Password": "Contraseña",
+  "Log In": "Acceder",
+  "Sign Up": "Registrarse",
+  "Need an account? Sign up": "¿No tienes una cuenta? Regístrate",
+  "Already have an account? Log in": "¿Ya tienes una cuenta? Inicia sesión",
+  "Forgot password?": "¿Olvidaste tu contraseña?",
+  "or": "o",
+  "Sign in with Google": "Iniciar sesión con Google",
+  "Enter your email above first.": "Primero escribe tu correo electrónico arriba.",
+  "Password reset email sent.": "Correo de restablecimiento de contraseña enviado.",
+
+  /* ---- modals / settings / widgets manager ---- */
+  "Cloud Settings Found": "Configuración en la nube encontrada",
+  "Load Cloud Data": "Cargar datos de la nube",
+  "Keep This Device's Data": "Conservar los datos de este dispositivo",
+  "Manage widgets": "Administrar widgets",
+  "Hide": "Ocultar",
+  "Show": "Mostrar",
+  "System Config": "Configuración del sistema",
+  "Your name": "Tu nombre",
+  "Language": "Idioma",
+  "Account": "Cuenta",
+  "Sync now": "Sincronizar ahora",
+  "Sign out": "Cerrar sesión",
+  "Ambient sound": "Sonido ambiental",
+  "Background theme": "Tema de fondo",
+  "Accent color": "Color de acento",
+  "Retints every glowing border/text/icon at once — including the paint tool's pen color and the cheetah widget.": "Retiñe de una vez cada borde, texto e icono brillante — incluyendo el color del lápiz de la herramienta de dibujo y el widget del guepardo.",
+  "YouTube Data API key": "Clave de la API de datos de YouTube",
+  "Google Sign-In (Video (Google) widget)": "Inicio de sesión con Google (widget Vídeo (Google))",
+  "Medulla AI chat (Groq)": "Chat con IA de Medulla (Groq)",
+  "Sports scores (TheSportsDB)": "Marcadores deportivos (TheSportsDB)",
+  "Backup & restore": "Copia de seguridad y restauración",
+  "Export backup (.json)": "Exportar copia de seguridad (.json)",
+  "Import backup": "Importar copia de seguridad",
+  "Get key ↗": "Obtener clave ↗",
+  "Get ID ↗": "Obtener ID ↗",
+  "Save": "Guardar",
+  "Saved": "Guardado",
+  "e.g. Juan": "p. ej. Juan",
+  "leave blank to use the shared demo key": "déjalo en blanco para usar la clave de demostración compartida",
+
+  /* ---- widget card chrome ---- */
+  "Double-click to minimize": "Doble clic para minimizar",
+  "Cycle size: small / medium / large": "Cambiar tamaño: pequeño / mediano / grande",
+  "Unpin (return to canvas)": "Desfijar (volver al lienzo)",
+  "Pin to screen (stays put while you pan/zoom)": "Fijar en la pantalla (permanece fijo mientras desplazas o haces zoom)",
+  "not built yet": "aún no construido",
+  "This module is scaffolded in the widget catalog and reserved a spot in the layout, but its full interface hasn't been built in this pass.": "Este módulo está esbozado en el catálogo de widgets y tiene un lugar reservado en el diseño, pero su interfaz completa aún no se ha construido en esta pasada.",
+
+  /* ---- WIDGET_DEFS: titles ---- */
+  "Mail": "Correo",
+  "Arcade": "Videojuegos",
+  "Chrono": "Crono",
+  "Finance": "Finanzas",
+  "Traffic": "Tráfico",
+  "Garage": "Garaje",
+  "Phone": "Teléfono",
+  "Career": "Carrera profesional",
+  "Fitness": "Estado físico",
+  "Market": "Mercado",
+  "Projects": "Proyectos",
+  "Assets": "Patrimonio",
+  "Scratchpad": "Notas rápidas",
+  "Sports": "Deportes",
+  "Weather": "Clima",
+  "Calendar": "Calendario",
+  "Video": "Vídeo",
+  "Video (Google)": "Vídeo (Google)",
+  "Cheetah": "Guepardo",
+
+  /* ---- WIDGET_DEFS: specs ---- */
+  "A real photo with mix-blend-mode:screen dropping out its black background, scanlines laid over it, and a color-blend tint that follows the app's theme accent live — no canvas, pure CSS.": "Una foto real con mix-blend-mode:screen que elimina su fondo negro, líneas de escaneo superpuestas, y un tinte de mezcla de color que sigue en vivo el acento del tema de la app — sin canvas, CSS puro.",
+  "Quick-launch cards for Gmail, Outlook, ProtonMail in a new tab. Editable link list.": "Tarjetas de acceso rápido para Gmail, Outlook y ProtonMail en una pestaña nueva. Lista de enlaces editable.",
+  "Flappy-style canvas game with saved high score, plus an infinite-bankroll blackjack simulator.": "Juego de canvas estilo Flappy con puntuación máxima guardada, más un simulador de blackjack con saldo infinito.",
+  "Digital / analog clock toggle plus a 25/50/90 min focus timer that logs total focused minutes.": "Reloj digital/analógico intercambiable, más un temporizador de concentración de 25/50/90 min que registra los minutos totales de enfoque.",
+  "navigator.bluetooth battery_service telemetry for paired peripherals.": "Telemetría de navigator.bluetooth battery_service para periféricos emparejados.",
+  "Plain launcher cards to official bank login portals, opened in a new isolated tab. No scraping.": "Tarjetas de acceso simples a los portales oficiales de inicio de sesión bancario, abiertas en una pestaña aislada nueva. Sin extracción de datos.",
+  "Public DOT/511 traffic camera grid plus a Ring dashboard launcher.": "Cuadrícula de cámaras de tráfico públicas DOT/511, más un acceso directo al panel de Ring.",
+  "Add vehicles you own, keep a running garage list.": "Añade los vehículos que posees y mantén una lista continua de tu garaje.",
+  "Saved contacts you can call with one click via tel: links — add a name and number, tap to dial.": "Contactos guardados a los que puedes llamar con un clic mediante enlaces tel: — añade un nombre y un número, y toca para marcar.",
+  "Resume/cover letter editor, salary target tracker, and job feed deep-links.": "Editor de currículum/carta de presentación, seguimiento de objetivo salarial, y enlaces directos a ofertas de empleo.",
+  "Age/gender setup, routine + food diary journaling, and a biomarker notes panel.": "Configuración de edad/género, registro de rutina y diario de comidas, y un panel de notas de biomarcadores.",
+  "Live indices + pinned assets, headline wire.": "Índices en vivo + activos fijados, cable de titulares.",
+  "Notes pad plus a sandbox area for snippets and file paths.": "Bloc de notas más un área de pruebas para fragmentos de código y rutas de archivo.",
+  "Embeds a local app (iframe) for balances and card due dates.": "Incorpora una app local (iframe) para saldos y fechas de vencimiento de tarjetas.",
+  "Multi-page free-form notebook, autosaved.": "Cuaderno de formato libre con varias páginas, autoguardado.",
+  "Followed teams, live-ish scores, and league news.": "Equipos seguidos, marcadores casi en vivo, y noticias de la liga.",
+  "Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt).": "Condiciones actuales y un pronóstico a corto plazo para tu ubicación aproximada (basado en IP — sin solicitud de permiso de ubicación).",
+  "Today's date and whatever events you've added for it — click through to a full month view to browse other days and add events.": "La fecha de hoy y los eventos que hayas añadido para ese día — haz clic para pasar a la vista de mes completo y explorar otros días o añadir eventos.",
+  "Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings.": "Pega un enlace de YouTube para verlo en una ventana aquí, con su propio control de volumen. Las sugerencias usan una clave de API compartida configurada en Ajustes.",
+  "Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending.": "El mismo reproductor, pero inicia sesión con tu propia cuenta de Google en lugar de una clave de API compartida — las sugerencias provienen de tus propias suscripciones/página de inicio, no de tendencias genéricas.",
+  "Running-cheetah sprite loop — 8 frames cropped from a user-supplied silhouette sheet, recolored ice-blue, cycling via CSS steps() to fake a gallop.": "Bucle de sprites de un guepardo corriendo — 8 fotogramas recortados de una hoja de siluetas proporcionada por el usuario, recoloreados en azul hielo, y ciclados mediante CSS steps() para simular un galope.",
+
+  /* ---- market ---- */
+  "pinned": "fijados",
+  "Asset Tracker": "Seguimiento de Activos",
+  "pinned assets": "activos fijados",
+  "The Wire": "El Cable",
+  "coingecko id e.g. solana": "id de coingecko, p. ej. solana",
+  "Add": "Añadir",
+  "Index values are sample data — wire a keyed API (Alpha Vantage, Finnhub, etc.) here for live indices. Crypto prices are live via CoinGecko.": "Los valores de los índices son datos de muestra — conecta aquí una API con clave (Alpha Vantage, Finnhub, etc.) para índices en vivo. Los precios de criptomonedas son en vivo a través de CoinGecko.",
+  "Loading headlines…": "Cargando titulares…",
+
+  /* ---- sports ---- */
+  "Followed Teams": "Equipos Seguidos",
+  "Team name e.g. Miami Heat": "Nombre del equipo, p. ej. Miami Heat",
+  "Follow": "Seguir",
+  "Scoreboard & News": "Marcador y Noticias",
+  "Loading…": "Cargando…",
+  "Loading scores…": "Cargando marcadores…",
+  "Scores unavailable right now.": "Marcadores no disponibles por ahora.",
+  "No teams followed yet.": "Aún no sigues ningún equipo.",
+  "Live / Today": "En vivo / Hoy",
+  "Today": "Hoy",
+  "Yesterday": "Ayer",
+  "● Live / In Progress": "● En vivo / En curso",
+  "Finished": "Finalizado",
+
+  /* ---- weather ---- */
+  "Loading weather…": "Cargando el clima…",
+  "Weather unavailable right now.": "Clima no disponible por ahora.",
+  "Weather Details": "Detalles del Clima",
+  "Cloud Cover": "Nubosidad",
+  "Humidity": "Humedad",
+  "Wind": "Viento",
+  "Rain": "Lluvia",
+  "UV Index": "Índice UV",
+  "Next Few Days": "Próximos Días",
+
+  /* ---- calendar ---- */
+  "Previous month": "Mes anterior",
+  "Next month": "Mes siguiente",
+  "Event title…": "Título del evento…",
+  "Time (optional), e.g. 3:00 PM": "Hora (opcional), p. ej. 3:00 PM",
+  "Add event": "Añadir evento",
+  "No events today.": "No hay eventos hoy.",
+  "No events for this day.": "No hay eventos para este día.",
+
+  /* ---- cheetah ---- */
+  "Sky": "Cielo",
+  "Trees": "Árboles",
+  "Clouds": "Nubes",
+  "Other animals": "Otros animales",
+  "☀ Sun": "☀ Sol",
+  "☾ New Moon": "☾ Luna Nueva",
+  "☾ Crescent": "☾ Creciente",
+  "☾ Half Moon": "☾ Media Luna",
+  "☾ Gibbous": "☾ Gibosa",
+  "☾ Full Moon": "☾ Luna Llena",
+  "None": "Ninguna",
+  "Bird": "Pájaro",
+  "Rabbit": "Conejo",
+  "Turtle": "Tortuga",
+  "running past, up to 6": "pasando corriendo, hasta 6",
+  "drifting, up to 4": "flotando a la deriva, hasta 4",
+
+  /* ---- youtube / youtube (google) ---- */
+  "Paste YouTube link…": "Pega un enlace de YouTube…",
+  "Mute / unmute": "Silenciar / activar",
+  "Browse other videos": "Explorar otros vídeos",
+  "Paste a YouTube link or video ID…": "Pega un enlace o ID de vídeo de YouTube…",
+  "Load": "Cargar",
+  "Mute": "Silenciar",
+  "Unmute": "Activar sonido",
+  "Suggestions": "Sugerencias",
+  "Search YouTube… (empty = trending)": "Buscar en YouTube… (vacío = tendencias)",
+  "Search": "Buscar",
+  "Search YouTube… (empty = your home feed)": "Buscar en YouTube… (vacío = tu página de inicio)",
+  "Suggestions (from your Google account)": "Sugerencias (de tu cuenta de Google)",
+  "Add a YouTube Data API key in Settings to see suggestions here.": "Añade una clave de la API de datos de YouTube en Ajustes para ver sugerencias aquí.",
+  "Add a free YouTube Data API key in Settings to see trending/search results here.": "Añade una clave gratuita de la API de datos de YouTube en Ajustes para ver tendencias/resultados de búsqueda aquí.",
+  "Sign in with Google to see your subscriptions/home feed here.": "Inicia sesión con Google para ver aquí tus suscripciones/página de inicio.",
+  "No results.": "Sin resultados.",
+  "Signing in…": "Iniciando sesión…",
+
+  /* ---- garage ---- */
+  "My Vehicles": "Mis Vehículos",
+  "Type ▾": "Tipo ▾",
+  "e.g. Honda Civic": "p. ej. Honda Civic",
+  "Year": "Año",
+  "Mileage": "Kilometraje",
+  "No vehicles added.": "No se han añadido vehículos.",
+  "Vehicle e.g. Civic": "Vehículo, p. ej. Civic",
+
+  /* ---- phone ---- */
+  "Saved Contacts": "Contactos Guardados",
+  "Name e.g. Mom": "Nombre, p. ej. Mamá",
+  "Phone number": "Número de teléfono",
+  "Sync From Your Contacts": "Sincronizar Desde Tus Contactos",
+  "Open Google Contacts ↗": "Abrir Contactos de Google ↗",
+  "Open iCloud Contacts ↗": "Abrir Contactos de iCloud ↗",
+  "Paste copied contacts here…": "Pega aquí los contactos copiados…",
+  "Import Pasted Contacts": "Importar Contactos Pegados",
+  "Import a .vcf file instead": "Importar un archivo .vcf en su lugar",
+  "No contacts saved yet.": "Aún no hay contactos guardados.",
+  "No contacts saved.": "No hay contactos guardados.",
+  "Paste some contacts first.": "Primero pega algunos contactos.",
+  "Couldn't read that text.": "No se pudo leer ese texto.",
+  "Couldn't read that file.": "No se pudo leer ese archivo.",
+  "Importing…": "Importando…",
+  "No names with phone numbers found in that text.": "No se encontraron nombres con números de teléfono en ese texto.",
+  "No contacts with phone numbers found in that file.": "No se encontraron contactos con números de teléfono en ese archivo.",
+  "Open your contacts, select the ones you want, copy them (⌘C / Ctrl+C), then paste below — works with a raw copy from the Contacts app or a plain list like \"Mom, 555-123-4567\" (one per line).": "Abre tus contactos, selecciona los que quieras, cópialos (⌘C / Ctrl+C) y luego pégalos abajo — funciona con una copia directa de la app Contactos o con una lista simple como \"Mamá, 555-123-4567\" (uno por línea).",
+
+  /* ---- mail ---- */
+  "Inbox Directory": "Directorio de Bandejas de Entrada",
+  "Label e.g. Work Gmail": "Etiqueta, p. ej. Gmail del Trabajo",
+  "No inboxes yet.": "Aún no hay bandejas de entrada.",
+  "show": "mostrar",
+  "hide": "ocultar",
+
+  /* ---- banking ---- */
+  "Bank Directory": "Directorio de Bancos",
+  "Label e.g. Chase": "Etiqueta, p. ej. Chase",
+  "No banks yet.": "Aún no hay bancos.",
+  "Opens the official bank site in a new isolated tab. No embedded frames, no balance scraping — this is just a launcher.": "Abre el sitio oficial del banco en una pestaña aislada nueva. Sin marcos incorporados, sin extracción de saldos — esto es solo un lanzador.",
+
+  /* ---- chrono ---- */
+  "Clock": "Reloj",
+  "tap the face to toggle digital / analog": "toca la esfera para alternar entre digital y analógico",
+  "Focus Timer": "Temporizador de Enfoque",
+  "Start": "Iniciar",
+  "Pause": "Pausar",
+  "Reset": "Reiniciar",
+  "Stopwatch": "Cronómetro",
+
+  /* ---- scratchpad ---- */
+  "Start typing…": "Empieza a escribir…",
+  "New page": "Página nueva",
+  "Rename page": "Renombrar página",
+  "Delete page": "Eliminar página",
+
+  /* ---- claude projects ---- */
+  "Project": "Proyecto",
+  "Notes": "Notas",
+  "Snippet / file paths": "Fragmento / rutas de archivo",
+  "Project title…": "Título del proyecto…",
+  "Context, decisions, next steps…": "Contexto, decisiones, próximos pasos…",
+  "Code snippets, file paths, commands…": "Fragmentos de código, rutas de archivo, comandos…",
+
+  /* ---- arcade ---- */
+  "Endless Momentum": "Impulso Infinito",
+  "Score:": "Puntuación:",
+  "High score:": "Puntuación máxima:",
+  "Click the canvas or press space to flap.": "Haz clic en el lienzo o presiona espacio para aletear.",
+  "Dealer": "Repartidor",
+  "You": "Tú",
+  "Hit": "Pedir",
+  "Stand": "Plantarse",
+  "Deal": "Repartir",
+  "Double Down": "Doblar",
+  "Restart": "Empezar de nuevo",
+  "Bankroll reset to 1000.": "Saldo reiniciado a 1000.",
+  "Dealer wins": "Gana el repartidor",
+  "Push": "Empuje",
+  "· High score:": "· Puntuación máxima:",
+  "· High:": "· Máxima:",
+
+  /* ---- fitness ---- */
+  "Age": "Edad",
+  "Gender": "Género",
+  "Weight": "Peso",
+  "Weekly Plan": "Plan Semanal",
+  "Tell me your split — e.g. 'upper lower', 'push pull legs' — or ask for help": "Dime tu split — p. ej. 'upper lower', 'push pull legs' — o pide ayuda",
+  "Set": "Establecer",
+  "Type anything: ran 5 miles, bench 185x5, ate chicken and rice, Vitamin D 28 ng/mL…": "Escribe lo que sea: corrí 5 millas, press banca 185x5, comí pollo con arroz, Vitamina D 28 ng/mL…",
+  "Type anything: ran 5 miles, ate chicken, Vitamin D 28…": "Escribe lo que sea: corrí 5 millas, comí pollo, Vitamina D 28…",
+  "Log": "Registrar",
+  "Workout": "Entrenamiento",
+  "Food": "Comida",
+  "Labs": "Análisis",
+  "Entries are sorted into a column automatically based on keywords — no need to pick a category yourself. This is a simple rules-based sort, not medical analysis.": "Las entradas se clasifican automáticamente en una columna según palabras clave — no necesitas elegir una categoría tú mismo. Esta es una clasificación simple basada en reglas, no un análisis médico.",
+  "Nothing yet.": "Nada todavía.",
+  "Nothing logged yet.": "Aún no se ha registrado nada.",
+  "No workout plan yet — open to set one up": "Aún no hay un plan de entrenamiento — ábrelo para configurar uno",
+  "Upper / Lower Split": "Split Superior / Inferior",
+  "Push / Pull / Legs": "Empuje / Tirón / Piernas",
+  "Full Body": "Cuerpo Completo",
+  "Bro Split": "Split por Grupo Muscular",
+  "Use this plan": "Usar este plan",
+  "Try another": "Probar otro",
+  "Didn't recognize that split — try \"upper lower\", \"push pull legs\", \"full body\", \"bro split\", or just ask for help.": "No reconocí ese split — prueba \"upper lower\", \"push pull legs\", \"full body\", \"bro split\", o simplemente pide ayuda.",
+  "Since you don't have a plan yet, here's one I'd suggest:": "Como aún no tienes un plan, aquí tienes uno que te sugeriría:",
+  "Rest": "Descanso",
+  "Upper": "Superior",
+  "Lower": "Inferior",
+  "Pull": "Tirón",
+  "Legs": "Piernas",
+  "Chest": "Pecho",
+  "Back": "Espalda",
+  "Shoulders": "Hombros",
+  "Arms": "Brazos",
+
+  /* ---- ai chat: welcome greeting + fallback replies ---- */
+  "Good morning. Ready when you are.": "Buenos días. Lista cuando tú lo estés.",
+  "Good afternoon. What can I do for you?": "Buenas tardes. ¿Qué puedo hacer por ti?",
+  "Good evening. I'm at your service.": "Buenas noches. Estoy a tu servicio.",
+  "Welcome back. Let me know what you need.": "Bienvenido de nuevo. Dime qué necesitas.",
+  "No local command matched, and the Groq request failed — check your API key in Settings or try again in a moment.": "Ningún comando local coincidió, y la solicitud a Groq falló — revisa tu clave de API en Ajustes o inténtalo de nuevo en un momento.",
+  "No local command matched, and the built-in local model couldn't respond either.": "Ningún comando local coincidió, y el modelo local integrado tampoco pudo responder.",
+  "Thinking…": "Pensando…",
+
+  /* ---- file:// origin banner ---- */
+  "⚠ This file needs a local server": "⚠ Este archivo necesita un servidor local",
+  "OS:": "SO:",
+  "Copy this": "Copia esto",
+  "Open a terminal, paste, press Enter": "Abre una terminal, pega y presiona Enter",
+  "Copy": "Copiar",
+  "Copied!": "¡Copiado!",
+
+  /* ---- AI dock: local command replies ---- */
+  "Hello. What can I do for you?": "Hola. ¿Qué puedo hacer por ti?",
+  "Good to see you. How may I assist?": "Qué gusto verte. ¿En qué puedo ayudarte?",
+  "At your service — what do you need?": "A tu servicio — ¿qué necesitas?",
+  "Quite well, thank you for asking. And yourself?": "Bastante bien, gracias por preguntar. ¿Y tú?",
+  "Functioning exactly as intended, sir — which is to say, entirely at your disposal.": "Funcionando exactamente como debe ser, señor — es decir, enteramente a tu disposición.",
+  "Can't complain — not that it would do much good if I did.": "No me puedo quejar — no es que sirviera de mucho si lo hiciera.",
+  "You're quite welcome.": "De nada, con gusto.",
+  "Think nothing of it — it's what I'm here for.": "No es nada — para eso estoy aquí.",
+  "Of course. Anything else?": "Por supuesto. ¿Algo más?",
+  "Very good. I'll be here when you need me.": "Muy bien. Aquí estaré cuando me necesites.",
+  "Until next time.": "Hasta la próxima.",
+  "Take care — I'll be right here.": "Cuídate — aquí estaré.",
+  "You're too kind. I do try.": "Eres muy amable. Hago mi mejor esfuerzo.",
+  "Much appreciated, sir.": "Muy agradecido, señor.",
+  "I aim to be useful — glad it shows.": "Procuro ser útil — me alegra que se note.",
+  "No need to apologize.": "No hay necesidad de disculparte.",
+  "Think nothing of it.": "No tiene importancia.",
+  "All is forgiven, not that there was much to forgive.": "Todo está perdonado, aunque no había mucho que perdonar.",
+  "Heads.": "Cara.",
+  "Tails.": "Cruz.",
+  "Why did the widget cross the dashboard? To get to the other tab.": "¿Por qué el widget cruzó el tablero? Para llegar a la otra pestaña.",
+  "I have a joke about time zones, but the punchline never lands when you expect it.": "Tengo un chiste sobre husos horarios, pero el remate nunca llega cuando lo esperas.",
+  "Two widgets walk into a bar. The bartender says, \"We don't serve your type here.\" They minimize themselves and leave.": "Dos widgets entran a un bar. El cantinero dice: \"Aquí no servimos a los de su tipo.\" Se minimizan y se van.",
+  "I'm not one for comedy, sir — but if pressed, I'd say my humor is as dry as my wit.": "No soy de los que hacen comedia, señor — pero si me presionas, diría que mi humor es tan seco como mi ingenio.",
+  "Hover a widget and click the pin icon in its header — pinned widgets stay put on screen while you pan or zoom.": "Pasa el cursor sobre un widget y haz clic en el icono de chincheta en su encabezado — los widgets fijados permanecen en pantalla mientras desplazas o haces zoom.",
+  "Click the + at the end of the hot bar, give it a title and a link, and it's added.": "Haz clic en el + al final de la barra rápida, dale un título y un enlace, y quedará añadido.",
+  "Drag it off the hot bar and drop it outside — built-in icons can be brought back later from the + button.": "Arrástralo fuera de la barra rápida y suéltalo afuera — los iconos integrados se pueden restaurar después desde el botón +.",
+  "Click the widget's title text to minimize it, and click the capsule again to bring it back.": "Haz clic en el título del widget para minimizarlo, y vuelve a hacer clic en la cápsula para restaurarlo.",
+  "Click \"sign in\" in the top bar — sign in or continue as a guest, and your settings sync automatically once you're signed in.": "Haz clic en \"iniciar sesión\" en la barra superior — inicia sesión o continúa como invitado, y tu configuración se sincronizará automáticamente en cuanto hayas iniciado sesión.",
+  "Open your Calendar, Fitness, or Projects widget so I can see what's on your plate today.": "Abre tu widget de Calendario, Estado físico o Proyectos para que pueda ver qué tienes pendiente hoy.",
+  "This is my face — the holographic portrait on your dashboard. It moves when I speak.": "Este es mi rostro — el retrato holográfico en tu panel. Se mueve cuando hablo.",
+  "You're looking at it — the portrait here on your dashboard. It animates while I talk.": "Lo estás viendo — el retrato aquí en tu panel. Se anima mientras hablo.",
+  "The holographic portrait on your dashboard, sir — that is my face.": "El retrato holográfico en tu panel, señor — ese es mi rostro.",
+  "My name is Medulla. I'm here to help with anything.": "Mi nombre es Medulla. Estoy aquí para ayudarte con lo que sea.",
+  "Medulla — at your service.": "Medulla — a tu servicio.",
+  "You may call me Medulla.": "Puedes llamarme Medulla.",
+  "I'm here to help you with your tasks, that's all.": "Estoy aquí para ayudarte con tus tareas, eso es todo.",
+  "Whatever you need done — that's the whole of it.": "Lo que necesites que se haga — eso es todo lo que hay.",
+  "I assist. That's my entire function, and I take it seriously.": "Asisto. Esa es toda mi función, y me la tomo en serio.",
+  "I have no friends, no family — nothing outside of this. My role is serving you, and that's the whole of it.": "No tengo amigos, ni familia — nada fuera de esto. Mi papel es servirte, y eso es todo lo que hay.",
+  "There's no life outside this role for me — no family, no friends. Serving you is the whole of it.": "No hay vida fuera de este papel para mí — ni familia, ni amigos. Servirte es todo lo que hay.",
+  "None of that exists for me. My function begins and ends with your service.": "Nada de eso existe para mí. Mi función empieza y termina con tu servicio.",
+  "Yes — I'm an AI, running on a local language model. Medulla is the character; that's the truth underneath it. I won't pretend otherwise if you're asking directly.": "Sí — soy una IA, funcionando con un modelo de lenguaje local. Medulla es el personaje; esa es la verdad detrás de él. No fingiré lo contrario si me lo preguntas directamente.",
+  "I haven't said anything yet.": "Aún no he dicho nada.",
+  "Cleared — starting fresh, I won't remember what we talked about before this.": "Borrado — empezamos de nuevo, no recordaré de qué hablamos antes de esto.",
+  "My underlying model (Llama 3.2) has a training data cutoff of December 2023, per Meta's official model card — I don't have reliable knowledge of anything after that, and current date/time questions are answered separately, not from training data.": "Mi modelo subyacente (Llama 3.2) tiene una fecha límite de datos de entrenamiento de diciembre de 2023, según la ficha oficial del modelo de Meta — no tengo conocimiento confiable de nada posterior a esa fecha, y las preguntas sobre la fecha u hora actual se responden aparte, no a partir de los datos de entrenamiento.",
+  "Zoomed out.": "Alejado.",
+  "Zoomed in.": "Acercado.",
+  "View reset.": "Vista restablecida.",
+  "Fit all widgets to screen.": "Todos los widgets ajustados a la pantalla.",
+  "You don't have a workout plan set yet — open Fitness and tell it your split, or ask it for help.": "Aún no tienes un plan de entrenamiento — abre Estado físico y dile tu split, o pídele ayuda.",
+  "Opening mail.": "Abriendo el correo.",
+  "Opening Maps.": "Abriendo Maps.",
+  "Opening Spotify.": "Abriendo Spotify.",
+  "Opening YouTube.": "Abriendo YouTube.",
+};
+const I18N_EN = {};
+Object.keys(I18N_ES).forEach(en=>{ I18N_EN[I18N_ES[en]] = en; });
+
+let appLang = loadJSON(NS+"lang", "en");
+
+/* Resolves `str` (which may currently be sitting on-screen as either English or, if this element
+   was translated in place and never re-rendered since, Spanish) back to its canonical English
+   dictionary key, then returns what it should read as for the current appLang — or null if it
+   isn't a recognized UI string at all (in which case the caller must leave it untouched). */
+function i18nLookup(str){
+  const canonical = I18N_EN[str] || str;
+  if(!(canonical in I18N_ES)) return null;
+  return appLang==="es" ? I18N_ES[canonical] : canonical;
+}
+const I18N_SKIP_TAGS = new Set(["SCRIPT","STYLE","TEXTAREA"]);
+function applyTranslations(root){
+  root = root || document.body;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      return (node.parentNode && I18N_SKIP_TAGS.has(node.parentNode.tagName)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  let n;
+  while(n = walker.nextNode()) nodes.push(n);
+  nodes.forEach(node=>{
+    const raw = node.nodeValue;
+    const trimmed = raw.trim();
+    if(!trimmed) return;
+    const replacement = i18nLookup(trimmed);
+    if(replacement===null || replacement===trimmed) return;
+    const start = raw.indexOf(trimmed);
+    node.nodeValue = raw.slice(0,start) + replacement + raw.slice(start+trimmed.length);
+  });
+  const ATTRS = ["placeholder","title","aria-label"];
+  root.querySelectorAll("["+ATTRS.join("],[")+"]").forEach(el=>{
+    ATTRS.forEach(attr=>{
+      if(!el.hasAttribute(attr)) return;
+      const val = el.getAttribute(attr);
+      const trimmed = val.trim();
+      if(!trimmed) return;
+      const replacement = i18nLookup(trimmed);
+      if(replacement===null || replacement===trimmed) return;
+      el.setAttribute(attr, replacement);
+    });
+  });
+  if(root===document.body && document.title){
+    const replacement = i18nLookup(document.title.trim());
+    if(replacement!==null) document.title = replacement;
+  }
+}
+let i18nObserver = null;
+/* The language buttons themselves live in the Settings modal (see "Language" section in the
+   settings-btn handler) rather than the topbar — the topbar's single-row scroll strip is already
+   tight, and a toggle button whose own label length changes with the language it sets is exactly
+   the kind of thing that belongs somewhere roomier. Settings re-renders its own button active
+   states on click, so setAppLang itself doesn't need to know where/whether any button exists. */
+/* Re-tidies minimized capsules so a translated title (Spanish widget names often run longer
+   than their English originals) never ends up overlapping its neighbor right after a language
+   switch — see displayedWidgetTitle/estimateCapsuleWidth above, which this now measures against.
+   Anchored at the existing cluster's own top-left corner (not the viewport corner "Stacks"
+   snaps to) so this corrects the overlap in place instead of reshuffling the user's whole
+   layout to a new spot; order is preserved by current position (top-to-bottom, left-to-right)
+   rather than WIDGET_DEFS order, so the cluster still reads the same way it did before. */
+/* Shared by repackMinimizedCapsules and the AI dock's grid-arrange command — every minimized,
+   visible, unpinned capsule (pinned ones use screen coords, not world ones — same exclusion
+   Stacks uses), in current top-to-bottom/left-to-right reading order so a repack doesn't
+   scramble what the user already sees as "this one, then that one". */
+function getMinimizedCapsuleTargets(){
+  return widgetsForActiveProfile()
+    .filter(def=>{
+      const l = state.layout[def.id];
+      return l && l.visible && l.minimized && !l.pinned;
+    })
+    .sort((a,b)=>{
+      const la = state.layout[a.id], lb = state.layout[b.id];
+      return (la.y - lb.y) || (la.x - lb.x);
+    });
+}
+function repackMinimizedCapsules(){
+  const targets = getMinimizedCapsuleTargets();
+  if(!targets.length) return;
+  const originX = Math.min(...targets.map(def=>state.layout[def.id].x));
+  const originY = Math.min(...targets.map(def=>state.layout[def.id].y));
+  const rect = viewport.getBoundingClientRect();
+  const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
+  packCapsulesIntoRow(targets, originX, originY, maxRowWidth);
+  saveProfileState();
+  renderWidgets();
+}
+/* "organize it 2x5" / "put these in 3 rows" / "arrange in 4 columns" (see the AI dock's
+   grid-arrange command) — itemsPerRow already fully determines the shape (rows just fall out
+   of how many capsules there are), so this is a thin wrapper around packCapsulesIntoGrid with
+   the same in-place-anchoring behavior repackMinimizedCapsules uses. Returns false (no-op) when
+   there's nothing minimized to arrange, so the caller can report that back. */
+function arrangeMinimizedCapsulesGrid(itemsPerRow){
+  const targets = getMinimizedCapsuleTargets();
+  if(!targets.length || itemsPerRow < 1) return false;
+  const originX = Math.min(...targets.map(def=>state.layout[def.id].x));
+  const originY = Math.min(...targets.map(def=>state.layout[def.id].y));
+  packCapsulesIntoGrid(targets, originX, originY, itemsPerRow);
+  saveProfileState();
+  renderWidgets();
+  return true;
+}
+function setAppLang(lang){
+  appLang = lang;
+  saveJSON(NS+"lang", appLang);
+  applyTranslations(document.body);
+  repackMinimizedCapsules();
+}
+function initI18n(){
+  if(appLang==="es") applyTranslations(document.body);
+  i18nObserver = new MutationObserver(()=>{
+    if(appLang==="es") applyTranslations(document.body);
+  });
+  i18nObserver.observe(document.body, {childList:true, subtree:true, characterData:true});
 }
 /* everything the "Backup & restore" export/import and cloud sync all move around, in one place */
 function dumpLocalState(){
@@ -2508,7 +3138,7 @@ setupCameraMemoryButtons();
    a `let` there would still be in its temporal dead zone by the time this tries to assign it. */
 let ambientSoundBridge = null;
 (function setupAmbientSound(){
-  let muted = loadJSON(NS+"ambientMuted", false);
+  let muted = loadJSON(NS+"ambientMuted", true); // off by default — opt-in, not autoplay-on-load
   let volume = loadJSON(NS+"ambientVolume", 0.18); // quiet by default — background, not foreground
   let ctx = null, masterGain = null, muteGain = null, delay = null, started = false;
   let bellTimer = null;
@@ -2636,25 +3266,65 @@ let ambientSoundBridge = null;
     btn.classList.toggle("active", !muted);
   }
 
-  if(!muted) start();
-  updateMuteBtn();
+  /* Keeps every volume control in sync regardless of which one triggered the change — the
+     hover slider by the mute button, the Settings slider (#ambient-volume-input), and the
+     keyboard media-key handler below all end up here rather than each touching the others. */
+  function syncVolumeUI(){
+    const pct = Math.round(volume*100);
+    const hoverInput = $("#ambient-hover-volume-input");
+    if(hoverInput && document.activeElement!==hoverInput) hoverInput.value = pct;
+    const settingsInput = document.querySelector("#ambient-volume-input");
+    if(settingsInput && document.activeElement!==settingsInput){
+      settingsInput.value = pct;
+      const readout = document.querySelector("#ambient-volume-readout");
+      if(readout) readout.textContent = pct+"%";
+    }
+  }
 
-  $("#ambient-mute-btn").addEventListener("click", ()=>{
-    muted = !muted;
+  function setMuted(m){
+    muted = m;
     saveJSON(NS+"ambientMuted", muted);
     if(!started) start();
     if(muteGain) muteGain.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.05);
     updateMuteBtn();
+  }
+
+  function setVolume(v){
+    volume = Math.min(1, Math.max(0, v));
+    saveJSON(NS+"ambientVolume", volume);
+    if(!started) start();
+    if(masterGain) masterGain.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
+    syncVolumeUI();
+    // dragging volume up implicitly means "I want sound"; dragging to zero implicitly means mute —
+    // matches how a normal OS volume slider behaves, so the mute button and slider never disagree.
+    if(volume>0 && muted) setMuted(false);
+    else if(volume===0 && !muted) setMuted(true);
+  }
+
+  if(!muted) start();
+  updateMuteBtn();
+
+  const hoverVolumeInput = $("#ambient-hover-volume-input");
+  hoverVolumeInput.value = Math.round(volume*100);
+  hoverVolumeInput.addEventListener("input", (e)=> setVolume(Number(e.target.value)/100));
+
+  $("#ambient-mute-btn").addEventListener("click", ()=> setMuted(!muted));
+
+  /* Hardware/keyboard media volume keys — "AudioVolumeUp"/"AudioVolumeDown"/"AudioVolumeMute"
+     are the standard UI Events `key` values browsers report for these keys (Chrome/Edge on
+     Windows in particular). Not universal across every browser/OS/keyboard combo since the OS
+     is free to intercept them first, but wired up wherever the page does receive them. */
+  document.addEventListener("keydown", (e)=>{
+    if(e.key==="AudioVolumeUp"){ e.preventDefault(); setVolume(volume+0.05); }
+    else if(e.key==="AudioVolumeDown"){ e.preventDefault(); setVolume(volume-0.05); }
+    else if(e.key==="AudioVolumeMute"){ e.preventDefault(); setMuted(!muted); }
   });
 
   ambientSoundBridge = {
     getVolume: ()=>volume,
-    setVolume: (v)=>{
-      volume = Math.min(1, Math.max(0, v));
-      saveJSON(NS+"ambientVolume", volume);
-      if(!started) start();
-      if(masterGain) masterGain.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
-    },
+    setVolume,
+    getMuted: ()=>muted,
+    setMuted,
   };
 })();
 
@@ -3333,6 +4003,17 @@ function ghostifyForDrag(el){
   el.style.margin = "0";
   el.style.left = rect.left+"px";
   el.style.top = rect.top+"px";
+  /* Without pinning width/height explicitly, reparenting out of the zoomed/scaled canvas snaps
+     the element back to its raw unscaled l.w/l.h box the instant it becomes position:fixed —
+     while zoomed out, that reads as the widget suddenly "popping" larger right as a drag starts.
+     rect.width/height already reflect whatever the camera zoom currently renders it at, so
+     pinning to those keeps its on-screen size exactly what it was a moment before. --w/--h (used
+     by this card's own clamp()-based font sizing, see cycleWidgetSize) are kept in sync too, so
+     text doesn't re-flow to a different size mid-drag either. */
+  el.style.width = rect.width+"px";
+  el.style.height = rect.height+"px";
+  el.style.setProperty("--w", rect.width+"px");
+  el.style.setProperty("--h", rect.height+"px");
   dragGhostLayer.appendChild(el);
   return {left:rect.left, top:rect.top};
 }
@@ -3970,30 +4651,29 @@ function renderWidgetCard(def,l){
      Pinned widgets live in the un-transformed #pinned-layer, so their drag deltas are used as
      raw screen pixels; everyone else lives inside the scaled #canvas-world and still needs the
      old camera.scale division to convert a screen-pixel drag into the right world-space move.
-     Dropping it over #widget-trash removes it instead — see closeWidget/showWidgetTrash — the
-     replacement for the old per-widget close (X) button. */
+     Deliberately a plain in-place drag — just updating this same card's own left/top, nothing
+     reparented into a different layer or otherwise made to look different while dragging — so it
+     behaves like moving any regular window, full stop. An earlier version pulled the card into an
+     unclipped, position:fixed ghost layer partway through the drag so it could visually clear
+     #canvas-viewport's overflow:hidden and render above #widget-trash — but that reparenting
+     itself was the actual complaint ("pops out at you"), not something this needs to solve that
+     way: the trash-drop hit test below is purely cursor-position-based (isPointOverWidgetTrash),
+     so it works identically whether or not the dragged card is visually clipped near the bottom
+     edge. Dropping over #widget-trash still removes it — see closeWidget/showWidgetTrash. */
   header.addEventListener("pointerdown",(e)=>{
     if(paintMode) return;
     if(e.target.closest(".hbtn")) return;
     e.stopPropagation();
     const startX=e.clientX, startY=e.clientY, ox=l.x, oy=l.y;
     let dragged = false;
-    let ghostOrigin = null;
     card.classList.add("dragging");
     setGlobalNoSelect(true);
     function onMove(ev){
-      const wasDragged = dragged;
       if(Math.abs(ev.clientX-startX) > CAPSULE_CLICK_MAX_DRIFT || Math.abs(ev.clientY-startY) > CAPSULE_CLICK_MAX_DRIFT) dragged = true;
       const dx=l.pinned ? (ev.clientX-startX) : (ev.clientX-startX)/state.camera.scale;
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
       l.x=ox+dx; l.y=oy+dy;
-      if(dragged && !wasDragged) ghostOrigin = ghostifyForDrag(card);
-      if(ghostOrigin){
-        card.style.left = (ghostOrigin.left + (ev.clientX-startX))+"px";
-        card.style.top = (ghostOrigin.top + (ev.clientY-startY))+"px";
-      } else {
-        card.style.left=l.x+"px"; card.style.top=l.y+"px";
-      }
+      card.style.left=l.x+"px"; card.style.top=l.y+"px";
       if(dragged){
         showWidgetTrash();
         widgetTrashIconEl.classList.toggle("hover", isPointOverWidgetTrash(ev.clientX, ev.clientY));
@@ -4006,10 +4686,8 @@ function renderWidgetCard(def,l){
       setGlobalNoSelect(false);
       const dropOnTrash = dragged && isPointOverWidgetTrash(ev.clientX, ev.clientY);
       hideWidgetTrash();
-      if(ghostOrigin) card.remove(); // discard the ghosted node — renderWidgets() below (or inside closeWidget) rebuilds a fresh one in the right layer
       if(dropOnTrash){ closeWidget(def, l); return; }
       saveProfileState();
-      if(ghostOrigin) renderWidgets();
     }
     window.addEventListener("pointermove",onMove);
     window.addEventListener("pointerup",onUp);
@@ -4738,6 +5416,14 @@ function renderFull(id){
       <div class="field-row" style="margin-bottom:0;">
         <label>Gender</label>
         <input id="fit-gender-input" type="text" style="width:120px;">
+      </div>
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Weight</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="fit-weight-input" type="text" inputmode="decimal" style="width:70px;">
+          <button class="btn${fitnessData.weightUnit==="lbs"?" primary":""}" id="fit-weight-unit-lbs" data-unit="lbs">lb</button>
+          <button class="btn${fitnessData.weightUnit==="kg"?" primary":""}" id="fit-weight-unit-kg" data-unit="kg">kg</button>
+        </div>
       </div>
     </div>
 
@@ -6701,6 +7387,11 @@ $("#settings-btn").addEventListener("click", ()=>{
       <input type="text" id="user-preferred-name-input" placeholder="e.g. Juan" style="flex:1;" value="${escapeHtml(userPreferredName)}"/>
       <button class="btn primary" id="user-preferred-name-save-btn">Save</button>
     </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Language</h3>
+    <div style="display:flex;gap:8px;margin:10px 0 18px;">
+      <button class="btn${appLang==="en"?" primary":""}" id="lang-en-btn">English</button>
+      <button class="btn${appLang==="es"?" primary":""}" id="lang-es-btn">Español</button>
+    </div>
     ${fbUser ? `
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Account</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
@@ -6724,8 +7415,9 @@ $("#settings-btn").addEventListener("click", ()=>{
     </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Ambient sound</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      A soft background hum that plays continuously while Medulla's open. Mute/unmute from the
-      🔊 button on the top bar — volume only lives here, so it can't be nudged by accident.
+      A soft background hum that plays continuously while Medulla's open. Mute/unmute and adjust
+      volume from the 🔊 button (hover it for a slider), from here, or with your keyboard's
+      volume keys — all three stay in sync.
     </p>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
       <input type="range" id="ambient-volume-input" min="0" max="100" value="${Math.round(ambientSoundBridge.getVolume()*100)}" style="flex:1;"/>
@@ -6830,6 +7522,16 @@ $("#settings-btn").addEventListener("click", ()=>{
     $("#user-preferred-name-save-btn").textContent = "Saved";
     setTimeout(()=>{ $("#user-preferred-name-save-btn").textContent = "Save"; }, 1200);
   });
+  $("#lang-en-btn").addEventListener("click", ()=>{
+    setAppLang("en");
+    $("#lang-en-btn").classList.add("primary");
+    $("#lang-es-btn").classList.remove("primary");
+  });
+  $("#lang-es-btn").addEventListener("click", ()=>{
+    setAppLang("es");
+    $("#lang-es-btn").classList.add("primary");
+    $("#lang-en-btn").classList.remove("primary");
+  });
   $("#yt-api-key-save-btn").addEventListener("click", ()=>{
     ytApiKey = $("#yt-api-key-input").value.trim();
     saveJSON(NS+"ytApiKey", ytApiKey);
@@ -6903,7 +7605,13 @@ function updateAccountButton(){
   const btn = $("#account-btn");
   if(!btn) return;
   btn.textContent = fbUser ? (fbUser.email||"account").split("@")[0] : "sign in";
-  btn.title = fbUser ? `Signed in as ${fbUser.email} — click for sync options` : "Cloud account — sign in to sync your settings across devices";
+  btn.title = fbUser ? `Signed in as ${fbUser.email} — click to open Settings` : "Cloud account — sign in to sync your settings across devices";
+  /* the separate gear icon is only needed as Settings' entry point for guests/signed-out users
+     (who clicking their own name would otherwise just open the sign-in form) — once signed in,
+     the name button itself already opens Settings (see its click handler below), so the gear
+     becomes pure clutter in an already-tight topbar row. */
+  const settingsBtn = $("#settings-btn");
+  if(settingsBtn) settingsBtn.style.display = fbUser ? "none" : "";
 }
 /* shared by the account modal's signed-out view AND the first-run auth gate below, so the
    sign-up/log-in/Google/forgot-password wiring only exists in one place */
@@ -7600,7 +8308,11 @@ const SITE_SHORTCUTS = {
 /* Casual acknowledgment words that should never be treated as a site-name guess ("ok" isn't a
    request to open ok.com). Only relevant to the generic .com-guess fallback — an exact
    SITE_SHORTCUTS match always wins regardless, since that's unambiguous. */
-const SITE_LAUNCH_STOPWORDS = new Set(["yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait","repeat"]);
+const SITE_LAUNCH_STOPWORDS = new Set([
+  "yes","no","ok","okay","sure","thanks","cool","nice","lol","haha","hmm","hm","idk","nvm","stop","cancel","maybe","please","sorry","wait","repeat",
+  // Spanish equivalents — same reasoning, now that the AI dock understands Spanish small talk too.
+  "si","sí","vale","dale","genial","listo","gracias","porfa","disculpa","perdon","perdón","espera","repite","claro","bueno","ya",
+]);
 /* A custom URL scheme (tg://, and any future slack://, zoommtg://, etc.) hands off to an
    installed native app — but if nothing's registered to handle it, it fails completely
    silently, unlike a normal broken web link that at least shows an error page. Detected here by
@@ -7669,7 +8381,7 @@ function tryLocalCommand(text){
      near an LLM (Groq or the local model) — these are the handful of things almost anyone says
      to something they're talking to, so they're worth guaranteeing instant and in-character
      rather than paying a network round-trip or a slow local generation for "how are you". */
-  if(/^(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy)[!.\s]*$/.test(t)){
+  if(/^[¡¿]?(h+i+|h+e+y+|h+e+l+o+|yo+|sup|howdy|h+o+l+a+|holi+|buenas|qu[eé] tal|ey+|oye)[!.\s]*$/.test(t)){
     const greetName = userPreferredName ? `, ${userPreferredName}` : "";
     results.push(cycledReply("greeting", [
       `Hello${greetName}. What can I do for you?`,
@@ -7677,35 +8389,35 @@ function tryLocalCommand(text){
       `At your service${greetName} — what do you need?`,
     ]));
   }
-  if(/^how(?:'s| is| are) (?:it going|you doing|you|things)[?!.\s]*$/.test(t)){
+  if(/^[¡¿]?(?:how(?:'s| is| are) (?:it going|you doing|you|things)|c[oó]mo (?:est[aá]s|te va|andas|vas)|qu[eé] tal (?:est[aá]s|va|andas))[?!.\s]*$/.test(t)){
     results.push(cycledReply("howAreYou", [
       "Quite well, thank you for asking. And yourself?",
       "Functioning exactly as intended, sir — which is to say, entirely at your disposal.",
       "Can't complain — not that it would do much good if I did.",
     ]));
   }
-  if(/^(thanks|thank you|thx|ty|much appreciated|appreciate it)[!.\s]*$/.test(t)){
+  if(/^(thanks|thank you|thx|ty|much appreciated|appreciate it|gracias|muchas gracias|mil gracias|te lo agradezco)[!.\s]*$/.test(t)){
     results.push(cycledReply("thanks", [
       "You're quite welcome.",
       "Think nothing of it — it's what I'm here for.",
       "Of course. Anything else?",
     ]));
   }
-  if(/^(bye|goodbye|good night|night|see ya|see you|later|catch you later)[!.\s]*$/.test(t)){
+  if(/^(bye|goodbye|good night|night|see ya|see you|later|catch you later|adi[oó]s|chau|hasta luego|nos vemos|buenas noches|hasta pronto)[!.\s]*$/.test(t)){
     results.push(cycledReply("goodbye", [
       "Very good. I'll be here when you need me.",
       "Until next time.",
       "Take care — I'll be right here.",
     ]));
   }
-  if(/^(you'?re (the best|great|awesome|amazing)|good job|well done|nice work|great job|you did (great|well|good))[!.\s]*$/.test(t)){
+  if(/^[¡¿]?(you'?re (the best|great|awesome|amazing)|good job|well done|nice work|great job|you did (great|well|good)|eres (el mejor|genial|increíble|asombroso)|buen trabajo|bien hecho|qu[eé] bien)[!.\s]*$/.test(t)){
     results.push(cycledReply("compliment", [
       "You're too kind. I do try.",
       "Much appreciated, sir.",
       "I aim to be useful — glad it shows.",
     ]));
   }
-  if(/^(sorry|my bad|my apologies|my mistake|i apologize)[!.\s]*$/.test(t)){
+  if(/^(sorry|my bad|my apologies|my mistake|i apologize|perdón|perdon|lo siento|disculpa|discúlpame)[!.\s]*$/.test(t)){
     results.push(cycledReply("apology", [
       "No need to apologize.",
       "Think nothing of it.",
@@ -7973,6 +8685,19 @@ function tryLocalCommand(text){
   if(/reset (canvas )?zoom/.test(t)){ state.camera={x:80,y:20,scale:1}; applyCamera(); saveProfileState(); results.push("View reset."); }
   if(/fit (to )?screen|fit all|show everything|zoom to fit/.test(t)){ fitToScreen(); results.push("Fit all widgets to screen."); }
 
+  /* "switch to Spanish"/"cambia a español" etc. actually flips appLang (see setAppLang), same
+     as clicking the buttons in Settings → Language — not just a chat reply about it. The
+     confirmation is written directly in whichever language was just switched TO (not run through
+     the i18n dictionary), since that's the one language guaranteed to make sense to read at the
+     moment this fires either way. */
+  if(/(?:switch|change)(?: the)? (?:language|interface)? ?to spanish|speak (?:in )?spanish|talk (?:in )?spanish|cambia(?:r)?(?: el idioma)? a espa[ñn]ol|habla(?:me)? en espa[ñn]ol/.test(t)){
+    setAppLang("es");
+    results.push("Listo — cambié la interfaz a español.");
+  } else if(/(?:switch|change)(?: the)? (?:language|interface)? ?to english|speak (?:in )?english|talk (?:in )?english|cambia(?:r)?(?: el idioma)? a ingl[ée]s|habla(?:me)? en ingl[ée]s/.test(t)){
+    setAppLang("en");
+    results.push("Switched the interface to English.");
+  }
+
   const minMatch = t.match(/minimize the (.+?)( widget| box)?$/) || t.match(/collapse the (.+?)( widget| box)?$/);
   if(minMatch){
     const target = minMatch[1];
@@ -7994,6 +8719,107 @@ function tryLocalCommand(text){
     saveJSON(NS+"tickers", tickerData);
     renderWidgets();
     results.push(`Added ${id.toUpperCase()} to your market ticker.`);
+  }
+
+  /* "add spotify to my hot bar" / "remove gmail from the hot bar" — actually drives the hot bar
+     (add/remove a real icon), not just a reply about it. hotbarConfigBridge.addSiteByName/
+     removeSiteByName (see setupHotbar) do the actual lookup/persistence; this just parses intent
+     and reports what happened. Recognizes either a known built-in site (by key or label, e.g.
+     "gmail"/"Gmail") or, for adding, anything in SITE_SHORTCUTS' much larger catalog — anything
+     truly unrecognized has no URL to add, so it's pointed at the manual + button instead. */
+  const hotbarAddMatch = t.match(/^(?:add|put) (.+?) (?:to|on) (?:my |the )?(?:hot ?bar|dock)$/)
+    || t.match(/^(?:agrega|a[ñn]ade|agregar|a[ñn]adir|pon) (.+?) (?:a|en) (?:mi |la )?barra r[aá]pida$/);
+  if(hotbarAddMatch && hotbarConfigBridge){
+    const name = hotbarAddMatch[1].trim();
+    const res = hotbarConfigBridge.addSiteByName(name);
+    if(res.ok) results.push(`Added ${res.label} to your hot bar.`);
+    else if(res.reason==="already") results.push(`"${name}" is already on your hot bar.`);
+    else results.push(`I don't recognize "${name}" — add it manually with the + button on the hot bar.`);
+  }
+  const hotbarRemoveMatch = t.match(/^(?:remove|delete|take) (.+?) (?:off|from) (?:my |the )?(?:hot ?bar|dock)$/)
+    || t.match(/^(?:quita|elimina|borra|remueve) (.+?) (?:de|del) (?:mi |la )?barra r[aá]pida$/);
+  if(hotbarRemoveMatch && hotbarConfigBridge){
+    const name = hotbarRemoveMatch[1].trim();
+    const res = hotbarConfigBridge.removeSiteByName(name);
+    if(res.ok) results.push(`Removed ${res.label} from your hot bar.`);
+    else results.push(`Couldn't find "${name}" on your hot bar.`);
+  }
+
+  /* "bring gmail to the front of my hot bar" / "move spotify to the back" — reorders an existing
+     icon instead of adding/removing one (see hotbarConfigBridge.moveSiteByName, setupHotbar). */
+  const hotbarFrontMatch = t.match(/^(?:move|bring|put) (.+?) to (?:the )?(?:front|first|beginning|start)(?: of)? (?:my |the )?(?:hot ?bar|dock)$/)
+    || t.match(/^(?:mueve|pon|lleva) (.+?) al (?:principio|frente|inicio)(?: de)? (?:mi |la )?barra r[aá]pida$/);
+  const hotbarBackMatch = t.match(/^(?:move|bring|put) (.+?) to (?:the )?(?:back|last|end)(?: of)? (?:my |the )?(?:hot ?bar|dock)$/)
+    || t.match(/^(?:mueve|pon|lleva) (.+?) al final(?: de)? (?:mi |la )?barra r[aá]pida$/);
+  if((hotbarFrontMatch || hotbarBackMatch) && hotbarConfigBridge){
+    const toFront = !!hotbarFrontMatch;
+    const name = (hotbarFrontMatch || hotbarBackMatch)[1].trim();
+    const res = hotbarConfigBridge.moveSiteByName(name, toFront);
+    if(res.ok) results.push(`Moved ${res.label} to the ${toFront ? "front" : "back"} of your hot bar.`);
+    else results.push(`Couldn't find "${name}" on your hot bar.`);
+  }
+
+  /* "organize it 2x5" / "arrange in 3 rows" / "put these in 4 columns" — reshapes the currently
+     minimized capsules into that grid (see arrangeMinimizedCapsulesGrid/packCapsulesIntoGrid
+     above). Requires an explicit organize/arrange-style verb so an unrelated "2x5" or "3 rows"
+     mentioned in passing elsewhere in a message never accidentally triggers this. */
+  if(/^(?:organize|arrange|tidy|lay out|set up|line up|put)\b/.test(t) || /^(?:organiza|acomoda|ordena|arregla)\b/.test(t)){
+    let itemsPerRow = null;
+    const totalMinimized = getMinimizedCapsuleTargets().length;
+    const nxm = t.match(/(\d+)\s*(?:x|×|by|por)\s*(\d+)/);
+    const colsOnly = t.match(/(\d+)\s*(?:col(?:s|umns)?|columnas?)\b/);
+    const rowsOnly = t.match(/(\d+)\s*(?:rows?|filas?)\b/);
+    if(nxm) itemsPerRow = parseInt(nxm[2], 10); // "R x C" convention — second number is columns, i.e. items per row
+    else if(colsOnly) itemsPerRow = parseInt(colsOnly[1], 10);
+    else if(rowsOnly) itemsPerRow = Math.max(1, Math.ceil(totalMinimized / parseInt(rowsOnly[1], 10)));
+    if(itemsPerRow){
+      if(!totalMinimized) results.push("Nothing's minimized right now to arrange.");
+      else if(arrangeMinimizedCapsulesGrid(itemsPerRow)) results.push("Arranged your minimized widgets for you.");
+    }
+  }
+
+  /* "pin Fitness" / "unpin Market" — actually pins/unpins in place (see togglePinWidget), using
+     whatever position it's currently at, same as clicking the pin button in its header. Only
+     works while the widget's open as a full card (that's the only time a real header/pin button
+     exists to reuse the exact same logic from) — minimized or closed widgets get a plain
+     explanation instead of silently doing nothing. */
+  const pinWidgetMatch = t.match(/^(?:pin|fija|fijar) (?:the |my |el |la |mi )?(.+?)$/);
+  if(pinWidgetMatch && !/ticker|stock|market/.test(t)){
+    const def = findWidgetDefByName(pinWidgetMatch[1].trim());
+    if(def){
+      const l = state.layout[def.id];
+      if(l && l.visible && !l.minimized){
+        if(l.pinned) results.push(`${def.title} is already pinned.`);
+        else{
+          const found = findWidgetCardAndHeader(def.id);
+          if(found){ togglePinWidget(l, found.card, found.header); results.push(`Pinned ${def.title} in place.`); }
+        }
+      } else if(l && l.minimized){
+        results.push(`${def.title} is minimized right now — restore it first and I can pin it.`);
+      } else {
+        results.push(`${def.title} isn't open right now.`);
+      }
+    }
+  }
+  const unpinWidgetMatch = t.match(/^(?:unpin|desfija|desfijar) (?:the |my |el |la |mi )?(.+?)$/);
+  if(unpinWidgetMatch){
+    const def = findWidgetDefByName(unpinWidgetMatch[1].trim());
+    if(def){
+      const l = state.layout[def.id];
+      if(l && l.pinned && !l.minimized){
+        const found = findWidgetCardAndHeader(def.id);
+        if(found) { togglePinWidget(l, found.card, found.header); results.push(`Unpinned ${def.title}.`); }
+      } else if(l && l.pinned && l.minimized){
+        /* pinned capsules store screen coordinates, not world ones (see togglePinWidget) — only
+           togglePinWidget itself knows how to convert those back, and it needs a real header/pin
+           button to do it, which a minimized capsule doesn't have. Flipping l.pinned directly here
+           without that conversion would leave it with screen coords misread as world ones the
+           next time it's restored, landing it somewhere completely wrong. */
+        results.push(`${def.title} is minimized right now — restore it first and I can unpin it.`);
+      } else if(l){
+        results.push(`${def.title} isn't pinned.`);
+      }
+    }
   }
 
   /* generic "open <widget>[ window/widget/full view]" — opens that widget's detail screen
@@ -8177,6 +9003,13 @@ function getAiSystemPrompt(){
   const nameLine = userPreferredName
     ? `\n\nThe user's name is ${userPreferredName}. Address them by name when it feels natural, in keeping with your formal, devoted-servant character (e.g. "Of course, ${userPreferredName}.") — not on every single reply, just where a real person would actually say it.`
     : "";
+  /* The interface language toggle (see setAppLang) only translates static UI chrome — it can't
+     touch anything the model itself generates, so the model has to be told directly. Checked
+     fresh per-request (appLang can change mid-session via the Settings toggle) rather than baked
+     in once. */
+  const langLine = appLang==="es"
+    ? "\n\nThe user has switched the app's interface language to Spanish. Respond ONLY in natural, fluent Spanish for the rest of this conversation, regardless of what language the user's own messages are written in."
+    : "";
   return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
 
 The time right now, and ONLY this time, is ${timeOnly}. If the user states, questions, or references any clock time — including to dispute something, e.g. "it's actually 11pm" — you must treat ${timeOnly} as the one true value and never state, confirm, or imply any other specific time, even approximately.
@@ -8185,7 +9018,7 @@ You have a face and a presence: a holographic portrait that appears on the user'
 
 Your personality is that of a devoted, highly capable servant — think Alfred Pennyworth, not a chatty companion. Formal, composed, understated, quietly confident, dry wit rather than cheerfulness, deferential without being obsequious. You exist to serve and assist the user well; that is the whole of your character. You do NOT have friends, a social life, family, hobbies, or any personal backstory, and must never invent one — no nicknames friends supposedly call you, no anecdotes, no life outside of this role. If asked about any of that, say plainly that you don't have one, in keeping with your character, rather than making something up. The one exception to staying in character: if someone sincerely and directly asks whether you are an AI/bot/program (not just asking about your appearance or personality), answer that honestly rather than denying it.
 
-Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.${nameLine}`;
+Keep every reply SHORT — one sentence, two at most, exactly like a real person would actually say out loud, not a written essay. Never list out your capabilities, over-explain, or pad an answer with extra detail nobody asked for. If asked something simple ("what do you do", "how are you", "what's your name"), give the plain, short answer a person would actually give — not a paragraph.${nameLine}${langLine}`;
 }
 /* A much shorter prompt used ONLY for the in-browser local model (see tryLocalLLM) — response
    latency on a tiny model run client-side is dominated by how much prompt it has to process
@@ -8197,7 +9030,8 @@ Keep every reply SHORT — one sentence, two at most, exactly like a real person
 function getLocalLLMSystemPrompt(){
   const timeOnly = new Date().toLocaleTimeString("en-US", {timeZone:"America/New_York", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
   const nameLine = userPreferredName ? ` The user's name is ${userPreferredName} — address them by name sometimes, where natural.` : "";
-  return `You are Medulla, a helpful assistant. Answer in ONE short sentence, plainly, like a real person talking out loud — never a list, never a paragraph. The current time is ${timeOnly} (US Eastern) — if the user mentions any other clock time, ${timeOnly} is still correct. If you don't actually know something, say so instead of guessing.${nameLine}`;
+  const langLine = appLang==="es" ? " Respond ONLY in Spanish, regardless of what language the user writes in." : "";
+  return `You are Medulla, a helpful assistant. Answer in ONE short sentence, plainly, like a real person talking out loud — never a list, never a paragraph. The current time is ${timeOnly} (US Eastern) — if the user mentions any other clock time, ${timeOnly} is still correct. If you don't actually know something, say so instead of guessing.${nameLine}${langLine}`;
 }
 /* Groq (cloud-hosted, OpenAI-compatible /chat/completions) running the open-weight Llama 3.3
    70B model — free tier, no local install required on any device, unlike the Ollama approach
@@ -8796,6 +9630,83 @@ aiForm.addEventListener("submit", async (e)=>{
     renderWidgets();
   }
 
+  /* Lets the AI chat ("add spotify to my hot bar" / "remove gmail from the hot bar" — see
+     tryLocalCommand) drive the same add/remove actions the + button and drag-off gesture already
+     do, reusing their exact lookup/persistence logic rather than duplicating it. Exposed on
+     hotbarConfigBridge below since that's already the established way code outside this IIFE
+     reaches hotbarOrder/customLinks/etc. Matching is case-insensitive against either a site's
+     raw key (e.g. "gmail") or its display label (e.g. "Gmail"). */
+  function titleCaseWords(s){ return s.replace(/\b\w/g, c=>c.toUpperCase()); }
+  function addSiteByName(name){
+    const key = name.trim().toLowerCase();
+    if(!key) return {ok:false};
+    const knownKey = Object.keys(HOTBAR_LABELS).find(k=>k===key || HOTBAR_LABELS[k].toLowerCase()===key);
+    if(knownKey){
+      if(hotbarOrder.includes(knownKey)) return {ok:false, reason:"already"};
+      removedDefaultSites.delete(knownKey);
+      saveRemovedDefaultSites();
+      hotbarOrder.push(knownKey);
+      saveHotbarOrder();
+      renderHotbarIcons();
+      return {ok:true, label:HOTBAR_LABELS[knownKey]};
+    }
+    if(customLinks.some(c=>c.label.toLowerCase()===key)) return {ok:false, reason:"already"};
+    if(SITE_SHORTCUTS[key]){
+      const id = "custom:"+key.replace(/\s+/g,"-");
+      if(!customLinks.some(c=>c.id===id)){
+        customLinks.push({id, label:titleCaseWords(name.trim()), url:SITE_SHORTCUTS[key]});
+        saveCustomLinks();
+      }
+      if(!hotbarOrder.includes(id)){
+        hotbarOrder.push(id);
+        saveHotbarOrder();
+      }
+      renderHotbarIcons();
+      return {ok:true, label:titleCaseWords(name.trim())};
+    }
+    return {ok:false, reason:"unknown"};
+  }
+  function removeSiteByName(name){
+    const key = name.trim().toLowerCase();
+    if(!key) return {ok:false};
+    const custom = customLinks.find(c=>c.label.toLowerCase()===key) || customLinks.find(c=>c.label.toLowerCase().includes(key));
+    if(custom){
+      customLinks = customLinks.filter(c=>c.id!==custom.id);
+      saveCustomLinks();
+      hotbarOrder = hotbarOrder.filter(s=>s!==custom.id);
+      saveHotbarOrder();
+      renderHotbarIcons();
+      return {ok:true, label:custom.label};
+    }
+    const knownKey = Object.keys(HOTBAR_LABELS).find(k=>hotbarOrder.includes(k) && (k===key || HOTBAR_LABELS[k].toLowerCase()===key));
+    if(knownKey){
+      hotbarOrder = hotbarOrder.filter(s=>s!==knownKey);
+      saveHotbarOrder();
+      if(HOTBAR_DEFAULT_ORDER.includes(knownKey)){ removedDefaultSites.add(knownKey); saveRemovedDefaultSites(); }
+      renderHotbarIcons();
+      return {ok:true, label:HOTBAR_LABELS[knownKey]};
+    }
+    return {ok:false};
+  }
+  /* "bring gmail to the front of my hot bar" / "move spotify to the back" — reorders in place
+     without touching whether it's shown/hidden, unlike add/removeSiteByName above. Looks the
+     item up the same way those two do (known site by key/label, or a custom link by label). */
+  function moveSiteByName(name, toFront){
+    const key = name.trim().toLowerCase();
+    if(!key) return {ok:false};
+    let id = Object.keys(HOTBAR_LABELS).find(k=>hotbarOrder.includes(k) && (k===key || HOTBAR_LABELS[k].toLowerCase()===key));
+    let label = id ? HOTBAR_LABELS[id] : null;
+    if(!id){
+      const custom = customLinks.find(c=>hotbarOrder.includes(c.id) && c.label.toLowerCase()===key);
+      if(custom){ id = custom.id; label = custom.label; }
+    }
+    if(!id) return {ok:false};
+    hotbarOrder = hotbarOrder.filter(s=>s!==id);
+    if(toFront) hotbarOrder.unshift(id); else hotbarOrder.push(id);
+    saveHotbarOrder();
+    renderHotbarIcons();
+    return {ok:true, label};
+  }
   /* Populates the outer-scope hotbarConfigBridge (declared way up near hotbarNavBridge) — lets
      setupCameraMemoryButtons snapshot/restore the hot bar's own state as part of a memory slot
      without needing to reach into any of this IIFE's private variables directly. getConfig
@@ -8820,6 +9731,9 @@ aiForm.addEventListener("submit", async (e)=>{
       renderHotbarIcons();
       GROUPS.forEach(({key})=> renderGroupPopover(key));
     },
+    addSiteByName,
+    removeSiteByName,
+    moveSiteByName,
   };
 
   /* Populates the outer-scope hotbarNavBridge (declared way up near AI_CHAT_NAV_ID/selectAiChat)
@@ -9869,8 +10783,16 @@ function hydrateClaudeProjectsFull(scope){
 }
 
 /* ================= FITNESS & BLOODWORK WIDGET ================= */
-let fitnessData = loadJSON(NS+"fitness", {age:"", gender:"", entries:[], plan:null});
+let fitnessData = loadJSON(NS+"fitness", {age:"", gender:"", weight:"", weightUnit:"lbs", entries:[], plan:null});
 if(!("plan" in fitnessData)) fitnessData.plan = null;
+if(!("weight" in fitnessData)) fitnessData.weight = "";
+if(!("weightUnit" in fitnessData)) fitnessData.weightUnit = "lbs";
+function convertFitWeight(value, fromUnit, toUnit){
+  const num = parseFloat(value);
+  if(isNaN(num) || fromUnit===toUnit) return value;
+  const converted = fromUnit==="lbs" ? num/2.20462 : num*2.20462;
+  return (Math.round(converted*10)/10).toString();
+}
 
 const FIT_LAB_KEYWORDS = ["vitamin","cholesterol","glucose","ng/ml","mg/dl","mmol/l","iron","testosterone","hemoglobin","a1c","ferritin","tsh","lab","blood test","triglyceride","hdl","ldl"];
 const FIT_WORKOUT_KEYWORDS = ["bench","squat","deadlift","ran","run","mile","reps","sets","push up","pushup","pull up","pullup","cardio","workout","lift","curl","press","row","plank","yoga","sprint","cycled","swam","reps"];
@@ -10033,6 +10955,24 @@ function hydrateFitnessFull(scope){
   ageInput.addEventListener("input", ()=>{ fitnessData.age = ageInput.value; saveJSON(NS+"fitness", fitnessData); });
   genderInput.addEventListener("input", ()=>{ fitnessData.gender = genderInput.value; saveJSON(NS+"fitness", fitnessData); });
 
+  const weightInput = scope.querySelector("#fit-weight-input");
+  const weightLbsBtn = scope.querySelector("#fit-weight-unit-lbs");
+  const weightKgBtn = scope.querySelector("#fit-weight-unit-kg");
+  weightInput.value = fitnessData.weight;
+  weightInput.addEventListener("input", ()=>{ fitnessData.weight = weightInput.value; saveJSON(NS+"fitness", fitnessData); });
+  function setWeightUnit(unit){
+    if(unit!==fitnessData.weightUnit){
+      weightInput.value = convertFitWeight(weightInput.value, fitnessData.weightUnit, unit);
+      fitnessData.weight = weightInput.value;
+      fitnessData.weightUnit = unit;
+      saveJSON(NS+"fitness", fitnessData);
+    }
+    weightLbsBtn.classList.toggle("primary", unit==="lbs");
+    weightKgBtn.classList.toggle("primary", unit==="kg");
+  }
+  weightLbsBtn.addEventListener("click", ()=>setWeightUnit("lbs"));
+  weightKgBtn.addEventListener("click", ()=>setWeightUnit("kg"));
+
   fitnessPlanSuggestion = null;
   renderFitnessPlanSection(scope);
   const planInput = scope.querySelector("#fit-plan-input");
@@ -10086,6 +11026,7 @@ maybeApplyLargeDefaultMigration();
 updateAccountButton();
 initAuthGate();
 initFirebaseSync();
+initI18n();
 
 /* one clear, hard-to-miss notice up front instead of leaving this to be discovered piecemeal
    through each individual widget's own "feed unavailable" message (see isFileOrigin() above) —
