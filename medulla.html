@@ -188,7 +188,13 @@
     box-shadow:0 18px 46px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4), 0 0 24px -4px color-mix(in srgb, var(--accent) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.03);
     z-index:999 !important;
   }
-  .claustrum-widget.dragging{opacity:.85;box-shadow:0 12px 40px rgba(0,0,0,.6), 0 0 26px -4px color-mix(in srgb, var(--accent) 85%, transparent);}
+  /* No styling at all here, deliberately — dragging a widget should look exactly like dragging
+     any regular desktop window: the position changes and nothing else does. .dragging is still
+     added/removed in JS (see the header pointerdown handler) purely so the hover-pop rule above
+     can exclude it via :not(.dragging) — a plain hook with no visual rule of its own. Opacity
+     dim and an enlarged shadow were both tried here and explicitly didn't want it, same as the
+     scale bump before that — any visual change at all read as the widget "popping" toward the
+     user the instant a drag starts. */
   .claustrum-widget.resizing{opacity:.9;}
   .resize-handle{position:absolute;z-index:5;}
   .resize-handle.edge-n{top:0;left:10px;right:10px;height:6px;cursor:ns-resize;}
@@ -895,15 +901,11 @@
     box-shadow:0 4px 14px rgba(0,0,0,.5), 0 0 12px -3px var(--accent, var(--accent-amber));
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  /* same "pop toward the screen" hover treatment full widget cards already get (see
-     .claustrum-widget:hover above) — scale + deeper shadow + a temporary z-index bump, so a
-     hovered capsule lifts above its neighbors instead of just sitting there. Suppressed while
-     actively being dragged so it doesn't fight with that in-progress interaction's own styling. */
-  .capsule:hover:not(.dragging){
-    transform:scale(1.08);
-    box-shadow:0 10px 26px rgba(0,0,0,.6), 0 0 18px -2px var(--accent, var(--accent-amber));
-    z-index:999 !important;
-  }
+  /* No hover pop here, deliberately — this used to scale+lift on hover (matching the full
+     widget card's hover treatment), but that's exactly what read as the capsule suddenly
+     enlarging/overlapping its neighbors the instant you go to grab it, before any drag even
+     starts. A capsule now just sits there until you actually move it, like a normal desktop
+     icon. */
   /* size applies uniformly to every minimized widget at once, set from the topbar "size" S/M/L
      buttons (the same ones that resize full widgets) — not a per-widget control. M matches the
      base .capsule rule above. */
@@ -1524,7 +1526,7 @@ function scheduleCloudPush(){
   clearTimeout(cloudPushTimer);
   cloudPushTimer = setTimeout(()=>{
     fbDb.collection("users").doc(fbUser.uid).set({
-      data: dumpLocalState(),
+      data: dumpLocalStateForCloud(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(()=> setLastCloudSyncMillis(Date.now()))
       .catch(e=> console.warn("cloud sync failed", e));
@@ -2796,6 +2798,20 @@ function dumpLocalState(){
   }
   return dump;
 }
+/* Personal third-party API keys (Groq, YouTube Data API, TheSportsDB) never leave this device —
+   used ONLY by the two cloud-sync push call sites (scheduleCloudPush, the "Sync now" button),
+   never by the local "Export backup" download, which stays on the user's own machine and has no
+   custody concern at all. Cloud sync currently means "goes into a Firestore document this app's
+   operator's own project controls" — a key there is no longer just the user's problem, it's
+   whoever runs that Firestore's problem too. Excluding it here means logging into a new device
+   won't bring these along automatically; googleClientId is a public OAuth client ID (not a
+   secret, per Google's own docs) so it's left in as before. */
+const CLOUD_SYNC_EXCLUDED_KEYS = ["groqApiKey","ytApiKey","sportsDbApiKey"].map(k=>NS+k);
+function dumpLocalStateForCloud(){
+  const dump = dumpLocalState();
+  CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
+  return dump;
+}
 function applyLocalDump(dump){
   Object.entries(dump).forEach(([k,v])=>localStorage.setItem(k,v));
 }
@@ -3997,23 +4013,25 @@ function isPointOverWidgetTrash(x,y){
    just follows the cursor. Callers finish the drag by removing the returned node from the ghost
    layer and re-rendering (closeWidget already does this when the drop lands on the trash). */
 const dragGhostLayer = $("#drag-ghost-layer");
-function ghostifyForDrag(el){
+/* zoomScale: whatever the element's own visual size is currently being multiplied by from
+   OUTSIDE itself (the camera's transform:scale on #canvas-world) — 1 for anything living in the
+   un-transformed #pinned-layer instead, since panning/zooming never touches those. Reparenting
+   into this fixed, unclipped layer removes that ambient scaling, so it's re-applied here as the
+   element's OWN transform instead — the only thing that keeps both the box AND its text/border
+   at the exact same apparent size they had a moment ago. (An earlier version tried locking just
+   width/height to compensate — fine for a full widget card, which has its own --w/--h-driven
+   clamp() font sizing to shrink in step, but a capsule's font-size is a plain fixed px value with
+   nothing tying it to the box size, so that just shrank the box out from under its own text.
+   Full widget cards don't call this function at all anymore — their drag handler moves them in
+   place, no reparenting — so zoomScale in practice only ever matters for capsules now.) */
+function ghostifyForDrag(el, zoomScale){
   const rect = el.getBoundingClientRect();
   el.style.position = "fixed";
   el.style.margin = "0";
+  el.style.transformOrigin = "top left";
   el.style.left = rect.left+"px";
   el.style.top = rect.top+"px";
-  /* Without pinning width/height explicitly, reparenting out of the zoomed/scaled canvas snaps
-     the element back to its raw unscaled l.w/l.h box the instant it becomes position:fixed —
-     while zoomed out, that reads as the widget suddenly "popping" larger right as a drag starts.
-     rect.width/height already reflect whatever the camera zoom currently renders it at, so
-     pinning to those keeps its on-screen size exactly what it was a moment before. --w/--h (used
-     by this card's own clamp()-based font sizing, see cycleWidgetSize) are kept in sync too, so
-     text doesn't re-flow to a different size mid-drag either. */
-  el.style.width = rect.width+"px";
-  el.style.height = rect.height+"px";
-  el.style.setProperty("--w", rect.width+"px");
-  el.style.setProperty("--h", rect.height+"px");
+  el.style.transform = "scale("+(zoomScale==null ? 1 : zoomScale)+")";
   dragGhostLayer.appendChild(el);
   return {left:rect.left, top:rect.top};
 }
@@ -4473,7 +4491,7 @@ function renderCapsule(def,l){
       const dy=l.pinned ? (ev.clientY-startY) : (ev.clientY-startY)/state.camera.scale;
       if(Math.abs(ev.clientX-startX) > CAPSULE_CLICK_MAX_DRIFT || Math.abs(ev.clientY-startY) > CAPSULE_CLICK_MAX_DRIFT) dragged = true;
       l.x=ox+dx; l.y=oy+dy;
-      if(dragged && !wasDragged) ghostOrigin = ghostifyForDrag(cap);
+      if(dragged && !wasDragged) ghostOrigin = ghostifyForDrag(cap, l.pinned ? 1 : state.camera.scale);
       if(ghostOrigin){
         cap.style.left = (ghostOrigin.left + (ev.clientX-startX))+"px";
         cap.style.top = (ghostOrigin.top + (ev.clientY-startY))+"px";
@@ -7397,7 +7415,8 @@ $("#settings-btn").addEventListener("click", ()=>{
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
       Signed in as <span style="color:var(--text-primary);">${escapeHtml(fbUser.email||"")}</span>. Your settings
       auto-sync to this account a couple seconds after any change. Signing out only stops syncing on this
-      device — nothing local gets deleted.
+      device — nothing local gets deleted. Your Groq/YouTube/TheSportsDB API keys are never part of that
+      sync — they stay on this device only, so you'll re-enter them on any other device you sign into.
     </p>
     <div style="display:flex;gap:8px;margin:10px 0 4px;">
       <button class="btn primary" id="acct-sync-now-btn">Sync now</button>
@@ -7502,7 +7521,7 @@ $("#settings-btn").addEventListener("click", ()=>{
     $("#acct-sync-now-btn").addEventListener("click", ()=>{
       clearTimeout(cloudPushTimer);
       fbDb.collection("users").doc(fbUser.uid).set({
-        data: dumpLocalState(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        data: dumpLocalStateForCloud(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(()=>{ setLastCloudSyncMillis(Date.now()); $("#acct-status").textContent = "Synced just now."; })
         .catch(e=>{ $("#acct-status").textContent = "Sync failed: "+e.message; });
     });
@@ -8795,7 +8814,17 @@ function tryLocalCommand(text){
           if(found){ togglePinWidget(l, found.card, found.header); results.push(`Pinned ${def.title} in place.`); }
         }
       } else if(l && l.minimized){
-        results.push(`${def.title} is minimized right now — restore it first and I can pin it.`);
+        /* "pin X" on a minimized capsule restores it to a full card first — a capsule has no
+           header/pin button of its own for togglePinWidget to work with (see
+           findWidgetCardAndHeader), so there's no way to pin one as-is. Un-minimizing and
+           re-rendering first gives it that real card+header, which is then pinned exactly like
+           the already-open case just above — one command instead of asking the user to restore
+           it themselves before repeating the request. */
+        l.minimized = false;
+        renderWidgets();
+        const found = findWidgetCardAndHeader(def.id);
+        if(found){ togglePinWidget(l, found.card, found.header); results.push(`Enlarged and pinned ${def.title}.`); }
+        else { saveProfileState(); results.push(`Enlarged ${def.title}, but couldn't pin it — try its pin button.`); }
       } else {
         results.push(`${def.title} isn't open right now.`);
       }
