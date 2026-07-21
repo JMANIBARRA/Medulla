@@ -1386,9 +1386,9 @@
       <button class="tbtn tbtn-icon" id="zoom-in-btn" title="Zoom in (Ctrl+=)">+</button>
       <button class="tbtn" id="zoom-reset-btn" title="Reset zoom to 100% (Ctrl+0)">reset</button>
       <div class="tbtn-divider"></div>
-      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Select Memory 1 (Ctrl+1) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">1</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Select Memory 2 (Ctrl+2) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">2</button>
-      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Select Memory 3 (Ctrl+3) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">3</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-1-btn" data-slot="0" title="Select Memory 1 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">1</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-2-btn" data-slot="1" title="Select Memory 2 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">2</button>
+      <button class="tbtn hbtn-size mem-btn" id="mem-3-btn" data-slot="2" title="Select Memory 3 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved">3</button>
       <button class="tbtn" id="mem-save-btn" title="Save the current widget arrangement (Ctrl+S) — every widget's position, size, pin state — and camera view into the selected memory slot">save</button>
     </div>
     <div class="topbar-account-group">
@@ -2250,9 +2250,9 @@ const I18N_ES = {
   "Zoom in (Ctrl+=)": "Acercar (Ctrl+=)",
   "reset": "restablecer",
   "Reset zoom to 100% (Ctrl+0)": "Restablece el zoom al 100% (Ctrl+0)",
-  "Select Memory 1 (Ctrl+1) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 1 (Ctrl+1) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
-  "Select Memory 2 (Ctrl+2) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 2 (Ctrl+2) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
-  "Select Memory 3 (Ctrl+3) — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 3 (Ctrl+3) — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "Select Memory 1 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 1 — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "Select Memory 2 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 2 — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
+  "Select Memory 3 — restores its whole saved workspace (widget positions/sizes/pins + camera view) if it's already saved": "Selecciona la Memoria 3 — restaura todo su espacio de trabajo guardado (posiciones, tamaños y fijado de widgets + vista de cámara) si ya está guardado",
   "save": "guardar",
   "Save the current widget arrangement (Ctrl+S) — every widget's position, size, pin state — and camera view into the selected memory slot": "Guarda la disposición actual de los widgets (Ctrl+S) — la posición, el tamaño y el estado de fijado de cada widget — y la vista de cámara en la ranura de memoria seleccionada",
   "Switch interface language to Spanish (Cambiar a español)": "Cambiar el idioma de la interfaz a español (Switch to Spanish)",
@@ -4800,13 +4800,13 @@ window.addEventListener("keydown",(e)=>{
 /* ================= GLOBAL KEYBOARD SHORTCUTS =================
    Modifier-combo only, never a bare letter/number — nothing here can fire while you're just
    typing a normal character into one of the app's many text fields. isTypingTarget() gates all
-   of these too, as a second layer, so even a combo can't sneak through while a field is focused. */
+   of these too, as a second layer, so even a combo can't sneak through while a field is focused.
+   Ctrl+1/2/3 deliberately NOT handled here (unlike Ctrl+0/+/-/S below) — those double as the
+   browser's own tab-switching shortcut, and intercepting them took that away from the whole tab.
+   Memory slots 1/2/3 are still selectable, just by clicking the toolbar buttons instead. */
 window.addEventListener("keydown",(e)=>{
   if(!(e.ctrlKey||e.metaKey) || isTypingTarget(e)) return;
-  if(e.key==="1"||e.key==="2"||e.key==="3"){
-    e.preventDefault();
-    $(`#mem-${e.key}-btn`).click();
-  } else if(e.key==="="||e.key==="+"){
+  if(e.key==="="||e.key==="+"){
     e.preventDefault();
     $("#zoom-in-btn").click();
   } else if(e.key==="-"||e.key==="_"){
@@ -7682,11 +7682,17 @@ function hideAuthGate(){
   const gate = $("#auth-gate");
   if(gate) gate.classList.add("hidden");
   localStorage.setItem(NS+"authGateSeen", "1");
-  /* no longer preloaded here — downloading a few-hundred-MB model the instant someone clicks
-     Guest (before they've typed anything at all) was a surprising, unexplained multi-minute
-     stall with no context. ensureLocalLLMEngine() still runs lazily, the first time a chat
-     message actually needs it (see tryLocalLLM) — same fallback, just triggered by an action
-     that actually explains why something's loading. */
+  /* Preloaded here, right after sign-in/Guest, but ONLY when no Groq key is configured — a
+     signed-in Groq user would never touch this fallback, so downloading it for them would be
+     pure waste. This used to be skipped entirely (downloading a few-hundred-MB model the instant
+     someone clicked Guest, before they'd typed anything, was a surprising unexplained stall on a
+     bare local file with no obvious "why is this loading" context). Now that this runs as a
+     hosted app, the #ai-log progress line (see logAI/ensureLocalLLMEngine) is visible on the
+     dashboard right when it starts, so the download has a visible reason attached — and starting
+     it at login instead of on first chat message means the first real conversation isn't the one
+     that eats the wait. Fire-and-forget: a failure here just means ensureLocalLLMEngine() retries
+     lazily later from tryLocalLLM, same as before. */
+  if(!groqApiKey) ensureLocalLLMEngine().catch(()=>{});
 }
 function initAuthGate(){
   /* remembered across reloads (for guests too, not just signed-in users) so it only ever
@@ -8105,6 +8111,119 @@ function calendarNextEventsReply(){
     ev.time ? `${ev.title} — ${calendarEventDayLabel(key)} at ${ev.time}` : `${ev.title} — ${calendarEventDayLabel(key)}`);
   return `Calendar: ${parts.join("; ")}`;
 }
+/* ---- reschedule/move/change an existing calendar event via chat ----
+   Everything above this point only ever READS calendarData; this is the one path that writes
+   to it from the AI dock. "to"/"for" is the connector between the event name and the new
+   date/time in every phrasing this is meant to catch ("move my dentist appointment to Friday at
+   3pm", "reschedule the laser thing for next Tuesday"). Deliberately not anchored to the start
+   of the string so "can you move..." still matches. */
+function parseRescheduleCommand(t){
+  const m = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)\s+(?:back\s+)?(?:to|for)\s+(.+?)[?.!\s]*$/);
+  return m ? {namePhrase: m[1].trim(), targetPhrase: m[2].trim()} : null;
+}
+const RESCHEDULE_MONTHS = {
+  jan:0, january:0, feb:1, february:1, mar:2, march:2, apr:3, april:3, may:4,
+  jun:5, june:5, jul:6, july:6, aug:7, august:7, sep:8, sept:8, september:8,
+  oct:9, october:9, nov:10, november:10, dec:11, december:11,
+};
+/* Same relative-date vocabulary as parseCalendarDateQuery (today/tomorrow/weekday names), plus
+   explicit dates that only make sense as a reschedule TARGET (a single day to move something
+   to), not a range — "next week"/"this week" aren't handled here since they don't name one day. */
+function parseRescheduleDate(phrase){
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const addDays = (d,n)=>{ const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+  if(/\btoday\b/.test(phrase)) return today;
+  if(/\btomorrow\b/.test(phrase)) return addDays(today,1);
+  if(/\byesterday\b/.test(phrase)) return addDays(today,-1);
+  const WEEKDAYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const wdMatch = phrase.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if(wdMatch){
+    const targetDow = WEEKDAYS.indexOf(wdMatch[2]);
+    let delta = (targetDow - today.getDay() + 7) % 7;
+    if(delta===0 && wdMatch[1]) delta = 7;
+    return addDays(today, delta);
+  }
+  const monMatch = phrase.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?\b/);
+  if(monMatch && RESCHEDULE_MONTHS[monMatch[1]]!==undefined){
+    const year = monMatch[3] ? parseInt(monMatch[3],10) : today.getFullYear();
+    const d = new Date(year, RESCHEDULE_MONTHS[monMatch[1]], parseInt(monMatch[2],10));
+    if(!isNaN(d.getTime())) return d;
+  }
+  const numMatch = phrase.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if(numMatch){
+    let yr = numMatch[3] ? parseInt(numMatch[3],10) : today.getFullYear();
+    if(yr<100) yr += 2000;
+    const d = new Date(yr, parseInt(numMatch[1],10)-1, parseInt(numMatch[2],10));
+    if(!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+/* Normalizes to the same "H:MM AM/PM" shape calendarTimeSortKey already expects, whether the
+   user said "3pm", "3:30pm", or 24-hour "15:30". */
+function parseRescheduleTime(phrase){
+  const ampm = phrase.match(/\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b/i);
+  if(ampm){
+    let h = parseInt(ampm[1],10) % 12;
+    if(ampm[3].toLowerCase()==="p") h += 12;
+    return `${(h%12)===0?12:(h%12)}:${ampm[2]||"00"} ${h>=12?"PM":"AM"}`;
+  }
+  const military = phrase.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if(military){
+    const h = parseInt(military[1],10);
+    return `${(h%12)===0?12:(h%12)}:${military[2]} ${h>=12?"PM":"AM"}`;
+  }
+  return null;
+}
+/* Pushes the mutated calendarData back into whatever calendar UI is actually mounted right now
+   (dashboard mini card and/or the full modal, either, neither, or both) — same "never let stale
+   state sit on screen" concern as the delete button inside renderCalendarEventsPanel, just
+   triggered from chat instead of a click inside that view. */
+function refreshMountedCalendarUI(){
+  const card = document.querySelector('.claustrum-widget[data-widget-id="calendar"]');
+  const body = card ? card.querySelector(".widget-body") : null;
+  if(body && body.querySelector("#calendar-mini-weekday")) hydrateCalendarMini(body);
+  if(modalOverlay.classList.contains("open") && modalBody.querySelector("#cal-grid")){
+    renderCalendarGrid(modalBody);
+    renderCalendarEventsPanel(modalBody);
+  }
+}
+/* Returns null (not a reply string) when this doesn't actually look like a calendar reschedule —
+   e.g. "change the theme to dark" names nothing that matches a real event and never mentions an
+   appointment/event/calendar word either, so it falls through to the LLM instead of wrongly
+   claiming "I don't see anything called that on your calendar." A real event match (by name)
+   always proceeds regardless of wording, same as the read-side name search. */
+function tryRescheduleCalendarEvent(namePhrase, targetPhrase, fullText){
+  const matches = findCalendarEventsByName(namePhrase);
+  if(!matches.length){
+    return /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/.test(fullText)
+      ? `I don't see anything called "${namePhrase}" on your calendar.`
+      : null;
+  }
+  // ambiguous names (multiple matches) resolve to the soonest upcoming one, not the first ever saved
+  const todayKey = calendarDateKey(new Date());
+  const target = matches.find(mt=>mt.key>=todayKey) || matches[0];
+  const newDate = parseRescheduleDate(targetPhrase);
+  const newTime = parseRescheduleTime(targetPhrase);
+  if(!newDate && !newTime){
+    return `I couldn't tell what date or time to move "${target.ev.title}" to — try something like "move it to Friday at 3pm".`;
+  }
+  const oldKey = target.key;
+  const newKey = newDate ? calendarDateKey(newDate) : oldKey;
+  target.ev.time = newTime || target.ev.time; // keep the existing time if only the day changed, and vice versa
+  if(newKey !== oldKey){
+    const arr = calendarData.events[oldKey];
+    arr.splice(arr.indexOf(target.ev), 1);
+    if(!arr.length) delete calendarData.events[oldKey];
+    (calendarData.events[newKey] = calendarData.events[newKey] || []).push(target.ev);
+  }
+  saveJSON(NS+"calendar", calendarData);
+  refreshMountedCalendarUI();
+  const when = target.ev.time ? `${calendarEventDayLabel(newKey)} at ${target.ev.time}` : calendarEventDayLabel(newKey);
+  return newKey !== oldKey
+    ? `Done — moved "${target.ev.title}" from ${calendarEventDayLabel(oldKey)} to ${when}.`
+    : `Done — "${target.ev.title}" is now set for ${when}.`;
+}
 /* Shared by both places that call readWidgetContentReply for a resolved widget (explicit "what's
    on my calendar" naming it, and the topic-inference fallback below) — Calendar is the one widget
    whose mini view can't just be read verbatim and trusted to answer the actual question, since
@@ -8482,6 +8601,14 @@ function tryLocalCommand(text){
       return /there's nothing showing on it right now/.test(reply) ? null : reply;
     }).filter(Boolean);
     results.push(todayParts.length ? todayParts.join(" ") : "Open your Calendar, Fitness, or Projects widget so I can see what's on your plate today.");
+  }
+  /* "move/reschedule/change my X to <date/time>" — actually writes to calendarData instead of
+     just reading it back (see tryRescheduleCalendarEvent above). Checked early since it's a very
+     specific, low-collision phrasing and should win over any later, more general handling. */
+  const resched = parseRescheduleCommand(t);
+  if(resched){
+    const reschedReply = tryRescheduleCalendarEvent(resched.namePhrase, resched.targetPhrase, t);
+    if(reschedReply) results.push(reschedReply);
   }
   /* "do you have a face"/"what do you look like" answered deterministically, in character —
      the LLM's system prompt already tells it to stay embodied and never deny having a face, but
@@ -9063,13 +9190,15 @@ async function tryGroq(text){
   }
 }
 
-/* In-browser fallback LLM — for anyone who doesn't want to set up Groq at all. Runs a genuinely
-   tiny open-weight model (Qwen2.5 0.5B, 4-bit quantized) fully client-side via WebGPU through the
+/* In-browser fallback LLM — for anyone who doesn't want to set up Groq at all. Runs a small
+   open-weight model (Qwen2.5 1.5B, 4-bit quantized) fully client-side via WebGPU through the
    WebLLM library loaded as an ES module in <head> (window.webllm — this app's own script is a
-   classic non-module IIFE, so it can't `import` directly). Noticeably slower and less coherent
-   than Groq's much larger 70B cloud model, but needs zero setup and nothing ever leaves the
-   device. Same system prompt/history handling as tryGroq, so personality stays consistent
-   regardless of which one answers.
+   classic non-module IIFE, so it can't `import` directly). Bumped up from the 0.5B variant, which
+   was coherent often enough to be usable but rambled/lost the thread noticeably more than Groq —
+   1.5B is a real step up in reply quality for roughly double the download and per-reply latency.
+   Still noticeably slower and less capable than Groq's much larger 70B cloud model, but needs zero
+   setup and nothing ever leaves the device. Same system prompt/history handling as tryGroq, so
+   personality stays consistent regardless of which one answers.
    Loading only ever starts from tryLocalLLM below — i.e. the first time a chat message actually
    needs it (no Groq key configured) — not preloaded the moment the app opens. It used to kick off
    automatically as soon as the auth gate closed (sign-in or Guest), which meant a multi-hundred-MB
@@ -9082,8 +9211,8 @@ let localLLMEnginePromise = null;
 function ensureLocalLLMEngine(){
   if(localLLMEngine) return Promise.resolve(localLLMEngine);
   if(!localLLMEnginePromise){
-    logAI("Loading local model (first time only, a few hundred MB)…");
-    localLLMEnginePromise = window.webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f16_1-MLC", {
+    logAI("Loading local model (first time only, just over a gigabyte)…");
+    localLLMEnginePromise = window.webllm.CreateMLCEngine("Qwen2.5-1.5B-Instruct-q4f16_1-MLC", {
       initProgressCallback: (p)=> logAI(p.text || "Loading local model…"),
     }).then(engine=>{ localLLMEngine = engine; return engine; })
       .catch(e=>{ localLLMEnginePromise = null; throw e; }); // failed load doesn't get permanently stuck — a later call can retry
