@@ -1545,9 +1545,10 @@ function pullCloudState(){
       const cloudData = doc.data();
       const cloudMillis = cloudData.updatedAt && cloudData.updatedAt.toMillis ? cloudData.updatedAt.toMillis() : Date.now();
       const lastSync = getLastCloudSyncMillis();
-      if(!lastSync){
-        promptLoadCloudData(cloudData.data, cloudMillis);
-      } else if(cloudMillis > lastSync){
+      if(!lastSync || cloudMillis > lastSync){
+        /* First sync on this device, or a newer cloud version: load it straight in, no prompt.
+           Signing in with the account is treated as consent enough — the dashboard should just
+           open, not stop to ask permission a second time. */
         applyLocalDump(cloudData.data);
         setLastCloudSyncMillis(cloudMillis);
         location.reload();
@@ -1559,35 +1560,6 @@ function pullCloudState(){
       scheduleCloudPush();
     }
   });
-}
-/* Themed replacement for a native confirm() — same app-modal surface the hot bar's add/edit-link
-   flow and every widget's full view already use, so "you have cloud data" reads as part of the
-   app instead of an unexplained browser popup interrupting whatever was on screen. Only shown
-   once per device (see pullCloudState) — whichever button is clicked resolves that ambiguity, so
-   both record lastCloudSyncMillis, not just Load. */
-function promptLoadCloudData(cloudData, cloudMillis){
-  if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
-  modalTitle.textContent = "Cloud Settings Found";
-  modalBody.innerHTML = `
-    <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin:0 0 20px;">
-      This account already has a saved workspace in the cloud from a previous session — widget
-      layout, pins, sizes, everything. Load it and replace what's on this device, or keep using
-      what's already here?
-    </p>
-    <div style="display:flex;gap:8px;">
-      <button class="btn primary" id="cloud-load-btn">Load Cloud Data</button>
-      <button class="btn" id="cloud-keep-btn">Keep This Device's Data</button>
-    </div>`;
-  $("#cloud-load-btn").addEventListener("click", ()=>{
-    applyLocalDump(cloudData);
-    setLastCloudSyncMillis(cloudMillis);
-    location.reload();
-  });
-  $("#cloud-keep-btn").addEventListener("click", ()=>{
-    setLastCloudSyncMillis(cloudMillis);
-    closeModal();
-  });
-  modalOverlay.classList.add("open");
 }
 function handleAuthChange(user){
   fbUser = user;
@@ -2315,9 +2287,6 @@ const I18N_ES = {
   "Password reset email sent.": "Correo de restablecimiento de contraseña enviado.",
 
   /* ---- modals / settings / widgets manager ---- */
-  "Cloud Settings Found": "Configuración en la nube encontrada",
-  "Load Cloud Data": "Cargar datos de la nube",
-  "Keep This Device's Data": "Conservar los datos de este dispositivo",
   "Manage widgets": "Administrar widgets",
   "Hide": "Ocultar",
   "Show": "Mostrar",
