@@ -863,25 +863,40 @@
   .garage-carousel-dot{width:6px;height:6px;border-radius:50%;background:var(--line);cursor:pointer;flex:none;}
   .garage-carousel-dot.active{background:var(--accent-amber);box-shadow:0 0 6px 0 var(--accent-amber);}
 
-  /* ---------- garage vehicle-type picker (add-vehicle form) ---------- */
+  /* ---------- garage vehicle-type picker (add-vehicle form) ----------
+     A Pokédex-style grid, not a loose wrapping row — every type sits in its own uniform,
+     bordered slot (icon boxed in its own inset panel, name below), laid out in real CSS-grid
+     columns that fill the popover evenly instead of ragged-right flex-wrap. */
   .garage-type-grid{
     position:absolute;top:calc(100% + 6px);left:0;z-index:20;
-    width:min(360px, 90vw);max-height:260px;overflow-y:auto;
-    display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;padding:10px;
+    width:min(400px, 92vw);max-height:320px;overflow-y:auto;
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));gap:8px;padding:12px;
     background:var(--bg-panel-raised);border:1px solid var(--accent-amber);
     box-shadow:0 10px 28px -8px rgba(0,0,0,.7), 0 0 20px -6px var(--accent-amber);
   }
   .garage-type-grid-heading{
-    flex:0 0 100%;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);
-    font-family:var(--font-display);margin-top:6px;padding-top:6px;border-top:1px solid var(--line-soft);
+    grid-column:1/-1;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);
+    font-family:var(--font-display);margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);
   }
   .garage-type-grid-heading:first-child{border-top:none;margin-top:0;padding-top:0;}
   .garage-type-option{
-    flex:none;width:70px;display:flex;flex-direction:column;align-items:center;gap:4px;
-    padding:6px 4px;cursor:pointer;border:1px solid transparent;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:8px 4px 6px;cursor:pointer;
+    background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;
+    transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease;
   }
-  .garage-type-option:hover{border-color:var(--accent-amber);background:rgba(255,255,255,.04);}
-  .garage-type-option .garage-icon{width:42px;height:19px;}
+  .garage-type-option:hover{border-color:var(--accent-amber);box-shadow:0 0 10px -3px var(--accent-amber);transform:translateY(-1px);}
+  /* padding (not a width/height % on the svg/img itself) creates the inset margin around the
+     icon — the raster icons (vehicleIconMarkup's <img> path) carry their OWN inline
+     width:100%;height:100% already, which would silently beat any percentage set here from a
+     class rule (inline style always outranks a stylesheet rule); padding on this container
+     shrinks the available box for BOTH the svg and img cases the same way regardless. */
+  .garage-type-option .garage-icon{
+    width:44px;height:32px;flex:none;box-sizing:border-box;padding:4px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg-panel-raised);border:1px solid var(--line-soft);border-radius:6px;
+  }
+  .garage-type-option .garage-icon svg{width:100%;height:100%;}
   .garage-type-option-label{font-size:9px;color:var(--text-dim);text-align:center;line-height:1.2;font-family:var(--font-mono);}
 
   .scratch-mini-textarea{font-size:clamp(11px, calc(var(--w, 270px) * 0.036), 16px);}
@@ -6874,6 +6889,7 @@ function setupGarageTypePicker(scope){
     iconEl.innerHTML = vehicleIconMarkup(type);
     labelEl.textContent = VEHICLE_TYPE_LABELS[type] || "Type ▾";
     grid.style.display = "none";
+    addGarageVehicle(scope); // picking a type is the final step of the guided add flow now — finishes immediately, no separate "Add" click needed
   });
   function toggle(e){
     e.stopPropagation();
@@ -6894,6 +6910,21 @@ function resetGarageTypeButton(scope){
   scope.querySelector("#garage-type-btn-icon").innerHTML = "";
   scope.querySelector("#garage-type-btn-label").textContent = "Type ▾";
 }
+/* Applied live (on every keystroke) to a vehicle-name input — capitalizes just the first letter
+   of each word, whatever case it was actually typed in, without touching any other character (so
+   an intentional "BMW" or "RS7" mid-name isn't stomped on). Only ever a 1-char-for-1-char
+   replacement, never inserting/deleting anything, so the cursor position stays valid across the
+   rewrite without needing any special caret-math to restore it. */
+function applyLiveTitleCase(input){
+  input.addEventListener("input", ()=>{
+    const pos = input.selectionStart;
+    const capitalized = input.value.replace(/\b\w/g, c=>c.toUpperCase());
+    if(capitalized !== input.value){
+      input.value = capitalized;
+      input.setSelectionRange(pos, pos);
+    }
+  });
+}
 function addGarageVehicle(scope){
   const nameInp = scope.querySelector("#garage-add-input");
   const yearInp = scope.querySelector("#garage-year-input");
@@ -6912,11 +6943,26 @@ function addGarageVehicle(scope){
   renderWidgets();
   nameInp.focus();
 }
+/* Enter (in any of the 3 fields) or clicking "Add" no longer adds the vehicle directly — it
+   opens the type picker instead (unless a type was somehow already picked beforehand), and
+   PICKING A TYPE THERE is what actually finishes adding it (see setupGarageTypePicker's onPick
+   below). A vehicle without any type at all just falls back to the keyword-guess classifier
+   (resolveVehicleType) same as always, so this is purely a guided-flow convenience, not a new
+   hard requirement — there was never a way to force a type before, and still isn't. */
+function beginGarageAddFlow(scope){
+  const nameInp = scope.querySelector("#garage-add-input");
+  if(!nameInp.value.trim()) return;
+  const typeBtn = scope.querySelector("#garage-type-btn");
+  const grid = scope.querySelector("#garage-type-grid");
+  if(typeBtn && typeBtn.dataset.type) addGarageVehicle(scope);
+  else if(grid) grid.style.display = "flex";
+}
 function hydrateGarageFull(scope){
   renderGarageCarousel(scope.querySelector("#garage-carousel"));
-  scope.querySelector("#garage-add-btn").addEventListener("click", ()=>addGarageVehicle(scope));
+  applyLiveTitleCase(scope.querySelector("#garage-add-input"));
+  scope.querySelector("#garage-add-btn").addEventListener("click", ()=>beginGarageAddFlow(scope));
   ["#garage-add-input","#garage-year-input","#garage-mileage-input"].forEach(sel=>{
-    scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") addGarageVehicle(scope); });
+    scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") beginGarageAddFlow(scope); });
   });
   const removeTypePickerListener = setupGarageTypePicker(scope);
   /* left/right arrow keys cycle the carousel too, while this modal's open — skipped while
@@ -6972,6 +7018,7 @@ function hydrateGarageMini(scope){
   const nameInp = scope.querySelector("#garage-mini-name");
   const yearInp = scope.querySelector("#garage-mini-year");
   const mileageInp = scope.querySelector("#garage-mini-mileage");
+  applyLiveTitleCase(nameInp);
   function submitMini(){
     const vehicle = nameInp.value.trim();
     if(!vehicle) return;
@@ -10135,6 +10182,129 @@ async function tryLocalLLM(text){
   }
 }
 
+/* "how far am I from X" — reuses the SAME location-detection (fetchApproxLocation) already built
+   for Weather's home-city override. Two genuinely different kinds of "X" get handled differently:
+   a geocodable place/city/landmark (geocodeCityName, Open-Meteo) vs. a business/chain name like
+   "Burger King" — Open-Meteo's geocoder is built for cities/landmarks, not businesses, and simply
+   won't resolve "Burger King" to anything meaningful. "nearest/closest X" is treated as an
+   explicit, unambiguous signal for the second case; a plain "how far am I from X" tries the place
+   geocoder FIRST and only falls back to a nearby-business search if that comes up empty — since
+   most of these questions really are about an actual place name, not a chain. */
+function parseNearestPlaceQuery(t){
+  const patterns = [
+    /how far (?:am i|is it|are we) from (?:the )?(?:nearest|closest) (.+?)[?.!\s]*$/,
+    /how far (?:is|to) the (?:nearest|closest) (.+?)[?.!\s]*$/,
+    /(?:where'?s|wheres|find) the (?:nearest|closest) (.+?)[?.!\s]*$/,
+  ];
+  for(const re of patterns){
+    const m = t.match(re);
+    if(m && m[1].trim()) return m[1].trim();
+  }
+  return null;
+}
+function parseDistanceQuery(t){
+  const patterns = [
+    /how far (?:am i|are we) from (.+?)[?.!\s]*$/,
+    /how far (?:is|are) (.+?)(?:\s+from (?:me|here))?[?.!\s]*$/,
+    /how far (?:is it )?to (.+?)[?.!\s]*$/,
+    /(?:what'?s|whats) the distance (?:to|between here and) (.+?)[?.!\s]*$/,
+    /\bdistance to (.+?)[?.!\s]*$/,
+    /how many miles (?:is it |am i )?(?:to|from) (.+?)[?.!\s]*$/,
+  ];
+  for(const re of patterns){
+    const m = t.match(re);
+    if(m && m[1].trim()) return m[1].trim();
+  }
+  return null;
+}
+/* Great-circle ("as the crow flies") distance — used only as a fallback when a real driving route
+   isn't available (see fetchDrivingRoute), and always labeled as such so "how far" is never
+   quietly misread as "how long a drive," which is what people actually mean day to day. */
+function haversineMiles(lat1, lon1, lat2, lon2){
+  const R = 3958.8; // Earth's mean radius, in miles
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+/* Actual road distance/time (not straight-line) via OSRM's free public routing server — no key,
+   no signup. Its own docs mark the public demo as "not for heavy production use," which is fine
+   for a single personal user asking this occasionally — just not something to ever point real
+   production traffic at. Returns null (not a throw) on any failure so callers can fall back to
+   the straight-line haversine estimate instead of a hard error. */
+async function fetchDrivingRoute(here, there){
+  try{
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${here.lon},${here.lat};${there.lon},${there.lat}?overview=false`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const route = data.routes && data.routes[0];
+    if(!route) return null;
+    return { miles: route.distance/1609.34, minutes: route.duration/60 };
+  }catch(e){ return null; }
+}
+/* Finds the nearest real-world point of interest matching `query` (a business/brand name) to
+   `here` via OpenStreetMap's Overpass API — free, keyless, and the only practical way to search
+   "nearest X by name" at all; Open-Meteo's geocoder only ever resolves named PLACES, never
+   businesses. Searches both the "name" and "brand" OSM tags (a location might be tagged either
+   way depending on who mapped it) within ~25 miles, picks whichever match is closest by straight-
+   line distance. */
+async function findNearestPOI(query, here){
+  const radiusMeters = 40000;
+  const escaped = query.replace(/["\\]/g, "");
+  const ql = `[out:json][timeout:20];(node["name"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});node["brand"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});way["name"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});way["brand"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon}););out center 20;`;
+  try{
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method:"POST", body:"data="+encodeURIComponent(ql) });
+    if(!res.ok) return {ok:false, reason:`OpenStreetMap search returned HTTP ${res.status}`};
+    const data = await res.json();
+    const elements = (data.elements||[]).map(el=>{
+      const lat = el.lat ?? (el.center && el.center.lat), lon = el.lon ?? (el.center && el.center.lon);
+      return (lat==null || lon==null) ? null : {lat, lon, tags: el.tags||{}};
+    }).filter(Boolean);
+    if(!elements.length) return {ok:false, reason:`no "${query}" found within about 25 miles`};
+    elements.forEach(el=> el.dist = haversineMiles(here.lat, here.lon, el.lat, el.lon));
+    elements.sort((a,b)=> a.dist-b.dist);
+    return {ok:true, poi: elements[0]};
+  }catch(e){
+    return {ok:false, reason:`network error reaching OpenStreetMap (${e.message})`};
+  }
+}
+function formatPOIAddress(tags){
+  const parts = [];
+  if(tags["addr:housenumber"] && tags["addr:street"]) parts.push(`${tags["addr:housenumber"]} ${tags["addr:street"]}`);
+  else if(tags["addr:street"]) parts.push(tags["addr:street"]);
+  if(tags["addr:city"]) parts.push(tags["addr:city"]);
+  return parts.join(", ");
+}
+async function calculateNearestPOIReply(query, here){
+  const result = await findNearestPOI(query, here);
+  if(!result.ok) return `I couldn't find the nearest "${query}" — ${result.reason}.`;
+  const poi = result.poi;
+  const name = poi.tags.name || query;
+  const address = formatPOIAddress(poi.tags);
+  const addressPart = address ? ` (${address})` : "";
+  const route = await fetchDrivingRoute(here, poi);
+  return route
+    ? `The nearest ${name}${addressPart} is about ${route.miles.toFixed(1)} miles away, roughly ${Math.round(route.minutes)} minutes by car.`
+    : `The nearest ${name}${addressPart} is about ${poi.dist.toFixed(1)} miles away as the crow flies — couldn't get a driving-time estimate right now.`;
+}
+async function calculateDistanceReply(placeName, {forceNearestSearch=false}={}){
+  const here = await fetchApproxLocation();
+  if(!here) return "I couldn't figure out where you currently are — every location lookup failed. Try setting a Home city (or coordinates) for Weather in Settings, then ask again — this reuses that same location.";
+  if(!forceNearestSearch){
+    const thereResult = await geocodeCityName(placeName);
+    if(thereResult.ok){
+      const there = thereResult.loc;
+      const route = await fetchDrivingRoute(here, there);
+      const fromLabel = here.city ? ` from ${here.city}` : "";
+      if(route) return `${there.city || placeName} is about ${route.miles.toFixed(1)} miles away${fromLabel}, roughly ${Math.round(route.minutes)} minutes by car.`;
+      const miles = haversineMiles(here.lat, here.lon, there.lat, there.lon);
+      return `${there.city || placeName} is about ${Math.round(miles).toLocaleString()} miles away${fromLabel}, as the crow flies — couldn't get a driving-time estimate right now.`;
+    }
+    // not a geocodable place — most likely a business/chain name typed without saying "nearest"; try that instead of just giving up
+  }
+  return calculateNearestPOIReply(placeName, here);
+}
+
 aiForm.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const text = aiInput.value.trim();
@@ -10148,6 +10318,27 @@ aiForm.addEventListener("submit", async (e)=>{
      before the dialogue box itself appears, and it stops in lockstep with the box hiding
      (see hideHoloSpeech) rather than on a separate timer that could drift out of sync. */
   hideHoloSpeech();
+  /* Checked before tryLocalCommand (and ahead of Groq/local-LLM) since these are the one local
+     command that needs to be async (real geocoding/POI/routing network calls, not just reading
+     in-memory app state the way every other local command does) — routing them through here
+     first keeps that exception out of tryLocalCommand's otherwise-synchronous contract.
+     "nearest/closest X" checked first since it's an unambiguous, explicit signal for the
+     business/POI search path (see parseNearestPlaceQuery) — a plain "how far am I from X" tries
+     geocoding X as a real place first and only falls back to that same POI search if X doesn't
+     resolve to one (see calculateDistanceReply). */
+  const nearestQuery = parseNearestPlaceQuery(text.toLowerCase());
+  const distancePlace = nearestQuery ? null : parseDistanceQuery(text.toLowerCase());
+  if(nearestQuery || distancePlace){
+    logAI("Thinking…");
+    if(nearestQuery){
+      const here = await fetchApproxLocation();
+      presentAiReply(here ? await calculateNearestPOIReply(nearestQuery, here)
+        : "I couldn't figure out where you currently are — every location lookup failed. Try setting a Home city (or coordinates) for Weather in Settings, then ask again — this reuses that same location.");
+    } else {
+      presentAiReply(await calculateDistanceReply(distancePlace));
+    }
+    return;
+  }
   const local = tryLocalCommand(text);
   if(local){ presentAiReply(local); return; }
   logAI("Thinking…");
