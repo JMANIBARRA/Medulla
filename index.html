@@ -1540,13 +1540,29 @@ const FIREBASE_CONFIG = {
   appId: "1:871803883529:web:d9da2b7c782d6e9c7968d8"
 };
 let fbAuth = null, fbDb = null, fbUser = null, cloudPushTimer = null;
+/* Set specifically when initFirebaseSync() itself throws (see below) — distinct from
+   firebaseConfigured() below, which only checks whether FIREBASE_CONFIG has been filled in, not
+   whether the SDK actually loaded/initialized. A blocked/failed gstatic.com script (the Firebase
+   SDK is loaded via plain <script> tags in <head>, no fallback) previously left fbAuth silently
+   null forever while the sign-in form rendered normally anyway — clicking Log In then called a
+   method on null and threw, uncaught, inside the click handler: "nothing happens" with zero
+   visible error, confirmed as a real reported failure mode on one specific hosted copy. Every
+   fbAuth call site the sign-in form uses now checks this first and shows an actual message
+   instead of throwing silently. */
+let firebaseInitError = null;
 function firebaseConfigured(){ return FIREBASE_CONFIG.apiKey !== "PASTE_ME"; }
 function initFirebaseSync(){
   if(!firebaseConfigured()) return;
-  firebase.initializeApp(FIREBASE_CONFIG);
-  fbAuth = firebase.auth();
-  fbDb = firebase.firestore();
-  fbAuth.onAuthStateChanged(handleAuthChange);
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbAuth.onAuthStateChanged(handleAuthChange);
+  }catch(e){
+    console.error("Firebase failed to initialize — cloud sign-in/sync will be unavailable", e);
+    firebaseInitError = e;
+    fbAuth = null; fbDb = null;
+  }
 }
 /* millis of the cloud version this device has last seen/applied/pushed — NOT run through
    saveJSON (that would recursively schedule another cloud push for zero reason), just a plain
@@ -4652,11 +4668,19 @@ const widgetResizeObserver = new ResizeObserver(entries=>{
    as a last-resort scroll cue. Runs on: the card being resized (this observer), its content
    changing post-mount (e.g. async data landing — overflowMutationObserver below), and scrolling
    (the listener below, which only needs to update the fade, not re-run growth).
-   Pinned widgets are excluded entirely — pinning is a deliberate "keep this exact size, out of
-   the way, no matter what" choice (e.g. pinning Sports at "S"), and silently growing it back up
-   the moment its scores list overflows would defeat that; .has-overflow's fade + the widget's
-   own internal scroll is what pinned widgets get instead, same as content that's still too big
-   even at the L cap for an unpinned widget. */
+   Pinned widgets USED to be excluded entirely, on a "pinning is a deliberate 'keep this exact
+   size' choice" theory — but pinning bakes the camera's CURRENT zoom into the widget's literal
+   pixel size (see togglePinWidget), while its font/graphic sizing is real CSS layout (clamp()
+   off --w/--h) that doesn't scale at quite the same rate a fixed few px of cell padding does.
+   Confirmed in practice: pinning at any zoom other than 1:1 could leave content needing MORE
+   height than the naive linear "old height × zoom" conversion provided, clipping it with no
+   visible cue (the "invisible scrollbar" problem above) — worse than just letting it grow.
+   Pinned widgets now use a generous viewport-fraction cap instead of a nominal "L" preset, since
+   their w/h are screen-space pixels already scaled by whatever zoom was active at pin time, not
+   the same nominal canvas units the size presets are defined in — "L" itself could be smaller
+   than a widget pinned while zoomed in, which would make this actively shrink it. This still
+   never SHRINKS a pinned widget back down on its own, same one-directional behavior as unpinned
+   widgets always had. */
 function fitWidgetsToContent(){
   let changed = false;
   $$(".claustrum-widget").forEach(card=>{
@@ -4664,8 +4688,8 @@ function fitWidgetsToContent(){
     const l = state.layout[id];
     const header = card.querySelector(".widget-header");
     const body = card.querySelector(".widget-body");
-    if(!l || !header || !body || l.pinned) return;
-    const cap = presetSize(id, "L");
+    if(!l || !header || !body) return;
+    const cap = l.pinned ? {w: window.innerWidth*0.9, h: window.innerHeight*0.9} : presetSize(id, "L");
     /* arcade's height is entirely managed by bjFitMiniWidgetToCards/bjResetMiniWidgetHeight
        instead (blackjack needs a taller cap than "L" for a long hand, and needs to shrink back
        down between hands, which this grow-only function never does) — letting both systems
@@ -8243,7 +8267,20 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
     const passInput = container.querySelector("#auth-password-input");
     const status = container.querySelector("#auth-status");
     function showError(e){ status.style.color="var(--accent-rust)"; status.textContent = e.message || String(e); }
+    /* Every fbAuth call below goes through this first — see firebaseInitError above for why:
+       fbAuth can be null even though this form rendered fine (firebaseConfigured() only checks
+       that a config was pasted in, not that the SDK actually loaded), and calling a method on
+       null throws synchronously, uncaught, inside a click handler — which looks EXACTLY like a
+       dead button with zero feedback. This turns that into an actual, visible message instead. */
+    function requireFbAuth(){
+      if(fbAuth) return true;
+      showError({message: firebaseInitError
+        ? "Cloud sign-in couldn't load (the Firebase library failed to start) — try refreshing the page. If it keeps happening, your network or an extension may be blocking it."
+        : "Cloud sign-in isn't ready yet — try again in a moment, or refresh the page."});
+      return false;
+    }
     function submit(){
+      if(!requireFbAuth()) return;
       const call = mode==="login" ? fbAuth.signInWithEmailAndPassword(emailInput.value.trim(), passInput.value)
                                    : fbAuth.createUserWithEmailAndPassword(emailInput.value.trim(), passInput.value);
       call.then(onSuccess).catch(showError);
@@ -8261,12 +8298,14 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
     const forgotLink = container.querySelector("#auth-forgot-link");
     if(forgotLink) forgotLink.addEventListener("click", (e)=>{
       e.preventDefault();
+      if(!requireFbAuth()) return;
       if(!emailInput.value.trim()){ status.textContent = "Enter your email above first."; return; }
       fbAuth.sendPasswordResetEmail(emailInput.value.trim())
         .then(()=>{ status.style.color="var(--text-dim)"; status.textContent = "Password reset email sent."; })
         .catch(showError);
     });
     container.querySelector("#auth-google-btn").addEventListener("click", ()=>{
+      if(!requireFbAuth()) return;
       fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(onSuccess).catch(showError);
     });
     if(showGuest) container.querySelector("#auth-guest-btn").addEventListener("click", hideAuthGate);
