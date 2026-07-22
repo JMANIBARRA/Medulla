@@ -5593,16 +5593,17 @@ function renderFull(id){
   }
   if(id==="banking"){
     return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Quick Launch</h3>
-    <div id="bank-quick-grid" class="bank-quick-launch-grid" style="justify-content:flex-start;margin:10px 0 20px;"></div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Manage List</h3>
-    <div id="bank-full-list" style="margin:10px 0;"></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <input id="bank-label-input" type="text" placeholder="Label e.g. Fidelity" style="flex:1;min-width:140px;"/>
-      <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
-      <button class="btn primary" id="bank-add-btn">Add</button>
-    </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hiding one here also drops it from Quick Launch above.</p>`;
+    <div id="bank-quick-grid" class="bank-quick-launch-grid" style="justify-content:flex-start;margin-bottom:14px;"></div>
+    <a href="#" id="bank-manage-toggle" style="font-size:11px;color:var(--accent-teal);">Manage list</a>
+    <div id="bank-manage-section" style="display:none;margin-top:12px;">
+      <div id="bank-full-list" style="margin:10px 0;"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <input id="bank-label-input" type="text" placeholder="Label e.g. Fidelity" style="flex:1;min-width:140px;"/>
+        <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
+        <button class="btn primary" id="bank-add-btn">Add</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hiding one here also drops it from Quick Launch above.</p>
+    </div>`;
   }
   if(id==="claudeprojects"){
     return `
@@ -11859,6 +11860,11 @@ function renderBankFullList(container, scope){
 function hydrateBankingFull(scope){
   renderBankQuickGrid(scope.querySelector("#bank-quick-grid"));
   renderBankFullList(scope.querySelector("#bank-full-list"), scope);
+  scope.querySelector("#bank-manage-toggle").addEventListener("click", (e)=>{
+    e.preventDefault();
+    const section = scope.querySelector("#bank-manage-section");
+    section.style.display = section.style.display==="none" ? "block" : "none";
+  });
   scope.querySelector("#bank-add-btn").addEventListener("click",()=>{
     const labelInput = scope.querySelector("#bank-label-input");
     const urlInput = scope.querySelector("#bank-url-input");
