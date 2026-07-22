@@ -1040,11 +1040,16 @@
   #ai-send{border-radius:50%;width:44px;height:44px;padding:0;flex:none;border:1px solid var(--accent-rust);color:var(--accent-rust);background:rgba(2,3,4,.55);cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:17px;}
   #ai-send:hover{background:var(--accent-rust);color:var(--bg-deep);box-shadow:0 0 14px var(--accent-rust);}
   /* Anchored to #ai-form (position:relative, above) rather than the whole dock, so "right:0"
-     lines up with the send button's own right edge regardless of the dock's width. Opened via
-     right-click/long-press on #ai-send itself — see setupAiGroqKeyPopover — not a separate button. */
+     lines up with the send button's own right edge regardless of the dock's width. Opened by a
+     plain click on #ai-send — see setupAiGroqKeyPopover.
+     z-index:47 — deliberately ABOVE #hotbar (45) and #bank-popover/#ai-popover (46), which sit in
+     this exact same bottom-of-screen region and would otherwise render on top of this popover
+     (both visually covering it AND intercepting clicks meant for its input field) any time the
+     hotbar happens to be revealed at the same time — confirmed as a real reported "can't see or
+     type into this" bug, not just a cosmetic overlap. */
   #ai-groq-key-popover{
     display:none;position:absolute;bottom:100%;right:0;margin-bottom:10px;
-    width:280px;background:rgba(4,10,14,.95);border:1px solid var(--line);border-radius:6px;padding:12px;z-index:41;
+    width:280px;background:rgba(4,10,14,.95);border:1px solid var(--line);border-radius:6px;padding:12px;z-index:47;
   }
   #ai-groq-key-popover.open{display:block;}
   #ai-log{width:100%;max-width:820px;font-family:var(--font-mono);font-size:12px;color:var(--accent-teal);height:18px;overflow:hidden;text-align:center;}
@@ -1494,10 +1499,14 @@
   <div id="ai-dock">
     <form id="ai-form">
       <input id="ai-input" type="text" placeholder="Ask me a question" autocomplete="off" />
-      <button id="ai-send" type="submit" title="Send (right-click or press-and-hold for the Groq API key)">✦</button>
-      <!-- popover for the Groq key, opened by right-clicking/long-pressing #ai-send itself rather
-           than a separate button next to it — anchored to #ai-form (see CSS) so it lines up with
-           the send button regardless of the dock's own width. -->
+      <!-- No longer a submit button — sending a message is just Enter in the input field (the
+           form still submits on Enter with zero submit buttons present, since it has exactly one
+           text field; see setupAiGroqKeyPopover for the explicit belt-and-suspenders handler too).
+           This button's ONLY job now is opening the Groq key popover on a plain click — no more
+           right-click/long-press, which nobody was going to discover on their own anyway. -->
+      <button id="ai-send" type="button" title="Groq API key (chat sends on Enter)">✦</button>
+      <!-- popover for the Groq key, opened by clicking #ai-send — anchored to #ai-form (see CSS)
+           so it lines up with the button regardless of the dock's own width. -->
       <div id="ai-groq-key-popover">
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Groq powers Medulla's free-form chat — without a key, only recognized commands work.</div>
         <div id="ai-groq-key-row"></div>
@@ -3452,11 +3461,13 @@ let ambientSoundBridge = null;
 })();
 
 /* Inline Groq key entry, folded into the EXISTING send button rather than a separate button next
-   to it — right-click (contextmenu) on desktop, press-and-hold on touch. A normal click/tap still
-   just sends the message; only the secondary "hold longer than a tap" gesture opens this. Same
-   key also lives in Settings' API Keys panel; this is just the "fix it where the missing feature
-   actually is" shortcut, same reasoning as Weather's inline "Change city" and Market's inline
-   Twelve Data setup. */
+   to it — a plain click now, not right-click/long-press (nobody was ever going to discover a
+   hidden gesture on their own; confirmed as genuinely unusable in practice). The button no longer
+   sends messages at all — Enter in the input field does that instead (see the explicit handler
+   below), so a plain click has exactly one job: open this popover. Same key also lives in
+   Settings' API Keys panel; this is just the "fix it where the missing feature actually is"
+   shortcut, same reasoning as Weather's inline "Change city" and Market's inline Twelve Data
+   setup. */
 (function setupAiGroqKeyPopover(){
   const btn = $("#ai-send");
   const popover = $("#ai-groq-key-popover");
@@ -3467,23 +3478,25 @@ let ambientSoundBridge = null;
       onSave:(val)=>{ groqApiKey = val; saveJSON(NS+"groqApiKey", groqApiKey); },
     });
   }
-  function openPopover(){ popover.classList.add("open"); renderRow(); }
-  btn.addEventListener("contextmenu", (e)=>{ e.preventDefault(); openPopover(); });
-  let pressTimer = null, longPressFired = false;
-  const LONG_PRESS_MS = 550;
-  btn.addEventListener("touchstart", ()=>{
-    longPressFired = false;
-    pressTimer = setTimeout(()=>{ longPressFired = true; openPopover(); }, LONG_PRESS_MS);
-  }, {passive:true});
-  const cancelPress = ()=> clearTimeout(pressTimer);
-  btn.addEventListener("touchmove", cancelPress);
-  btn.addEventListener("touchcancel", cancelPress);
-  btn.addEventListener("touchend", (e)=>{
-    cancelPress();
-    if(longPressFired) e.preventDefault(); // swallow the tap-through submit that would otherwise follow a long-press
+  btn.addEventListener("click", ()=>{
+    const opening = !popover.classList.contains("open");
+    popover.classList.toggle("open", opening);
+    if(opening) renderRow();
   });
   document.addEventListener("click", (e)=>{
-    if(popover.classList.contains("open") && !popover.contains(e.target)) popover.classList.remove("open");
+    if(popover.classList.contains("open") && !popover.contains(e.target) && e.target!==btn) popover.classList.remove("open");
+  });
+  /* Belt-and-suspenders: a form with exactly one text field and zero submit buttons already
+     submits on Enter per spec, but forcing it explicitly here means sending never quietly
+     depends on that implicit-submission rule holding across every browser. */
+  const input = $("#ai-input");
+  const formEl = $("#ai-form");
+  if(input && formEl) input.addEventListener("keydown", (e)=>{
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    // formEl (an IIFE at top-level script scope) can't rely on the later-declared `aiForm` const below — queried fresh here instead
+    if(formEl.requestSubmit) formEl.requestSubmit();
+    else formEl.dispatchEvent(new Event("submit", {cancelable:true}));
   });
 })();
 
