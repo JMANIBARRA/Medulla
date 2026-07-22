@@ -1039,6 +1039,17 @@
   #ai-input:focus{outline:none;border-color:var(--accent-teal);box-shadow:0 0 10px -2px var(--accent-teal);}
   #ai-send{border-radius:50%;width:44px;height:44px;padding:0;flex:none;border:1px solid var(--accent-rust);color:var(--accent-rust);background:rgba(2,3,4,.55);cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:17px;}
   #ai-send:hover{background:var(--accent-rust);color:var(--bg-deep);box-shadow:0 0 14px var(--accent-rust);}
+  /* dimmed/neutral until a Groq key is set (.active), same "quiet until relevant" treatment as
+     ambient-mute-btn/fullscreen-toggle-btn elsewhere — this one just lives in the chat bar since
+     that's what it configures. */
+  #ai-groq-key-btn{border-radius:50%;width:44px;height:44px;padding:0;flex:none;border:1px solid var(--line);color:var(--text-dim);background:rgba(2,3,4,.55);cursor:pointer;font-size:16px;opacity:.6;}
+  #ai-groq-key-btn:hover{opacity:1;}
+  #ai-groq-key-btn.active{opacity:.85;border-color:var(--accent-teal);color:var(--accent-teal);}
+  #ai-groq-key-popover{
+    display:none;position:absolute;bottom:100%;right:20px;margin-bottom:10px;
+    width:280px;background:rgba(4,10,14,.95);border:1px solid var(--line);border-radius:6px;padding:12px;z-index:41;
+  }
+  #ai-groq-key-popover.open{display:block;}
   #ai-log{width:100%;max-width:820px;font-family:var(--font-mono);font-size:12px;color:var(--accent-teal);height:18px;overflow:hidden;text-align:center;}
   /* background-ambience mute toggle — small and out of the way near the chat bar rather than
      competing for space on the topbar (see the HTML comment above #ambient-mute-btn for why it
@@ -1461,7 +1472,15 @@
     <form id="ai-form">
       <input id="ai-input" type="text" placeholder="Ask me a question" autocomplete="off" />
       <button id="ai-send" type="submit" title="Send">✦</button>
+      <button id="ai-groq-key-btn" type="button" title="Add a Groq API key for full AI chat">🔑</button>
     </form>
+    <!-- popover for the Groq key, anchored above the dock (see #ai-groq-key-popover CSS) — same
+         click-to-toggle pattern as Weather's "Change city" control, just for the one key that
+         gates the AI chat itself rather than living only in Settings' API Keys panel. -->
+    <div id="ai-groq-key-popover">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Groq powers Medulla's free-form chat — without a key, only recognized commands work.</div>
+      <div id="ai-groq-key-row"></div>
+    </div>
     <div id="ai-log"></div>
   </div>
   <!-- mute/unmute plus a hover-reveal volume slider (see setupAmbientSound); the same volume
@@ -2384,7 +2403,7 @@ const I18N_ES = {
   "The Wire": "El Cable",
   "coingecko id e.g. solana": "id de coingecko, p. ej. solana",
   "Add": "Añadir",
-  "Index values above are sample data, but their charts below are real (via SPY/QQQ) once a free Twelve Data key is added in Settings. Crypto prices and charts are live via CoinGecko.": "Los valores de los índices arriba son datos de muestra, pero sus gráficos abajo son reales (vía SPY/QQQ) una vez que agregas una clave gratuita de Twelve Data en Ajustes. Los precios y gráficos de criptomonedas son en vivo a través de CoinGecko.",
+  "Index values above are sample data. Crypto prices and charts are live via CoinGecko.": "Los valores de los índices arriba son datos de muestra. Los precios y gráficos de criptomonedas son en vivo a través de CoinGecko.",
   "Loading headlines…": "Cargando titulares…",
 
   /* ---- sports ---- */
@@ -2797,6 +2816,30 @@ function applyLocalDump(dump){
 }
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+
+/* Shared "paste a key, Save, optional Get-key link" control — every API key field in this app
+   (Settings' dedicated API Keys panel, plus the inline copy each widget that actually needs one
+   now carries) renders through this one function instead of five-plus near-identical hand-rolled
+   blocks that would only drift apart over time. Random per-call ids so the SAME key can safely
+   have two independent live copies on screen at once (e.g. Twelve Data in both Settings and the
+   Market widget) without one's DOM id colliding with the other's. */
+function renderApiKeyRow(container, opts){
+  const uid = Math.random().toString(36).slice(2,9);
+  const inputId = "akr-input-"+uid, btnId = "akr-btn-"+uid;
+  container.innerHTML = `<div style="display:flex;gap:8px;">
+    <input type="text" id="${inputId}" placeholder="${escapeHtml(opts.placeholder||"")}" style="flex:1;" value="${escapeHtml(opts.value||"")}"/>
+    <button class="btn primary" id="${btnId}">Save</button>
+    ${opts.getKeyUrl ? `<a class="btn" href="${opts.getKeyUrl}" target="_blank" rel="noopener">${escapeHtml(opts.getKeyLabel||"Get key ↗")}</a>` : ""}
+  </div>`;
+  const input = container.querySelector("#"+inputId);
+  const btn = container.querySelector("#"+btnId);
+  btn.addEventListener("click", ()=>{
+    opts.onSave(input.value.trim());
+    btn.textContent = "Saved";
+    setTimeout(()=>{ btn.textContent = "Save"; }, 1200);
+  });
+  return {input, btn};
 }
 
 let profiles = loadJSON(NS+"profiles", {list:["main"], labels:{main:"Main"}, active:"main"});
@@ -3359,6 +3402,34 @@ let ambientSoundBridge = null;
   });
   document.addEventListener("fullscreenchange", refresh);
   refresh();
+})();
+
+/* Inline Groq key entry right in the chat bar — see #ai-groq-key-btn/#ai-groq-key-popover above.
+   Same key also lives in Settings' API Keys panel; this is just the "fix it where the missing
+   feature actually is" shortcut, same reasoning as Weather's inline "Change city" and Market's
+   inline Twelve Data setup. */
+(function setupAiGroqKeyPopover(){
+  const btn = $("#ai-groq-key-btn");
+  const popover = $("#ai-groq-key-popover");
+  if(!btn || !popover) return;
+  function refreshBtn(){ btn.classList.toggle("active", !!groqApiKey); }
+  function renderRow(){
+    renderApiKeyRow($("#ai-groq-key-row"), {
+      value: groqApiKey, placeholder:"gsk_…", getKeyUrl:"https://console.groq.com/keys",
+      onSave:(val)=>{ groqApiKey = val; saveJSON(NS+"groqApiKey", groqApiKey); refreshBtn(); },
+    });
+  }
+  btn.addEventListener("click", ()=>{
+    const opening = !popover.classList.contains("open");
+    popover.classList.toggle("open", opening);
+    if(opening) renderRow();
+  });
+  document.addEventListener("click", (e)=>{
+    if(popover.classList.contains("open") && !popover.contains(e.target) && e.target!==btn){
+      popover.classList.remove("open");
+    }
+  });
+  refreshBtn();
 })();
 
 /* bounding box of every visible widget/capsule, in world space — used by the recenter button
@@ -5164,7 +5235,8 @@ function renderFull(id){
           <input id="mkt-add-input" type="text" placeholder="coingecko id e.g. solana" style="flex:1;"/>
           <button class="btn" id="mkt-add-btn">Add</button>
         </div>
-        <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values above are sample data, but their charts below are real (via SPY/QQQ) once a free Twelve Data key is added in Settings. Crypto prices and charts are live via CoinGecko.</p>
+        <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values above are sample data. Crypto prices and charts are live via CoinGecko.</p>
+        <div id="mkt-twelvedata-setup" style="margin-top:10px;"></div>
         <div id="mkt-charts-full" style="margin-top:14px;"></div>
       </div>
       <div>
@@ -5188,6 +5260,7 @@ function renderFull(id){
         <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Scoreboard & News</h3>
         <div id="sport-events" style="font-size:12px;color:var(--text-dim);line-height:1.7;">Loading…</div>
       </div>
+      <div id="sport-key-setup" style="grid-column:1/-1;margin-top:4px;"></div>
     </div>`;
   }
   if(id==="weather"){
@@ -5203,6 +5276,12 @@ function renderFull(id){
         <div style="display:flex;gap:6px;">
           <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;flex:1;">Save</button>
           <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;flex:1;">Use automatic</button>
+        </div>
+        <a href="#" id="weather-coords-toggle" style="font-size:10px;color:var(--accent-teal);">Or enter coordinates directly</a>
+        <div id="weather-coords-row" style="display:none;gap:6px;">
+          <input type="text" id="weather-coords-lat" placeholder="Latitude" style="flex:1;font-size:12px;padding:4px 6px;">
+          <input type="text" id="weather-coords-lon" placeholder="Longitude" style="flex:1;font-size:12px;padding:4px 6px;">
+          <button type="button" class="btn primary" id="weather-coords-save-btn" style="padding:3px 8px;font-size:11px;flex:none;">Save</button>
         </div>
         <div id="weather-city-status" style="font-size:10px;color:var(--text-dim);"></div>
       </div>
@@ -5916,10 +5995,49 @@ function hydrateMarketMini(scope){
   renderIndexRows(scope.querySelector("#mkt-idx-mini"));
   renderPinRows(scope.querySelector("#mkt-pin-mini"), true);
 }
+/* Lets the Twelve Data key (needed for the S&P 500/NASDAQ charts — see INDEX_ASSETS) be added
+   right here in the Market widget instead of only in Settings, same "fix it where the missing
+   feature actually is" pattern as Weather's inline "Change city" control. Collapses to a small
+   "Change key" link once a key is set, rather than disappearing entirely, so it stays
+   discoverable if the key ever needs replacing. */
+function renderTwelveDataSetup(container){
+  if(!container) return;
+  if(twelveDataApiKey){
+    container.innerHTML = `<a href="#" id="mkt-td-edit-link" style="font-size:11px;color:var(--accent-teal);">Change Twelve Data key (S&P 500/NASDAQ charts)</a>
+      <div id="mkt-td-row" style="display:none;gap:6px;margin-top:6px;">
+        <input type="text" id="mkt-td-input" placeholder="paste key here" style="flex:1;font-size:12px;padding:4px 6px;" value="${twelveDataApiKey}">
+        <button class="btn primary" id="mkt-td-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
+      </div>`;
+  } else {
+    container.innerHTML = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">Add a free Twelve Data key to chart S&P 500/NASDAQ (via SPY/QQQ) below.</div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="mkt-td-input" placeholder="paste key here" style="flex:1;font-size:12px;padding:4px 6px;">
+        <button class="btn primary" id="mkt-td-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
+        <a class="btn" href="https://twelvedata.com/apikey" target="_blank" rel="noopener" style="padding:3px 8px;font-size:11px;">Get key ↗</a>
+      </div>`;
+  }
+  const editLink = container.querySelector("#mkt-td-edit-link");
+  const row = container.querySelector("#mkt-td-row");
+  if(editLink) editLink.addEventListener("click", (e)=>{
+    e.preventDefault();
+    row.style.display = row.style.display==="none" ? "flex" : "none";
+  });
+  container.querySelector("#mkt-td-save-btn").addEventListener("click", ()=>{
+    const key = container.querySelector("#mkt-td-input").value.trim();
+    if(!key) return;
+    twelveDataApiKey = key;
+    saveJSON(NS+"twelveDataApiKey", twelveDataApiKey);
+    renderTwelveDataSetup(container);
+    renderMarketCharts(document.querySelector("#mkt-charts-full"));
+    const idxTable = document.querySelector("#mkt-idx-full");
+    if(idxTable) renderIndexRows(idxTable);
+  });
+}
 async function hydrateMarketFull(scope){
   renderIndexRows(scope.querySelector("#mkt-idx-full"));
   renderPinRows(scope.querySelector("#mkt-pin-full"));
   renderMarketCharts(scope.querySelector("#mkt-charts-full"));
+  renderTwelveDataSetup(scope.querySelector("#mkt-twelvedata-setup"));
   scope.querySelector("#mkt-add-btn").addEventListener("click", async ()=>{
     const inp = scope.querySelector("#mkt-add-input");
     const id = inp.value.trim().toLowerCase();
@@ -6207,8 +6325,27 @@ function hydrateSportsMini(scope){
   return function cleanup(){ clearInterval(intervalId); };
 }
 
+/* Sports always works with zero setup (a shared public demo key covers it), unlike every other
+   keyed widget here — so this never gates a "not ready" state the way YouTube's does. Just a
+   small, always-present "add your own key" collapsed behind a link, same shape as Market's
+   Twelve Data setup, for the ~30 requests/minute demo-key ceiling shared across everyone using it. */
+function renderSportsDbKeySetup(container){
+  if(!container) return;
+  container.innerHTML = `<a href="#" id="sport-key-toggle" style="font-size:11px;color:var(--accent-teal);">${sportsDbApiKey ? "Change your TheSportsDB key" : "Add your own free TheSportsDB key (avoids the shared demo key's rate limit)"}</a>
+    <div id="sport-key-row" style="display:none;margin-top:6px;"></div>`;
+  container.querySelector("#sport-key-toggle").addEventListener("click", (e)=>{
+    e.preventDefault();
+    const row = container.querySelector("#sport-key-row");
+    row.style.display = row.style.display==="none" ? "block" : "none";
+  });
+  renderApiKeyRow(container.querySelector("#sport-key-row"), {
+    value: sportsDbApiKey, placeholder:"leave blank to use the shared demo key", getKeyUrl:"https://www.thesportsdb.com/free_sports_api",
+    onSave:(val)=>{ sportsDbApiKey = val; saveJSON(NS+"sportsDbApiKey", sportsDbApiKey); loadEvents(modalBody); renderSportsDbKeySetup(container); },
+  });
+}
 function hydrateSportsFull(scope){
   renderFollowList(scope.querySelector("#sport-follow-list"));
+  renderSportsDbKeySetup(scope.querySelector("#sport-key-setup"));
   scope.querySelector("#sport-add-btn").addEventListener("click", ()=>{
     const inp = scope.querySelector("#sport-add-input");
     const name = inp.value.trim();
@@ -7314,13 +7451,19 @@ function setupYouTubePlayer(scope, sel){
     if(!suggestEl) return;
     browseOpen = true;
     if(sel.readyCheck && !sel.readyCheck()){
-      suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-mini-signin">${sel.notReadyActionLabel}</button>` : ""}</div>`;
+      suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-mini-signin">${sel.notReadyActionLabel}</button>` : ""}${sel.notReadyKeyInput ? `<div id="__yt-mini-key-row" style="margin-top:8px;"></div>` : ""}</div>`;
       const btn = suggestEl.querySelector("#__yt-mini-signin");
       if(btn) btn.addEventListener("click", async ()=>{
         btn.disabled = true; btn.textContent = "Signing in…";
         try{ await sel.notReadyAction(); showMiniSuggestions(); }
         catch(e){ suggestEl.innerHTML = `<div class="yt-mini-suggestions-msg">Sign-in failed — ${e.message}</div>`; }
       });
+      if(sel.notReadyKeyInput){
+        renderApiKeyRow(suggestEl.querySelector("#__yt-mini-key-row"), {
+          ...sel.notReadyKeyInput,
+          onSave:(val)=>{ sel.notReadyKeyInput.onSave(val); showMiniSuggestions(); },
+        });
+      }
       return;
     }
     suggestEl.innerHTML = `
@@ -7412,7 +7555,9 @@ function hydrateYouTubeMini(scope){
     mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
     suggestionsInPlayer:"#yt-mini-suggestions", browse:"#yt-mini-browse-btn",
     fetchDefault:fetchYouTubeTrending, fetchSearch:fetchYouTubeSearch, readyCheck:()=>!!ytApiKey,
-    notReadyMsg:"Add a YouTube Data API key in Settings to see suggestions here.",
+    notReadyMsg:"Add a YouTube Data API key to see suggestions here.",
+    notReadyKeyInput:{value:ytApiKey, placeholder:"AIza…", getKeyUrl:"https://console.cloud.google.com/apis/credentials",
+      onSave:(val)=>{ ytApiKey = val; saveJSON(NS+"ytApiKey", ytApiKey); }},
     videoData:videoData, videoDataKey:NS+"video"
   });
 }
@@ -7423,8 +7568,10 @@ function hydrateYouTubeOAuthMini(scope){
     mutedLabel:YT_ICON_MUTE, unmutedLabel:YT_ICON_VOLUME,
     suggestionsInPlayer:"#ytg-mini-suggestions", browse:"#ytg-mini-browse-btn",
     fetchDefault:fetchYouTubeOAuthHomeFeed, fetchSearch:fetchYouTubeOAuthSearch, readyCheck:()=>!!googleAccessToken,
-    notReadyMsg:"Sign in with Google to see your subscriptions/home feed here.",
+    notReadyMsg: googleClientId ? "Sign in with Google to see your subscriptions/home feed here." : "Add a Google OAuth Client ID, then sign in, to see your subscriptions/home feed here.",
     notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google",
+    notReadyKeyInput:{value:googleClientId, placeholder:"xxxx.apps.googleusercontent.com", getKeyUrl:"https://console.cloud.google.com/apis/credentials", getKeyLabel:"Get ID ↗",
+      onSave:(val)=>{ googleClientId = val; saveJSON(NS+"googleClientId", googleClientId); }},
     videoData:videoDataOAuth, videoDataKey:NS+"videoOAuth"
   });
 }
@@ -7473,13 +7620,19 @@ function setupYouTubeSuggestions(scope, sel){
   function renderNotReady(){
     if(destroyed) return;
     listEl.style.display = "block";
-    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:12px;padding:8px;line-height:1.6;">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-full-signin">${sel.notReadyActionLabel}</button>` : ""}</div>`;
+    listEl.innerHTML = `<div style="color:var(--text-dim);font-size:12px;padding:8px;line-height:1.6;">${sel.notReadyMsg}${sel.notReadyAction ? `<br><br><button class="btn primary" id="__yt-full-signin">${sel.notReadyActionLabel}</button>` : ""}${sel.notReadyKeyInput ? `<div id="__yt-full-key-row" style="margin-top:10px;"></div>` : ""}</div>`;
     const btn = listEl.querySelector("#__yt-full-signin");
     if(btn) btn.addEventListener("click", async ()=>{
       btn.disabled = true; btn.textContent = "Signing in…";
       try{ await sel.notReadyAction(); doSearch(); }
       catch(e){ renderMessage("Sign-in failed — "+e.message); }
     });
+    if(sel.notReadyKeyInput){
+      renderApiKeyRow(listEl.querySelector("#__yt-full-key-row"), {
+        ...sel.notReadyKeyInput,
+        onSave:(val)=>{ sel.notReadyKeyInput.onSave(val); doSearch(); },
+      });
+    }
   }
   async function run(fetchFn){
     const seq = ++requestSeq;
@@ -7517,7 +7670,9 @@ function hydrateYouTubeFull(scope){
     url:"#yt-full-url", load:"#yt-full-load-btn",
     fetchDefault:fetchYouTubeTrending, fetchSearch:fetchYouTubeSearch,
     readyCheck:()=>!!ytApiKey,
-    notReadyMsg:"Add a free YouTube Data API key in Settings to see trending/search results here."
+    notReadyMsg:"Add a free YouTube Data API key to see trending/search results here.",
+    notReadyKeyInput:{value:ytApiKey, placeholder:"AIza…", getKeyUrl:"https://console.cloud.google.com/apis/credentials",
+      onSave:(val)=>{ ytApiKey = val; saveJSON(NS+"ytApiKey", ytApiKey); }}
   });
   return function cleanup(){ cleanupPlayer(); cleanupSuggestions(); };
 }
@@ -7533,8 +7688,10 @@ function hydrateYouTubeOAuthFull(scope){
     url:"#ytg-full-url", load:"#ytg-full-load-btn",
     fetchDefault:fetchYouTubeOAuthHomeFeed, fetchSearch:fetchYouTubeOAuthSearch,
     readyCheck:()=>!!googleAccessToken,
-    notReadyMsg:"Sign in with Google to see your subscriptions/home feed here.",
-    notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google"
+    notReadyMsg: googleClientId ? "Sign in with Google to see your subscriptions/home feed here." : "Add a Google OAuth Client ID, then sign in, to see your subscriptions/home feed here.",
+    notReadyAction:googleSignIn, notReadyActionLabel:"Sign in with Google",
+    notReadyKeyInput:{value:googleClientId, placeholder:"xxxx.apps.googleusercontent.com", getKeyUrl:"https://console.cloud.google.com/apis/credentials", getKeyLabel:"Get ID ↗",
+      onSave:(val)=>{ googleClientId = val; saveJSON(NS+"googleClientId", googleClientId); }}
   });
   return function cleanup(){ cleanupPlayer(); cleanupSuggestions(); };
 }
@@ -7659,6 +7816,87 @@ function renderWidgetsManagerModal(){
   modalOverlay.classList.add("open");
 }
 
+/* ================= API KEYS (dedicated panel, out of the main Settings list) =================
+   Every third-party key this app can use, in one place — previously each of these five sat as
+   its own full-height section directly inside Settings, which made that screen long enough that
+   the actually personal stuff (name, language, account, widgets) was buried under a wall of API
+   key fields most people only ever touch once. Reached the same way Widgets is — a single entry
+   point inside Settings, same modal-swap pattern as renderWidgetsManagerModal above. Each of
+   these ALSO has its own inline copy right inside the widget that actually needs it (YouTube,
+   Video (Google), Sports, Market, and the AI chat dock) — this panel isn't the only place to set
+   them, just the one place that lists all of them together. */
+function renderApiKeysModal(){
+  modalTitle.textContent = "API Keys";
+  modalBody.innerHTML = `
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:0 0 16px;">
+      Every one of these is optional and free. Each also has its own shortcut right inside the
+      widget that uses it, if you'd rather set it up from there instead.
+    </p>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Medulla AI chat (Groq)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Free API key from <span style="color:var(--text-primary);">console.groq.com</span> — no credit card, no per-message
+      cost. Powers Medulla's free-form chat (open-weight Llama 3.3 70B) on any device, no local software needed.
+      Without a key, only the built-in recognized commands (e.g. "zoom out") still work.
+    </p>
+    <div id="akr-groq" style="margin-bottom:18px;"></div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">YouTube Data API key</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Needed for trending/search suggestions in the Video widget's full view — free from
+      <span style="color:var(--text-primary);">console.cloud.google.com</span>. Not needed just to paste-and-play a link.
+      If you're opening this file directly (file://) rather than through a local server, leave the key
+      unrestricted — a file:// page sends no HTTP referrer, so a referrer-restricted key will be rejected.
+    </p>
+    <div id="akr-yt" style="margin-bottom:18px;"></div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Google Sign-In (Video (Google) widget)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      An OAuth Client ID from the same Google Cloud project, under "APIs & Services → Credentials
+      → Create Credentials → OAuth client ID → Web application." Under "Authorized JavaScript
+      origins," add whatever origin this page is actually loaded from — exactly, with no
+      trailing slash or path — e.g. <span style="color:var(--text-primary);">http://localhost:8934</span>
+      if running locally, or your real domain (e.g. <span style="color:var(--text-primary);">https://your-site.netlify.app</span>)
+      if it's hosted. A mismatch here is exactly what an "Error 400: origin_mismatch" screen means.
+      While your OAuth consent screen is in "Testing" mode, add your own Google account under "Test users" —
+      otherwise sign-in will be rejected before you even see the consent screen.
+    </p>
+    <div id="akr-google" style="margin-bottom:18px;"></div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Sports scores (TheSportsDB)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Free personal key — Sports works without one (using a shared public demo key), but that
+      demo key is capped at ~30 requests/minute split across everyone using it, which can show
+      "Scores unavailable" during busy periods. Your own free key gets its own 100/minute.
+    </p>
+    <div id="akr-sportsdb" style="margin-bottom:18px;"></div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">S&P 500 / NASDAQ charts (Twelve Data)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Free instant key — charts real historical prices for SPY/QQQ (the S&P 500 and Nasdaq-100
+      ETFs, used as a stand-in since there's no free way to chart the raw indices themselves)
+      in the Market widget. Without a key, those two rows just show their sample number with no chart.
+    </p>
+    <div id="akr-twelvedata"></div>
+  `;
+  renderApiKeyRow(modalBody.querySelector("#akr-groq"), {
+    value: groqApiKey, placeholder:"gsk_…", getKeyUrl:"https://console.groq.com/keys",
+    onSave: (val)=>{ groqApiKey = val; saveJSON(NS+"groqApiKey", groqApiKey); },
+  });
+  renderApiKeyRow(modalBody.querySelector("#akr-yt"), {
+    value: ytApiKey, placeholder:"AIza…", getKeyUrl:"https://console.cloud.google.com/apis/credentials",
+    onSave: (val)=>{ ytApiKey = val; saveJSON(NS+"ytApiKey", ytApiKey); },
+  });
+  renderApiKeyRow(modalBody.querySelector("#akr-google"), {
+    value: googleClientId, placeholder:"xxxx.apps.googleusercontent.com", getKeyUrl:"https://console.cloud.google.com/apis/credentials", getKeyLabel:"Get ID ↗",
+    onSave: (val)=>{ googleClientId = val; saveJSON(NS+"googleClientId", googleClientId); },
+  });
+  renderApiKeyRow(modalBody.querySelector("#akr-sportsdb"), {
+    value: sportsDbApiKey, placeholder:"leave blank to use the shared demo key", getKeyUrl:"https://www.thesportsdb.com/free_sports_api",
+    onSave: (val)=>{ sportsDbApiKey = val; saveJSON(NS+"sportsDbApiKey", sportsDbApiKey); },
+  });
+  renderApiKeyRow(modalBody.querySelector("#akr-twelvedata"), {
+    value: twelveDataApiKey, placeholder:"paste key here", getKeyUrl:"https://twelvedata.com/apikey",
+    onSave: (val)=>{ twelveDataApiKey = val; saveJSON(NS+"twelveDataApiKey", twelveDataApiKey); },
+  });
+  modalOverlay.classList.add("open");
+}
+
 /* ================= SETTINGS (theme / backup) ================= */
 const THEME_SWATCHES = ["#020304","#000000","#02080a","#04080a","#050505","#000a08","#02040a"];
 /* ice blue (default), white, purple, red, green, amber, pink, black — kept at a similar
@@ -7688,7 +7926,7 @@ $("#settings-btn").addEventListener("click", ()=>{
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
       Signed in as <span style="color:var(--text-primary);">${escapeHtml(fbUser.email||"")}</span>. Your settings
       auto-sync to this account a couple seconds after any change. Signing out only stops syncing on this
-      device — nothing local gets deleted. Your Groq/YouTube/TheSportsDB API keys are never part of that
+      device — nothing local gets deleted. Your API keys (in Settings → API Keys) are never part of that
       sync — they stay on this device only, so you'll re-enter them on any other device you sign into.
     </p>
     <div style="display:flex;gap:8px;margin:10px 0 4px;">
@@ -7727,44 +7965,13 @@ $("#settings-btn").addEventListener("click", ()=>{
       ${ACCENT_SWATCHES.map(c=>`<div class="swatch accent-swatch" data-c="${c}" style="background:${c};${c===themeAccent?"box-shadow:0 0 0 2px var(--text-primary);":""}"></div>`).join("")}
       <input type="color" id="accent-color-input" value="${themeAccent}" style="width:34px;height:26px;padding:0;border:1px solid var(--line);background:none;cursor:pointer;" title="Custom color"/>
     </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">YouTube Data API key</h3>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">API Keys</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      Needed for trending/search suggestions in the Video widget's full view — free from
-      <span style="color:var(--text-primary);">console.cloud.google.com</span>. Not needed just to paste-and-play a link.
-      If you're opening this file directly (file://) rather than through a local server, leave the key
-      unrestricted — a file:// page sends no HTTP referrer, so a referrer-restricted key will be rejected.
+      Every optional third-party key this app can use (Groq, YouTube, Google Sign-In, TheSportsDB,
+      Twelve Data) — all free, all in one place, out of this list.
     </p>
-    <div style="display:flex;gap:8px;margin-bottom:18px;">
-      <input type="text" id="yt-api-key-input" placeholder="AIza…" style="flex:1;" value="${ytApiKey}"/>
-      <button class="btn primary" id="yt-api-key-save-btn">Save</button>
-      <a class="btn" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Get key ↗</a>
-    </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Google Sign-In (Video (Google) widget)</h3>
-    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      An OAuth Client ID from the same Google Cloud project, under "APIs & Services → Credentials
-      → Create Credentials → OAuth client ID → Web application." Under "Authorized JavaScript
-      origins," add whatever origin this page is actually loaded from — exactly, with no
-      trailing slash or path — e.g. <span style="color:var(--text-primary);">http://localhost:8934</span>
-      if running locally, or your real domain (e.g. <span style="color:var(--text-primary);">https://your-site.netlify.app</span>)
-      if it's hosted. A mismatch here is exactly what an "Error 400: origin_mismatch" screen means.
-      While your OAuth consent screen is in "Testing" mode, add your own Google account under "Test users" —
-      otherwise sign-in will be rejected before you even see the consent screen.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:18px;">
-      <input type="text" id="google-client-id-input" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;" value="${googleClientId}"/>
-      <button class="btn primary" id="google-client-id-save-btn">Save</button>
-      <a class="btn" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Get ID ↗</a>
-    </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Medulla AI chat (Groq)</h3>
-    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      Free API key from <span style="color:var(--text-primary);">console.groq.com</span> — no credit card, no per-message
-      cost. Powers Medulla's free-form chat (open-weight Llama 3.3 70B) on any device, no local software needed.
-      Without a key, only the built-in recognized commands (e.g. "zoom out") still work.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:18px;">
-      <input type="text" id="groq-api-key-input" placeholder="gsk_…" style="flex:1;" value="${groqApiKey}"/>
-      <button class="btn primary" id="groq-api-key-save-btn">Save</button>
-      <a class="btn" href="https://console.groq.com/keys" target="_blank" rel="noopener">Get key ↗</a>
+    <div style="margin:10px 0 18px;">
+      <button class="btn primary" id="manage-api-keys-btn">Manage API Keys</button>
     </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Home city (Weather)</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
@@ -7778,30 +7985,15 @@ $("#settings-btn").addEventListener("click", ()=>{
       <button class="btn primary" id="home-city-save-btn">Save</button>
       ${homeLocationOverride ? `<button class="btn" id="home-city-clear-btn">Use automatic</button>` : ``}
     </div>
+    <div style="margin-bottom:6px;">
+      <a href="#" id="home-coords-toggle" style="font-size:11px;color:var(--accent-teal);">Or, if city lookups are blocked on your network, enter coordinates directly</a>
+    </div>
+    <div id="home-coords-row" style="display:none;gap:8px;margin-bottom:6px;">
+      <input type="text" id="home-coords-lat" placeholder="Latitude" style="flex:1;">
+      <input type="text" id="home-coords-lon" placeholder="Longitude" style="flex:1;">
+      <button class="btn primary" id="home-coords-save-btn">Save</button>
+    </div>
     <div id="home-city-status" style="font-size:11px;color:var(--text-dim);margin-bottom:18px;"></div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Sports scores (TheSportsDB)</h3>
-    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      Free personal key — Sports works without one (using a shared public demo key), but that
-      demo key is capped at ~30 requests/minute split across everyone using it, which can show
-      "Scores unavailable" during busy periods. Your own free key gets its own 100/minute.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:18px;">
-      <input type="text" id="sportsdb-api-key-input" placeholder="leave blank to use the shared demo key" style="flex:1;" value="${sportsDbApiKey}"/>
-      <button class="btn primary" id="sportsdb-api-key-save-btn">Save</button>
-      <a class="btn" href="https://www.thesportsdb.com/free_sports_api" target="_blank" rel="noopener">Get key ↗</a>
-    </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">S&P 500 / NASDAQ charts (Twelve Data)</h3>
-    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      Free instant key — charts real historical prices for SPY/QQQ (the S&P 500 and Nasdaq-100
-      ETFs, used as a stand-in since there's no free way to chart the raw indices themselves)
-      in the Market widget. Without a key, those two rows just show their sample number with no
-      chart, same as before.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:18px;">
-      <input type="text" id="twelvedata-api-key-input" placeholder="paste key here" style="flex:1;" value="${twelveDataApiKey}"/>
-      <button class="btn primary" id="twelvedata-api-key-save-btn">Save</button>
-      <a class="btn" href="https://twelvedata.com/apikey" target="_blank" rel="noopener">Get key ↗</a>
-    </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Backup & restore</h3>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="btn primary" id="export-btn">Export backup (.json)</button>
@@ -7852,35 +8044,9 @@ $("#settings-btn").addEventListener("click", ()=>{
     $("#lang-es-btn").classList.add("primary");
     $("#lang-en-btn").classList.remove("primary");
   });
-  $("#yt-api-key-save-btn").addEventListener("click", ()=>{
-    ytApiKey = $("#yt-api-key-input").value.trim();
-    saveJSON(NS+"ytApiKey", ytApiKey);
-    $("#yt-api-key-save-btn").textContent = "Saved";
-    setTimeout(()=>{ $("#yt-api-key-save-btn").textContent = "Save"; }, 1200);
-  });
-  $("#groq-api-key-save-btn").addEventListener("click", ()=>{
-    groqApiKey = $("#groq-api-key-input").value.trim();
-    saveJSON(NS+"groqApiKey", groqApiKey);
-    $("#groq-api-key-save-btn").textContent = "Saved";
-    setTimeout(()=>{ $("#groq-api-key-save-btn").textContent = "Save"; }, 1200);
-  });
-  $("#sportsdb-api-key-save-btn").addEventListener("click", ()=>{
-    sportsDbApiKey = $("#sportsdb-api-key-input").value.trim();
-    saveJSON(NS+"sportsDbApiKey", sportsDbApiKey);
-    $("#sportsdb-api-key-save-btn").textContent = "Saved";
-    setTimeout(()=>{ $("#sportsdb-api-key-save-btn").textContent = "Save"; }, 1200);
-  });
-  $("#twelvedata-api-key-save-btn").addEventListener("click", ()=>{
-    twelveDataApiKey = $("#twelvedata-api-key-input").value.trim();
-    saveJSON(NS+"twelveDataApiKey", twelveDataApiKey);
-    $("#twelvedata-api-key-save-btn").textContent = "Saved";
-    setTimeout(()=>{ $("#twelvedata-api-key-save-btn").textContent = "Save"; }, 1200);
-  });
-  $("#google-client-id-save-btn").addEventListener("click", ()=>{
-    googleClientId = $("#google-client-id-input").value.trim();
-    saveJSON(NS+"googleClientId", googleClientId);
-    $("#google-client-id-save-btn").textContent = "Saved";
-    setTimeout(()=>{ $("#google-client-id-save-btn").textContent = "Save"; }, 1200);
+  $("#manage-api-keys-btn").addEventListener("click", ()=>{
+    if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+    renderApiKeysModal();
   });
   $("#home-city-save-btn").addEventListener("click", async ()=>{
     const name = $("#home-city-input").value.trim();
@@ -7918,6 +8084,41 @@ $("#settings-btn").addEventListener("click", ()=>{
     $("#home-city-input").value = "";
     homeCityClearBtn.remove();
     $("#home-city-status").textContent = "Back to automatic (IP-based) location detection.";
+  });
+  /* Bypasses geocodeCityName's network call entirely — see the matching block in
+     hydrateWeatherFull for why this exists (a network/firewall block on the geocoding lookup,
+     not a bad city name, confirmed as the actual cause here). */
+  $("#home-coords-toggle").addEventListener("click", (e)=>{
+    e.preventDefault();
+    const row = $("#home-coords-row");
+    row.style.display = row.style.display==="none" ? "flex" : "none";
+  });
+  $("#home-coords-save-btn").addEventListener("click", ()=>{
+    const lat = parseFloat($("#home-coords-lat").value);
+    const lon = parseFloat($("#home-coords-lon").value);
+    const status = $("#home-city-status");
+    if(isNaN(lat) || isNaN(lon) || lat<-90 || lat>90 || lon<-180 || lon>180){
+      status.textContent = "Latitude must be -90 to 90, longitude -180 to 180.";
+      return;
+    }
+    homeLocationOverride = { city:`${lat.toFixed(3)}, ${lon.toFixed(3)}`, lat, lon };
+    saveJSON(NS+"homeLocation", homeLocationOverride);
+    cachedLocation = null; cachedWeatherData = null;
+    $("#home-city-input").value = homeLocationOverride.city;
+    status.textContent = `Saved — Weather will always use ${homeLocationOverride.city} now.`;
+    if(!$("#home-city-clear-btn")){
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "btn"; clearBtn.id = "home-city-clear-btn"; clearBtn.textContent = "Use automatic";
+      $("#home-city-save-btn").insertAdjacentElement("afterend", clearBtn);
+      clearBtn.addEventListener("click", ()=>{
+        homeLocationOverride = null;
+        localStorage.removeItem(NS+"homeLocation");
+        cachedLocation = null; cachedWeatherData = null;
+        $("#home-city-input").value = "";
+        clearBtn.remove();
+        status.textContent = "Back to automatic (IP-based) location detection.";
+      });
+    }
   });
   /* .accent-swatch also carries the shared .swatch class for its square-color-chip styling, so
      this must exclude it explicitly — otherwise clicking an accent color would also wrongly
@@ -10675,6 +10876,32 @@ function hydrateWeatherFull(scope){
       cachedLocation = null; cachedWeatherData = null;
       currentEl.textContent = "Currently set to: None (using automatic IP-based detection)";
       status.textContent = "Back to automatic (IP-based) location.";
+      refresh();
+    });
+    /* Bypasses geocodeCityName's network call entirely — for anyone whose network blocks that
+       lookup outright (a "Failed to fetch" network error, not a bad city name — confirmed as the
+       actual cause here). Coordinates are plugged straight into homeLocationOverride with no
+       request involved, so this keeps working even when every other geolocation path is blocked.
+       The weather FORECAST fetch itself (api.open-meteo.com) still has to reach the network,
+       though — if that's blocked too, this narrows down what's actually broken but can't fix it. */
+    const coordsToggle = scope.querySelector("#weather-coords-toggle");
+    const coordsRow = scope.querySelector("#weather-coords-row");
+    coordsToggle.addEventListener("click", (e)=>{
+      e.preventDefault();
+      coordsRow.style.display = coordsRow.style.display==="none" ? "flex" : "none";
+    });
+    scope.querySelector("#weather-coords-save-btn").addEventListener("click", ()=>{
+      const lat = parseFloat(scope.querySelector("#weather-coords-lat").value);
+      const lon = parseFloat(scope.querySelector("#weather-coords-lon").value);
+      if(isNaN(lat) || isNaN(lon) || lat<-90 || lat>90 || lon<-180 || lon>180){
+        status.textContent = "Latitude must be -90 to 90, longitude -180 to 180.";
+        return;
+      }
+      homeLocationOverride = { city:`${lat.toFixed(3)}, ${lon.toFixed(3)}`, lat, lon };
+      saveJSON(NS+"homeLocation", homeLocationOverride);
+      cachedLocation = null; cachedWeatherData = null;
+      currentEl.textContent = `Currently set to: ${homeLocationOverride.city}`;
+      status.textContent = "Coordinates saved.";
       refresh();
     });
   }
