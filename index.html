@@ -8274,9 +8274,21 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
        dead button with zero feedback. This turns that into an actual, visible message instead. */
     function requireFbAuth(){
       if(fbAuth) return true;
-      showError({message: firebaseInitError
-        ? "Cloud sign-in couldn't load (the Firebase library failed to start) — try refreshing the page. If it keeps happening, your network or an extension may be blocking it."
-        : "Cloud sign-in isn't ready yet — try again in a moment, or refresh the page."});
+      /* Diagnoses WHICH stage failed, live, right in the message — rather than relying solely on
+         firebaseInitError (set only if initFirebaseSync's own code threw), since a script tag
+         that fails to load doesn't throw a catchable JS exception at all; it just silently never
+         defines `firebase`, leaving fbAuth null with nothing for a try/catch to ever have caught.
+         Checked fresh on every click (not cached) in case the SDK finishes loading late — a slow
+         network could still resolve it a few seconds after the page first became interactive. */
+      let reason;
+      if(typeof firebase === "undefined"){
+        reason = "The Firebase library itself never loaded — most likely blocked by your network, firewall, or an ad-blocker/privacy extension (gstatic.com specifically). Sign-in can't work until that request goes through.";
+      } else if(firebaseInitError){
+        reason = `Firebase loaded but failed to start (${firebaseInitError.message || firebaseInitError}) — try refreshing the page.`;
+      } else if(!fbAuth){
+        reason = "Firebase loaded, but sign-in still isn't ready for an unknown reason — try refreshing the page.";
+      }
+      showError({message: reason});
       return false;
     }
     function submit(){
