@@ -1118,6 +1118,15 @@
     transition:opacity .16s ease, transform .16s ease;
     z-index:45;
   }
+  /* Forces the hot bar fully inert (and its own bank/AI group popovers along with it) while the
+     Groq key popover is open — see setupAiGroqKeyPopover's toggling of this class on <body>.
+     A z-index fix alone wasn't enough: the hot bar's OWN hover-reveal logic could still pop
+     itself open mid-interaction and sit on top of/intercept clicks meant for the key input,
+     regardless of stacking order. !important here deliberately overrides the hot bar's own
+     .visible state and inline positioning — this wins no matter what that logic tries to do. */
+  body.groq-popover-open #hotbar, body.groq-popover-open #bank-popover, body.groq-popover-open #ai-popover{
+    opacity:0 !important;pointer-events:none !important;visibility:hidden !important;
+  }
   #hotbar::-webkit-scrollbar{display:none;}
   #hotbar.visible{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
   .hotbar-icon{
@@ -3478,13 +3487,14 @@ let ambientSoundBridge = null;
       onSave:(val)=>{ groqApiKey = val; saveJSON(NS+"groqApiKey", groqApiKey); },
     });
   }
-  btn.addEventListener("click", ()=>{
-    const opening = !popover.classList.contains("open");
+  function setOpen(opening){
     popover.classList.toggle("open", opening);
+    document.body.classList.toggle("groq-popover-open", opening); // see the CSS rule for why: makes the hot bar fully inert while this is up, not just visually behind it
     if(opening) renderRow();
-  });
+  }
+  btn.addEventListener("click", ()=>{ setOpen(!popover.classList.contains("open")); });
   document.addEventListener("click", (e)=>{
-    if(popover.classList.contains("open") && !popover.contains(e.target) && e.target!==btn) popover.classList.remove("open");
+    if(popover.classList.contains("open") && !popover.contains(e.target) && e.target!==btn) setOpen(false);
   });
   /* Belt-and-suspenders: a form with exactly one text field and zero submit buttons already
      submits on Enter per spec, but forcing it explicitly here means sending never quietly
