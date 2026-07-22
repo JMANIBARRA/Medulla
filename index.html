@@ -1550,8 +1550,14 @@ let fbAuth = null, fbDb = null, fbUser = null, cloudPushTimer = null;
    fbAuth call site the sign-in form uses now checks this first and shows an actual message
    instead of throwing silently. */
 let firebaseInitError = null;
+/* Set the instant initFirebaseSync() is ENTERED, before even the config check — lets
+   requireFbAuth() below tell "this function never ran at all" (something earlier crashed the
+   whole script before reaching its call site) apart from "it ran but didn't finish," two
+   completely different failure modes that would otherwise both just look like "fbAuth is null." */
+let firebaseSyncAttempted = false;
 function firebaseConfigured(){ return FIREBASE_CONFIG.apiKey !== "PASTE_ME"; }
 function initFirebaseSync(){
+  firebaseSyncAttempted = true;
   if(!firebaseConfigured()) return;
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -8283,10 +8289,14 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
       let reason;
       if(typeof firebase === "undefined"){
         reason = "The Firebase library itself never loaded — most likely blocked by your network, firewall, or an ad-blocker/privacy extension (gstatic.com specifically). Sign-in can't work until that request goes through.";
+      } else if(!firebaseSyncAttempted){
+        reason = "Setup never ran at all (initFirebaseSync) — something else on the page likely crashed before reaching it. Check the browser console for the first red error on page load.";
+      } else if(!firebaseConfigured()){
+        reason = "No Firebase config is set on this copy of the page (FIREBASE_CONFIG still says PASTE_ME) — cloud sign-in was never wired up here.";
       } else if(firebaseInitError){
         reason = `Firebase loaded but failed to start (${firebaseInitError.message || firebaseInitError}) — try refreshing the page.`;
       } else if(!fbAuth){
-        reason = "Firebase loaded, but sign-in still isn't ready for an unknown reason — try refreshing the page.";
+        reason = `Firebase loaded and setup ran with no error, but fbAuth is still empty (firebase.apps: ${(firebase.apps||[]).length}) — this is an unexpected state I haven't seen before. Try refreshing; if it persists, this needs a browser console check after all.`;
       }
       showError({message: reason});
       return false;
