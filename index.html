@@ -5194,22 +5194,24 @@ function renderFull(id){
     return `
     <div class="weather-widget" style="height:60vh;max-height:520px;">
       <div class="weather-scene" id="weather-full-scene"></div>
+      <button type="button" id="weather-city-edit-btn" style="position:absolute;top:10px;right:10px;z-index:2;background:rgba(4,10,14,.7);border:1px solid var(--line);color:var(--accent-teal);cursor:pointer;font-size:11px;padding:5px 10px;border-radius:4px;">Change city</button>
+      <div id="weather-city-editor" style="display:none;flex-direction:column;gap:6px;position:absolute;top:42px;right:10px;z-index:2;background:rgba(4,10,14,.92);border:1px solid var(--line);border-radius:6px;padding:10px;min-width:230px;">
+        <div id="weather-city-current" style="font-size:11px;color:var(--text-dim);"></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="weather-city-input" placeholder="e.g. Miami, FL" style="flex:1;font-size:12px;padding:4px 6px;">
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;flex:1;">Save</button>
+          <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;flex:1;">Use automatic</button>
+        </div>
+        <div id="weather-city-status" style="font-size:10px;color:var(--text-dim);"></div>
+      </div>
       <div class="weather-full-layout">
         <div class="weather-hero">
           <div class="weather-hero-temp" id="weather-hero-temp">--°</div>
           <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
           <div class="weather-hero-date" id="weather-hero-date"></div>
           <div class="weather-hero-cond" id="weather-hero-cond"></div>
-          <button type="button" id="weather-city-edit-btn" style="background:none;border:none;color:var(--accent-teal);cursor:pointer;font-size:11px;text-decoration:underline;padding:4px 0;margin-top:4px;">Change city</button>
-          <div id="weather-city-editor" style="display:none;flex-direction:column;gap:6px;margin-top:4px;">
-            <div id="weather-city-current" style="font-size:11px;color:var(--text-dim);"></div>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <input type="text" id="weather-city-input" placeholder="e.g. Miami, FL" style="flex:1;font-size:12px;padding:4px 6px;">
-              <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
-              <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;">Use automatic</button>
-            </div>
-          </div>
-          <div id="weather-city-status" style="font-size:10px;color:var(--text-dim);margin-top:2px;"></div>
         </div>
         <div class="weather-details-panel">
           <div class="weather-details-title">Weather Details</div>
@@ -7885,9 +7887,10 @@ $("#settings-btn").addEventListener("click", ()=>{
     const btn = $("#home-city-save-btn"), status = $("#home-city-status");
     if(!name){ status.textContent = "Enter a city name first."; return; }
     btn.textContent = "Looking up…"; btn.disabled = true;
-    const loc = await geocodeCityName(name);
+    const result = await geocodeCityName(name);
     btn.disabled = false; btn.textContent = "Save";
-    if(!loc){ status.textContent = `Couldn't find "${name}" — try adding a state or country (e.g. "Springfield, IL").`; return; }
+    if(!result.ok){ status.textContent = result.reason; return; }
+    const loc = result.loc;
     homeLocationOverride = loc;
     saveJSON(NS+"homeLocation", homeLocationOverride);
     // forces the NEXT weather fetch (this session's periodic refresh, or the widget's next mount) to use the new location instead of stale cached data
@@ -10439,15 +10442,27 @@ async function fetchApproxLocation(){
    third-party dependency is introduced just to support this override. Returns null (caller shows
    "couldn't find it") rather than throwing, same "never leave a click handler hanging" pattern
    as everything else that hits a network request in this file. */
+/* Returns {ok:true, loc} on success or {ok:false, reason} on failure — NOT just null either
+   way — specifically so a network/CORS failure (this request never reaching Open-Meteo at all,
+   e.g. blocked by a corporate firewall/proxy) can be told apart from a genuine zero-results
+   response (the city name just isn't recognized). Those need completely different messages: one
+   means "the feature is blocked here, no city name will fix it," the other means "try a more
+   specific name." Silently collapsing both into a bare null (the previous behavior) is exactly
+   what made "Miami"/"Florida" failing look like a bad-input problem when it was actually the
+   former. */
 async function geocodeCityName(name){
+  let res;
   try{
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1`);
-    if(!res.ok) return null;
-    const data = await res.json();
-    const r = data && data.results && data.results[0];
-    if(!r) return null;
-    return { city: r.name, lat: r.latitude, lon: r.longitude };
-  }catch(e){ return null; }
+    res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1`);
+  }catch(e){
+    return {ok:false, reason:`network error reaching Open-Meteo (${e.message}) — likely blocked by a firewall/proxy on this network, not a bad city name`};
+  }
+  if(!res.ok) return {ok:false, reason:`Open-Meteo returned HTTP ${res.status}`};
+  let data;
+  try{ data = await res.json(); }catch(e){ return {ok:false, reason:"Open-Meteo returned an unreadable response"}; }
+  const r = data && data.results && data.results[0];
+  if(!r) return {ok:false, reason:`no match for "${name}" — try a more specific name (e.g. add state/country)`};
+  return {ok:true, loc:{ city: r.name, lat: r.latitude, lon: r.longitude }};
 }
 const WEATHER_CODE_TEXT = {
   0:"clear", 1:"mostly clear", 2:"partly cloudy", 3:"overcast",
@@ -10644,8 +10659,9 @@ function hydrateWeatherFull(scope){
       const name = cityInput.value.trim();
       if(!name){ status.textContent = "Enter a city name first."; return; }
       status.textContent = "Looking up…";
-      const loc = await geocodeCityName(name);
-      if(!loc){ status.textContent = `Couldn't find "${name}" — try adding a state or country.`; return; }
+      const result = await geocodeCityName(name);
+      if(!result.ok){ status.textContent = result.reason; return; }
+      const loc = result.loc;
       homeLocationOverride = loc;
       saveJSON(NS+"homeLocation", homeLocationOverride);
       cachedLocation = null; cachedWeatherData = null;
