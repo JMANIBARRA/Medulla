@@ -2384,7 +2384,7 @@ const I18N_ES = {
   "The Wire": "El Cable",
   "coingecko id e.g. solana": "id de coingecko, p. ej. solana",
   "Add": "Añadir",
-  "Index values are sample data — wire a keyed API (Alpha Vantage, Finnhub, etc.) here for live indices. Crypto prices are live via CoinGecko.": "Los valores de los índices son datos de muestra — conecta aquí una API con clave (Alpha Vantage, Finnhub, etc.) para índices en vivo. Los precios de criptomonedas son en vivo a través de CoinGecko.",
+  "Index values above are sample data, but their charts below are real (via SPY/QQQ) once a free Twelve Data key is added in Settings. Crypto prices and charts are live via CoinGecko.": "Los valores de los índices arriba son datos de muestra, pero sus gráficos abajo son reales (vía SPY/QQQ) una vez que agregas una clave gratuita de Twelve Data en Ajustes. Los precios y gráficos de criptomonedas son en vivo a través de CoinGecko.",
   "Loading headlines…": "Cargando titulares…",
 
   /* ---- sports ---- */
@@ -2786,7 +2786,7 @@ function dumpLocalState(){
    whoever runs that Firestore's problem too. Excluding it here means logging into a new device
    won't bring these along automatically; googleClientId is a public OAuth client ID (not a
    secret, per Google's own docs) so it's left in as before. */
-const CLOUD_SYNC_EXCLUDED_KEYS = ["groqApiKey","ytApiKey","sportsDbApiKey"].map(k=>NS+k);
+const CLOUD_SYNC_EXCLUDED_KEYS = ["groqApiKey","ytApiKey","sportsDbApiKey","twelveDataApiKey"].map(k=>NS+k);
 function dumpLocalStateForCloud(){
   const dump = dumpLocalState();
   CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
@@ -2871,6 +2871,13 @@ function calendarTimeSortKey(timeStr){
 }
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
+/* Free Twelve Data key — powers real historical charts for the S&P 500/NASDAQ rows in the
+   Market widget (see INDEX_ASSETS/fetchTwelveDataSeries), via SPY/QQQ ETF prices as a stand-in
+   for the indices themselves (no free, keyless, CORS-friendly source exists for the raw index
+   values, same reason SAMPLE_INDICES' plain numbers are sample data, not live). Without a key,
+   those two rows just don't get a chart — same graceful-skip pattern as every other optional key
+   in this file, never a hard error. */
+let twelveDataApiKey = loadJSON(NS+"twelveDataApiKey", "");
 /* Manual "Home city" override for the Weather widget — {city, lat, lon}, or null when unset.
    Checked FIRST by fetchApproxLocation() before any IP-geolocation lookup, so once someone sets
    this, Weather no longer depends on a third-party IP-lookup service being reachable at all
@@ -4935,9 +4942,18 @@ function openModal(def){
    are shown as sample figures, clearly labeled, with a place to wire in your
    own API key later. */
 const SAMPLE_INDICES = [
-  {sym:"S&P 500", val:6187.42, chg:0.34},
-  {sym:"NASDAQ", val:20142.11, chg:-0.18},
+  {id:"sp500", sym:"S&P 500", val:6187.42, chg:0.34},
+  {id:"nasdaq", sym:"NASDAQ", val:20142.11, chg:-0.18},
 ];
+/* Charting stand-ins for the two index rows above — see fetchTwelveDataSeries. SPY/QQQ are
+   ETFs, not the raw indices, but they track the S&P 500/Nasdaq-100 closely enough to show real
+   relative movement, which is the whole point of the chart (a shape, not a precise index print).
+   Labeled as such everywhere this shows up so nobody mistakes an ETF price for the actual index
+   value shown in SAMPLE_INDICES above. */
+const INDEX_ASSETS = {
+  sp500: {symbol:"SPY", label:"S&P 500 (via SPY)"},
+  nasdaq: {symbol:"QQQ", label:"NASDAQ (via QQQ)"},
+};
 const COIN_NAMES = {bitcoin:"BTC", ethereum:"ETH", solana:"SOL", dogecoin:"DOGE", cardano:"ADA"};
 
 function renderMini(id){
@@ -5148,7 +5164,7 @@ function renderFull(id){
           <input id="mkt-add-input" type="text" placeholder="coingecko id e.g. solana" style="flex:1;"/>
           <button class="btn" id="mkt-add-btn">Add</button>
         </div>
-        <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values are sample data — wire a keyed API (Alpha Vantage, Finnhub, etc.) here for live indices. Crypto prices are live via CoinGecko.</p>
+        <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values above are sample data, but their charts below are real (via SPY/QQQ) once a free Twelve Data key is added in Settings. Crypto prices and charts are live via CoinGecko.</p>
         <div id="mkt-charts-full" style="margin-top:14px;"></div>
       </div>
       <div>
@@ -5181,9 +5197,18 @@ function renderFull(id){
       <div class="weather-full-layout">
         <div class="weather-hero">
           <div class="weather-hero-temp" id="weather-hero-temp">--°</div>
-          <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
+            <button type="button" id="weather-city-edit-btn" title="Change city" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.6em;opacity:.6;padding:2px;flex:none;">✎</button>
+          </div>
           <div class="weather-hero-date" id="weather-hero-date"></div>
           <div class="weather-hero-cond" id="weather-hero-cond"></div>
+          <div id="weather-city-editor" style="display:none;gap:6px;align-items:center;margin-top:6px;">
+            <input type="text" id="weather-city-input" placeholder="e.g. Miami, FL" style="flex:1;font-size:12px;padding:4px 6px;">
+            <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
+            <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;">Auto</button>
+          </div>
+          <div id="weather-city-status" style="font-size:10px;color:var(--text-dim);margin-top:2px;"></div>
         </div>
         <div class="weather-details-panel">
           <div class="weather-details-title">Weather Details</div>
@@ -5646,6 +5671,43 @@ async function fetchCoinMarketChart(id, days){
     return prices;
   }catch(e){ return null; }
 }
+/* Twelve Data's free tier is a low daily request cap (unlike CoinGecko's keyless crypto
+   endpoint), so intervals are chosen to give a reasonable-looking shape per period without
+   requesting more bars than needed: a real trading day's worth of 5-min bars for "24H" (equity
+   markets are only open ~6.5h/day, so this reads as one session's shape, not a literal rolling
+   24h window the way crypto's does), hourly bars for "7D", and daily bars for "30D". */
+function twelveDataParamsForDays(days){
+  if(days<=1) return {interval:"5min", outputsize:80};
+  if(days<=7) return {interval:"1h", outputsize:50};
+  return {interval:"1day", outputsize:30};
+}
+async function fetchTwelveDataSeries(symbol, days){
+  if(!twelveDataApiKey) return null;
+  const {interval, outputsize} = twelveDataParamsForDays(days);
+  const key = `td:${symbol}:${days}`;
+  const cached = marketChartCache[key];
+  if(cached && (Date.now()-cached.time) < MARKET_CHART_CACHE_TTL) return cached.data;
+  if(isFileOrigin()) return null;
+  try{
+    const res = await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${outputsize}&apikey=${encodeURIComponent(twelveDataApiKey)}`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(data.status === "error" || !Array.isArray(data.values)) return null;
+    // Twelve Data returns newest-first — reversed so charts draw left(oldest)-to-right(newest) like the CoinGecko path
+    const prices = data.values.slice().reverse().map(v=>({ts: new Date(v.datetime.replace(" ","T")).getTime(), price: parseFloat(v.close)}));
+    if(prices.length < 2) return null;
+    marketChartCache[key] = {data:prices, time:Date.now()};
+    return prices;
+  }catch(e){ return null; }
+}
+/* Single entry point the chart-rendering code below calls regardless of whether assetKey is a
+   CoinGecko coin id ("bitcoin") or one of the two fixed index keys ("sp500"/"nasdaq") — keeps
+   renderMarketCharts/loadMarketChartInto/mini-sparkline code from needing to know or care which
+   underlying API a given row is backed by. */
+async function fetchAssetChartData(assetKey, days){
+  const idx = INDEX_ASSETS[assetKey];
+  return idx ? fetchTwelveDataSeries(idx.symbol, days) : fetchCoinMarketChart(assetKey, days);
+}
 /* Small static trend line for the mini widget's pinned-asset table — no axis, no interaction,
    just the shape, same "glance, not detail" split as every other mini/full pair in this file
    (see Weather's mini vs hero view). Colored with this app's ALREADY-established up/down colors
@@ -5741,18 +5803,22 @@ function wireMarketChartHover(block, pointsArr, days){
     crosshair.style.opacity="0"; dot.style.opacity="0"; tooltip.style.display="none";
   });
 }
-/* One chart block per pinned asset, each with its own 24H/7D/30D period toggle — kept
-   per-asset (not one shared multi-line overlay) since each coin's price lives on a wildly
-   different scale (BTC vs DOGE); indexing them all to a common base to share one axis would be
-   the "right" way to overlay them, but isn't what was asked for here, just an actual line graph
-   of how each one is moving instead of a flat current-price number. */
+/* One chart block per asset — every pinned crypto PLUS the two fixed indices (S&P 500/NASDAQ),
+   each with its own 24H/7D/30D period toggle. Kept per-asset (not one shared multi-line overlay)
+   since each asset's price lives on a wildly different scale (BTC vs DOGE vs SPY); indexing them
+   all to a common base to share one axis would be the "right" way to overlay them, but isn't
+   what was asked for here, just an actual line graph of how each one is moving instead of a flat
+   current-price number. The two index blocks are skipped entirely when no Twelve Data key is
+   set (see fetchAssetChartData) — no key means no data means nothing useful to show a chart
+   toggle for at all. */
 function renderMarketCharts(container){
   if(!container) return;
-  if(!tickerData.pinned.length){ container.innerHTML = ""; return; }
-  container.innerHTML = tickerData.pinned.map(id=>`
+  const assetIds = [...tickerData.pinned, ...(twelveDataApiKey ? Object.keys(INDEX_ASSETS) : [])];
+  if(!assetIds.length){ container.innerHTML = ""; return; }
+  container.innerHTML = assetIds.map(id=>`
     <div class="mkt-chart-block" data-coin="${id}" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">${COIN_NAMES[id]||id}</span>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">${INDEX_ASSETS[id] ? INDEX_ASSETS[id].label : (COIN_NAMES[id]||id)}</span>
         <div style="display:flex;gap:4px;">
           <button type="button" class="btn primary mkt-period-btn" data-days="1" style="padding:2px 8px;font-size:10px;">24H</button>
           <button type="button" class="btn mkt-period-btn" data-days="7" style="padding:2px 8px;font-size:10px;">7D</button>
@@ -5781,7 +5847,7 @@ async function loadMarketChartInto(block, id, days){
   const svgWrap = block.querySelector(".mkt-chart-svg");
   svgWrap.style.color = "var(--text-dim)";
   svgWrap.textContent = "Loading chart…";
-  const prices = await fetchCoinMarketChart(id, days);
+  const prices = await fetchAssetChartData(id, days);
   if(!prices){
     svgWrap.textContent = "Chart unavailable right now.";
     return;
@@ -5800,8 +5866,19 @@ function feedErrorLabel(reason){
   return FEED_ERROR_MESSAGES[reason] || (reason && reason.startsWith("http-") ? `CoinGecko returned ${reason.slice(5)}` : "feed unavailable");
 }
 
+/* Sparkline column only appears once a Twelve Data key is set (see INDEX_ASSETS/
+   fetchAssetChartData) — without one there's no real history to show, and a permanently-blank
+   4th column would just look broken rather than absent. */
 function renderIndexRows(tbody){
-  tbody.innerHTML = SAMPLE_INDICES.map(r=>`<tr><td>${r.sym}</td><td>${r.val.toLocaleString()}</td><td class="${r.chg>=0?'up':'down'}">${r.chg>=0?'+':''}${r.chg}%</td></tr>`).join("");
+  tbody.innerHTML = SAMPLE_INDICES.map(r=>`<tr data-idx="${r.id}"><td>${r.sym}</td><td>${r.val.toLocaleString()}</td><td class="${r.chg>=0?'up':'down'}">${r.chg>=0?'+':''}${r.chg}%</td>${twelveDataApiKey?`<td class="mkt-spark-cell" style="width:60px;"></td>`:""}</tr>`).join("");
+  if(twelveDataApiKey){
+    SAMPLE_INDICES.forEach(async r=>{
+      const cell = tbody.querySelector(`tr[data-idx="${r.id}"] .mkt-spark-cell`);
+      if(!cell) return;
+      const chartData = await fetchAssetChartData(r.id, 1);
+      if(chartData) cell.innerHTML = buildSparklineSVG(chartData);
+    });
+  }
 }
 /* withSparkline: mini-only — adds a 4th column with a small static 24H trend line per row (see
    buildSparklineSVG). The full view skips it since it gets its own bigger per-asset chart below
@@ -7710,6 +7787,18 @@ $("#settings-btn").addEventListener("click", ()=>{
       <button class="btn primary" id="sportsdb-api-key-save-btn">Save</button>
       <a class="btn" href="https://www.thesportsdb.com/free_sports_api" target="_blank" rel="noopener">Get key ↗</a>
     </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">S&P 500 / NASDAQ charts (Twelve Data)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Free instant key — charts real historical prices for SPY/QQQ (the S&P 500 and Nasdaq-100
+      ETFs, used as a stand-in since there's no free way to chart the raw indices themselves)
+      in the Market widget. Without a key, those two rows just show their sample number with no
+      chart, same as before.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;">
+      <input type="text" id="twelvedata-api-key-input" placeholder="paste key here" style="flex:1;" value="${twelveDataApiKey}"/>
+      <button class="btn primary" id="twelvedata-api-key-save-btn">Save</button>
+      <a class="btn" href="https://twelvedata.com/apikey" target="_blank" rel="noopener">Get key ↗</a>
+    </div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Backup & restore</h3>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="btn primary" id="export-btn">Export backup (.json)</button>
@@ -7777,6 +7866,12 @@ $("#settings-btn").addEventListener("click", ()=>{
     saveJSON(NS+"sportsDbApiKey", sportsDbApiKey);
     $("#sportsdb-api-key-save-btn").textContent = "Saved";
     setTimeout(()=>{ $("#sportsdb-api-key-save-btn").textContent = "Save"; }, 1200);
+  });
+  $("#twelvedata-api-key-save-btn").addEventListener("click", ()=>{
+    twelveDataApiKey = $("#twelvedata-api-key-input").value.trim();
+    saveJSON(NS+"twelveDataApiKey", twelveDataApiKey);
+    $("#twelvedata-api-key-save-btn").textContent = "Saved";
+    setTimeout(()=>{ $("#twelvedata-api-key-save-btn").textContent = "Save"; }, 1200);
   });
   $("#google-client-id-save-btn").addEventListener("click", ()=>{
     googleClientId = $("#google-client-id-input").value.trim();
@@ -10338,6 +10433,21 @@ async function fetchApproxLocation(){
   }
   return null;
 }
+/* Resolves a typed city name (Settings' "Home city" field) to coordinates via Open-Meteo's own
+   free, keyless geocoding endpoint — same provider already used for weather itself, so no new
+   third-party dependency is introduced just to support this override. Returns null (caller shows
+   "couldn't find it") rather than throwing, same "never leave a click handler hanging" pattern
+   as everything else that hits a network request in this file. */
+async function geocodeCityName(name){
+  try{
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const r = data && data.results && data.results[0];
+    if(!r) return null;
+    return { city: r.name, lat: r.latitude, lon: r.longitude };
+  }catch(e){ return null; }
+}
 const WEATHER_CODE_TEXT = {
   0:"clear", 1:"mostly clear", 2:"partly cloudy", 3:"overcast",
   45:"foggy", 48:"foggy",
@@ -10506,6 +10616,50 @@ function hydrateWeatherFull(scope){
         return `<div class="weather-forecast-row"><span>${label}</span><span>H ${d.high}° / L ${d.low}°</span></div>`;
       }).join("");
     }
+  }
+  /* Lets someone fix "Weather unavailable" right from the widget itself instead of having to
+     know Settings has a "Home city" field buried in it — same homeLocationOverride this feeds,
+     just reachable from where the problem is actually visible. Wired once here (not inside
+     refresh(), which reruns every WEATHER_REFRESH_MS) since these are one-time click handlers,
+     not something that needs re-attaching on every periodic refresh. */
+  const editBtn = scope.querySelector("#weather-city-edit-btn");
+  const editor = scope.querySelector("#weather-city-editor");
+  const cityInput = scope.querySelector("#weather-city-input");
+  const status = scope.querySelector("#weather-city-status");
+  const autoBtn = scope.querySelector("#weather-city-auto-btn");
+  if(editBtn && editor){
+    autoBtn.style.display = homeLocationOverride ? "" : "none";
+    editBtn.addEventListener("click", ()=>{
+      const showing = editor.style.display !== "none";
+      editor.style.display = showing ? "none" : "flex";
+      if(!showing){
+        cityInput.value = homeLocationOverride ? (homeLocationOverride.city||"") : "";
+        cityInput.focus();
+      }
+    });
+    scope.querySelector("#weather-city-save-btn").addEventListener("click", async ()=>{
+      const name = cityInput.value.trim();
+      if(!name){ status.textContent = "Enter a city name first."; return; }
+      status.textContent = "Looking up…";
+      const loc = await geocodeCityName(name);
+      if(!loc){ status.textContent = `Couldn't find "${name}" — try adding a state or country.`; return; }
+      homeLocationOverride = loc;
+      saveJSON(NS+"homeLocation", homeLocationOverride);
+      cachedLocation = null; cachedWeatherData = null;
+      autoBtn.style.display = "";
+      editor.style.display = "none";
+      status.textContent = `Now using ${loc.city || name}.`;
+      refresh();
+    });
+    autoBtn.addEventListener("click", ()=>{
+      homeLocationOverride = null;
+      localStorage.removeItem(NS+"homeLocation");
+      cachedLocation = null; cachedWeatherData = null;
+      autoBtn.style.display = "none";
+      editor.style.display = "none";
+      status.textContent = "Back to automatic (IP-based) location.";
+      refresh();
+    });
   }
   refresh();
   const intervalId = setInterval(refresh, WEATHER_REFRESH_MS);
