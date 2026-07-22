@@ -1212,6 +1212,36 @@
     .hotbar-icon:hover{transform:none;}
     #bank-popover, #ai-popover{transition:opacity .1s linear;}
   }
+  /* Quick-launch popover for the Banking widget's icon (see openBankQuickLaunch) — same visual
+     language as #bank-popover/#ai-popover above (dark blurred panel, wrapping tiles), but
+     dynamically built from the user's own saved bankData/label list rather than a fixed hotbar
+     set, and positioned relative to whatever button was actually clicked instead of the dock. */
+  .bank-quick-launch{
+    position:fixed;z-index:150;
+    display:flex;flex-direction:column;gap:8px;align-items:center;
+    max-width:min(320px, calc(100vw - 16px));
+    padding:12px;
+    background:rgba(4,10,14,.94);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 10px 28px -10px rgba(0,0,0,.7);
+  }
+  .bank-quick-launch-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .bank-quick-tile{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    width:76px;padding:10px 6px;
+    background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:10px;
+    color:var(--text-primary);cursor:pointer;
+    transition:border-color .12s ease, box-shadow .12s ease;
+  }
+  .bank-quick-tile:hover{border-color:var(--accent-teal);box-shadow:0 0 10px -2px var(--accent-teal);}
+  .bank-quick-tile-icon{
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg-deep);border:1px solid var(--accent-teal);color:var(--accent-teal);
+    font-family:var(--font-display);font-weight:700;font-size:15px;flex:none;
+  }
+  .bank-quick-tile-label{font-size:11px;text-align:center;line-height:1.25;}
+  .bank-quick-manage-link{font-size:11px;color:var(--accent-teal);text-align:center;}
 
   /* ---------- auth gate (first thing shown on a fresh device; Guest/login is remembered after that) ---------- */
   #auth-gate{
@@ -1782,7 +1812,7 @@ const WIDGET_DEFS = [
   {id:"arcade", title:"Arcade", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Flappy-style canvas game with saved high score, plus an infinite-bankroll blackjack simulator."},
   {id:"chrono", title:"Chrono", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Digital / analog clock toggle plus a 25/50/90 min focus timer that logs total focused minutes."},
   {id:"bluetooth", title:"Bluetooth", profiles:["main"], built:false, accent:"var(--accent-violet)", spec:"navigator.bluetooth battery_service telemetry for paired peripherals."},
-  {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Plain launcher cards to official bank login portals, opened in a new isolated tab. No scraping."},
+  {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"A quick-launch popover of banks and brokerages (Chase, Fidelity, Robinhood, Vanguard, and whatever else you add) — official sites only, opened in a new isolated tab. No scraping."},
   {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
   {id:"garage", title:"Garage", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Add vehicles you own, keep a running garage list."},
   {id:"phone", title:"Phone", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Saved contacts you can call with one click via tel: links — add a name and number, tap to dial."},
@@ -2822,15 +2852,18 @@ function dumpLocalState(){
   }
   return dump;
 }
-/* Personal third-party API keys (Groq, YouTube Data API, TheSportsDB) never leave this device —
-   used ONLY by the two cloud-sync push call sites (scheduleCloudPush, the "Sync now" button),
-   never by the local "Export backup" download, which stays on the user's own machine and has no
-   custody concern at all. Cloud sync currently means "goes into a Firestore document this app's
-   operator's own project controls" — a key there is no longer just the user's problem, it's
-   whoever runs that Firestore's problem too. Excluding it here means logging into a new device
-   won't bring these along automatically; googleClientId is a public OAuth client ID (not a
-   secret, per Google's own docs) so it's left in as before. */
-const CLOUD_SYNC_EXCLUDED_KEYS = ["groqApiKey","ytApiKey","sportsDbApiKey","twelveDataApiKey"].map(k=>NS+k);
+/* Personal third-party API keys (Groq, YouTube Data API, TheSportsDB, Twelve Data) USED to be
+   excluded from cloud sync entirely — the concern was that "cloud sync" means "goes into a
+   Firestore document this app's operator's own project controls," making a leaked key someone
+   else's problem too, not just the user's. That concern is about a shared, multi-tenant
+   service; for a personal deployment where you own the Firebase project yourself, syncing your
+   OWN keys into your OWN Firestore doc (locked down to your own authenticated uid) is a
+   deliberate, explicit trade for convenience instead — signing in on a second hosted copy (a
+   different domain, e.g. Netlify vs GitHub Pages) now brings every key along automatically
+   instead of re-entering them per device. Left empty (not deleted) so excluding something
+   specific later is still a one-line change, not a re-architecture. googleClientId was never
+   excluded either way — it's a public OAuth client ID, not a secret, per Google's own docs. */
+const CLOUD_SYNC_EXCLUDED_KEYS = [].map(k=>NS+k);
 function dumpLocalStateForCloud(){
   const dump = dumpLocalState();
   CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
@@ -5571,14 +5604,14 @@ function renderFull(id){
   }
   if(id==="banking"){
     return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Bank Directory</h3>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Banks & Brokerages</h3>
     <div id="bank-full-list" style="margin:10px 0;"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <input id="bank-label-input" type="text" placeholder="Label e.g. Chase" style="flex:1;min-width:140px;"/>
-      <input id="bank-url-input" type="text" placeholder="https://www.chase.com" style="flex:2;min-width:180px;"/>
+      <input id="bank-label-input" type="text" placeholder="Label e.g. Fidelity" style="flex:1;min-width:140px;"/>
+      <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
       <button class="btn primary" id="bank-add-btn">Add</button>
     </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official bank site in a new isolated tab. No embedded frames, no balance scraping — this is just a launcher.</p>`;
+    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hidden here means it also drops out of the quick-launch popover.</p>`;
   }
   if(id==="claudeprojects"){
     return `
@@ -7988,9 +8021,10 @@ $("#settings-btn").addEventListener("click", ()=>{
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Account</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
       Signed in as <span style="color:var(--text-primary);">${escapeHtml(fbUser.email||"")}</span>. Your settings
-      auto-sync to this account a couple seconds after any change. Signing out only stops syncing on this
-      device — nothing local gets deleted. Your API keys (in Settings → API Keys) are never part of that
-      sync — they stay on this device only, so you'll re-enter them on any other device you sign into.
+      — including your API keys (Settings → API Keys) — auto-sync to this account a couple seconds
+      after any change, so signing into the same account anywhere else (a different device, or a
+      different hosted copy of this app entirely) brings everything with it automatically. Signing
+      out only stops syncing on this device — nothing local gets deleted.
     </p>
     <div style="display:flex;gap:8px;margin:10px 0 4px;">
       <button class="btn primary" id="acct-sync-now-btn">Sync now</button>
@@ -8305,7 +8339,16 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
       if(!requireFbAuth()) return;
       const call = mode==="login" ? fbAuth.signInWithEmailAndPassword(emailInput.value.trim(), passInput.value)
                                    : fbAuth.createUserWithEmailAndPassword(emailInput.value.trim(), passInput.value);
-      call.then(onSuccess).catch(showError);
+      call.then(onSuccess).catch(e=>{
+        /* Signing UP with an email that already has a Google-only account hits this — the
+           reverse direction of the Google-button case below. Linking that direction would
+           require being signed in as the Google account first (a bigger flow, and not what was
+           asked for), so this just points them at the button that already works instead of
+           leaving "email already in use" sitting there unexplained. */
+        if(e.code === "auth/email-already-in-use"){
+          showError({message: "This email already has an account — if you originally signed in with Google, use \"Sign in with Google\" below instead of a password."});
+        } else showError(e);
+      });
     }
     container.querySelector("#auth-submit-btn").addEventListener("click", submit);
     // Enter in either field submits, same as clicking Log In/Sign Up — matches the hot bar's
@@ -8326,9 +8369,40 @@ function buildSignInForm(container, {showGuest=false, onSuccess=()=>{}}={}){
         .then(()=>{ status.style.color="var(--text-dim)"; status.textContent = "Password reset email sent."; })
         .catch(showError);
     });
+    /* "Sign in with Google" using an email that already has a password account hits
+       auth/account-exists-with-different-credential — Firebase deliberately blocks the sign-in
+       right there rather than silently creating a second, separate account for the same person
+       (which would otherwise split their data across two different uids/Firestore docs with no
+       way to reunite them later). The error hands back the pending Google credential and the
+       email it was for; verifying the EXISTING password once and calling linkWithCredential
+       attaches Google as a second sign-in method on that SAME account — same uid, so it's
+       automatically the same synced data going forward, not a merge of two separate ones. */
+    function promptLinkGoogleAccount(err){
+      const email = err.email;
+      const pendingCred = err.credential;
+      status.style.color = "var(--text-dim)";
+      status.innerHTML = `
+        <div style="margin-bottom:6px;">An account for <b>${escapeHtml(email)}</b> already exists with a password. Enter that password to link Google sign-in to the same account instead of creating a separate one:</div>
+        <input type="password" class="auth-field" id="auth-link-password-input" placeholder="Password for ${escapeHtml(email)}" style="margin-bottom:6px;">
+        <button class="btn primary" id="auth-link-submit-btn">Link accounts</button>
+      `;
+      const linkPassInput = status.querySelector("#auth-link-password-input");
+      const doLink = ()=>{
+        fbAuth.signInWithEmailAndPassword(email, linkPassInput.value)
+          .then(result => result.user.linkWithCredential(pendingCred))
+          .then(onSuccess)
+          .catch(e2=>{ status.style.color="var(--accent-rust)"; status.textContent = e2.message || String(e2); });
+      };
+      status.querySelector("#auth-link-submit-btn").addEventListener("click", doLink);
+      linkPassInput.addEventListener("keydown", e=>{ if(e.key==="Enter") doLink(); });
+      linkPassInput.focus();
+    }
     container.querySelector("#auth-google-btn").addEventListener("click", ()=>{
       if(!requireFbAuth()) return;
-      fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(onSuccess).catch(showError);
+      fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(onSuccess).catch(e=>{
+        if(e.code === "auth/account-exists-with-different-credential") promptLinkGoogleAccount(e);
+        else showError(e);
+      });
     });
     if(showGuest) container.querySelector("#auth-guest-btn").addEventListener("click", hideAuthGate);
   }
@@ -11736,11 +11810,66 @@ let bankData = loadJSON(NS+"banklinks", [
   {label:"Chase", url:"https://www.chase.com", hidden:false},
   {label:"Bank of America", url:"https://secure.bankofamerica.com", hidden:false},
   {label:"Wells Fargo", url:"https://www.wellsfargo.com", hidden:false},
+  {label:"Fidelity", url:"https://www.fidelity.com", hidden:false},
+  {label:"Vanguard", url:"https://www.vanguard.com", hidden:false},
+  {label:"Robinhood", url:"https://robinhood.com", hidden:false},
+  {label:"Webull", url:"https://www.webull.com", hidden:false},
 ]);
-function hydrateBankingMini(scope){
-  scope.querySelector("#bank-icon-btn").addEventListener("click", ()=>{
+/* Clicking the widget used to open the full management view (add/hide/delete + the raw URL
+   spelled out next to each name) directly — now that's one step further in, behind "Manage" in
+   this popover, which shows just the big name-only launch buttons up front. Plain https:// links
+   are used either way (see openBankQuickLaunch) — on a phone with the real bank/broker app
+   installed, tapping one of these already opens that app instead of the browser automatically
+   via Universal Links/App Links, no special detection code involved or possible from a webpage. */
+let bankQuickLaunchPopover = null;
+function closeBankQuickLaunch(){
+  if(bankQuickLaunchPopover){ bankQuickLaunchPopover.remove(); bankQuickLaunchPopover = null; }
+  document.removeEventListener("click", onBankQuickLaunchOutsideClick, true);
+}
+function onBankQuickLaunchOutsideClick(e){
+  if(bankQuickLaunchPopover && !bankQuickLaunchPopover.contains(e.target)) closeBankQuickLaunch();
+}
+function openBankQuickLaunch(anchorBtn){
+  closeBankQuickLaunch();
+  const rect = anchorBtn.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "bank-quick-launch";
+  const visible = bankData.filter(b=>!b.hidden);
+  pop.innerHTML = `
+    <div class="bank-quick-launch-grid">
+      ${visible.length ? visible.map((b,i)=>`<button type="button" class="bank-quick-tile" data-i="${i}">
+        <span class="bank-quick-tile-icon">${escapeHtml((b.label||"?").trim()[0]||"?").toUpperCase()}</span>
+        <span class="bank-quick-tile-label">${escapeHtml(b.label)}</span>
+      </button>`).join("") : `<div style="color:var(--text-dim);font-size:12px;padding:6px;">No banks/brokerages added yet.</div>`}
+    </div>
+    <a href="#" class="bank-quick-manage-link">Manage list →</a>
+  `;
+  document.body.appendChild(pop);
+  // positioned AFTER appending so its own rendered size is known — centers it above the icon, clamped so it never runs off either edge of the viewport
+  const popRect = pop.getBoundingClientRect();
+  let left = rect.left + rect.width/2 - popRect.width/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8));
+  pop.style.left = left+"px";
+  pop.style.top = Math.max(8, rect.top - popRect.height - 10)+"px";
+  pop.querySelectorAll(".bank-quick-tile").forEach(tile=>{
+    tile.addEventListener("click", ()=>{
+      const b = visible[Number(tile.dataset.i)];
+      if(b) window.open(b.url, "_blank", "noopener,noreferrer");
+      closeBankQuickLaunch();
+    });
+  });
+  pop.querySelector(".bank-quick-manage-link").addEventListener("click", (e)=>{
+    e.preventDefault();
+    closeBankQuickLaunch();
     const def = WIDGET_DEFS.find(w=>w.id==="banking");
     if(def) openModal(def);
+  });
+  bankQuickLaunchPopover = pop;
+  setTimeout(()=> document.addEventListener("click", onBankQuickLaunchOutsideClick, true), 0);
+}
+function hydrateBankingMini(scope){
+  scope.querySelector("#bank-icon-btn").addEventListener("click", (e)=>{
+    openBankQuickLaunch(e.currentTarget);
   });
 }
 function renderBankFullList(container){
