@@ -8361,8 +8361,22 @@ function hideAuthGate(){
      dashboard right when it starts, so the download has a visible reason attached — and starting
      it at login instead of on first chat message means the first real conversation isn't the one
      that eats the wait. Fire-and-forget: a failure here just means ensureLocalLLMEngine() retries
-     lazily later from tryLocalLLM, same as before. */
-  if(!groqApiKey) ensureLocalLLMEngine().catch(()=>{});
+     lazily later from tryLocalLLM, same as before.
+     Wrapped in try/catch — NOT just a trailing .catch() — because ensureLocalLLMEngine() calls
+     window.webllm.CreateMLCEngine(...) directly, and window.webllm comes from a <script
+     type="module"> tag, which (unlike this classic inline script) is deferred to run AFTER the
+     document finishes parsing. That means webllm can genuinely still be undefined at this exact
+     point, and referencing it throws SYNCHRONOUSLY, before ensureLocalLLMEngine() ever returns a
+     promise for .catch() to attach to — a bare .catch() here does nothing to stop that throw.
+     Confirmed as a real bug: since hideAuthGate() runs synchronously from initAuthGate() on every
+     return visit (once "authGateSeen" is set), that uncaught throw aborted the ENTIRE rest of the
+     startup script immediately after it — including initFirebaseSync() on the very next line —
+     which is exactly why cloud sign-in silently never worked at all on a fresh return visit, with
+     no connection to Firebase, networking, or hosting whatsoever. */
+  if(!groqApiKey){
+    try{ ensureLocalLLMEngine().catch(()=>{}); }
+    catch(e){ console.warn("local LLM preload failed to start (webllm not ready yet?)", e); }
+  }
 }
 function initAuthGate(){
   /* remembered across reloads (for guests too, not just signed-in users) so it only ever
