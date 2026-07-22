@@ -1212,20 +1212,10 @@
     .hotbar-icon:hover{transform:none;}
     #bank-popover, #ai-popover{transition:opacity .1s linear;}
   }
-  /* Quick-launch popover for the Banking widget's icon (see openBankQuickLaunch) — same visual
-     language as #bank-popover/#ai-popover above (dark blurred panel, wrapping tiles), but
-     dynamically built from the user's own saved bankData/label list rather than a fixed hotbar
-     set, and positioned relative to whatever button was actually clicked instead of the dock. */
-  .bank-quick-launch{
-    position:fixed;z-index:150;
-    display:flex;flex-direction:column;gap:8px;align-items:center;
-    max-width:min(320px, calc(100vw - 16px));
-    padding:12px;
-    background:rgba(4,10,14,.94);backdrop-filter:blur(8px);
-    border:1px solid var(--line);border-radius:14px;
-    box-shadow:0 10px 28px -10px rgba(0,0,0,.7);
-  }
-  .bank-quick-launch-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  /* Quick Launch tiles inside the Banking widget's own full-view modal (see renderBankQuickGrid/
+     hydrateBankingFull) — a plain in-modal grid, not a separate floating popover, so it opens as
+     the same centered modal every other widget's "enlarged view" already uses. */
+  .bank-quick-launch-grid{display:flex;flex-wrap:wrap;gap:8px;}
   .bank-quick-tile{
     display:flex;flex-direction:column;align-items:center;gap:6px;
     width:76px;padding:10px 6px;
@@ -1241,7 +1231,6 @@
     font-family:var(--font-display);font-weight:700;font-size:15px;flex:none;
   }
   .bank-quick-tile-label{font-size:11px;text-align:center;line-height:1.25;}
-  .bank-quick-manage-link{font-size:11px;color:var(--accent-teal);text-align:center;}
 
   /* ---------- auth gate (first thing shown on a fresh device; Guest/login is remembered after that) ---------- */
   #auth-gate{
@@ -5604,14 +5593,16 @@ function renderFull(id){
   }
   if(id==="banking"){
     return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Banks & Brokerages</h3>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Quick Launch</h3>
+    <div id="bank-quick-grid" class="bank-quick-launch-grid" style="justify-content:flex-start;margin:10px 0 20px;"></div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Manage List</h3>
     <div id="bank-full-list" style="margin:10px 0;"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <input id="bank-label-input" type="text" placeholder="Label e.g. Fidelity" style="flex:1;min-width:140px;"/>
       <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
       <button class="btn primary" id="bank-add-btn">Add</button>
     </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hidden here means it also drops out of the quick-launch popover.</p>`;
+    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hiding one here also drops it from Quick Launch above.</p>`;
   }
   if(id==="claudeprojects"){
     return `
@@ -11814,65 +11805,38 @@ let bankData = loadJSON(NS+"banklinks", [
   {label:"Vanguard", url:"https://www.vanguard.com", hidden:false},
   {label:"Robinhood", url:"https://robinhood.com", hidden:false},
   {label:"Webull", url:"https://www.webull.com", hidden:false},
+  {label:"PayPal", url:"https://www.paypal.com", hidden:false},
+  {label:"Venmo", url:"https://venmo.com", hidden:false},
+  {label:"Cash App", url:"https://cash.app", hidden:false},
+  {label:"Zelle", url:"https://www.zellepay.com", hidden:false},
 ]);
-/* Clicking the widget used to open the full management view (add/hide/delete + the raw URL
-   spelled out next to each name) directly — now that's one step further in, behind "Manage" in
-   this popover, which shows just the big name-only launch buttons up front. Plain https:// links
-   are used either way (see openBankQuickLaunch) — on a phone with the real bank/broker app
-   installed, tapping one of these already opens that app instead of the browser automatically
-   via Universal Links/App Links, no special detection code involved or possible from a webpage. */
-let bankQuickLaunchPopover = null;
-function closeBankQuickLaunch(){
-  if(bankQuickLaunchPopover){ bankQuickLaunchPopover.remove(); bankQuickLaunchPopover = null; }
-  document.removeEventListener("click", onBankQuickLaunchOutsideClick, true);
-}
-function onBankQuickLaunchOutsideClick(e){
-  if(bankQuickLaunchPopover && !bankQuickLaunchPopover.contains(e.target)) closeBankQuickLaunch();
-}
-function openBankQuickLaunch(anchorBtn){
-  closeBankQuickLaunch();
-  const rect = anchorBtn.getBoundingClientRect();
-  const pop = document.createElement("div");
-  pop.className = "bank-quick-launch";
-  const visible = bankData.filter(b=>!b.hidden);
-  pop.innerHTML = `
-    <div class="bank-quick-launch-grid">
-      ${visible.length ? visible.map((b,i)=>`<button type="button" class="bank-quick-tile" data-i="${i}">
-        <span class="bank-quick-tile-icon">${escapeHtml((b.label||"?").trim()[0]||"?").toUpperCase()}</span>
-        <span class="bank-quick-tile-label">${escapeHtml(b.label)}</span>
-      </button>`).join("") : `<div style="color:var(--text-dim);font-size:12px;padding:6px;">No banks/brokerages added yet.</div>`}
-    </div>
-    <a href="#" class="bank-quick-manage-link">Manage list →</a>
-  `;
-  document.body.appendChild(pop);
-  // positioned AFTER appending so its own rendered size is known — centers it above the icon, clamped so it never runs off either edge of the viewport
-  const popRect = pop.getBoundingClientRect();
-  let left = rect.left + rect.width/2 - popRect.width/2;
-  left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8));
-  pop.style.left = left+"px";
-  pop.style.top = Math.max(8, rect.top - popRect.height - 10)+"px";
-  pop.querySelectorAll(".bank-quick-tile").forEach(tile=>{
-    tile.addEventListener("click", ()=>{
-      const b = visible[Number(tile.dataset.i)];
-      if(b) window.open(b.url, "_blank", "noopener,noreferrer");
-      closeBankQuickLaunch();
-    });
-  });
-  pop.querySelector(".bank-quick-manage-link").addEventListener("click", (e)=>{
-    e.preventDefault();
-    closeBankQuickLaunch();
+/* Clicking the widget opens the standard full-view modal (same centered popup every other
+   widget's "enlarged view" uses — see openModal) rather than a small anchored popover; that
+   modal shows the big name-only Quick Launch tiles up top and the add/hide/delete management
+   list right below them, both live-updating together (see hydrateBankingFull). Plain https://
+   links are used for every tile — on a phone with the real bank/broker/payment app installed,
+   tapping one already opens that app instead of the browser automatically via Universal
+   Links/App Links, no special detection code involved or possible from a webpage. */
+function hydrateBankingMini(scope){
+  scope.querySelector("#bank-icon-btn").addEventListener("click", ()=>{
     const def = WIDGET_DEFS.find(w=>w.id==="banking");
     if(def) openModal(def);
   });
-  bankQuickLaunchPopover = pop;
-  setTimeout(()=> document.addEventListener("click", onBankQuickLaunchOutsideClick, true), 0);
 }
-function hydrateBankingMini(scope){
-  scope.querySelector("#bank-icon-btn").addEventListener("click", (e)=>{
-    openBankQuickLaunch(e.currentTarget);
+function renderBankQuickGrid(container){
+  const visible = bankData.filter(b=>!b.hidden);
+  container.innerHTML = visible.length ? visible.map((b,i)=>`<button type="button" class="bank-quick-tile" data-i="${i}">
+      <span class="bank-quick-tile-icon">${escapeHtml((b.label||"?").trim()[0]||"?").toUpperCase()}</span>
+      <span class="bank-quick-tile-label">${escapeHtml(b.label)}</span>
+    </button>`).join("") : `<div style="color:var(--text-dim);font-size:12px;">Nothing to launch yet — add one below.</div>`;
+  container.querySelectorAll(".bank-quick-tile").forEach(tile=>{
+    tile.addEventListener("click", ()=>{
+      const b = visible[Number(tile.dataset.i)];
+      if(b) window.open(b.url, "_blank", "noopener,noreferrer");
+    });
   });
 }
-function renderBankFullList(container){
+function renderBankFullList(container, scope){
   container.innerHTML = bankData.length ? bankData.map((b,i)=>`
     <div class="list-row">
       <span>${b.hidden?'<span style="color:var(--text-dim);">(hidden) </span>':''}${b.label} — <a class="linkcard" href="${b.url}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-teal);">${b.url}</a></span>
@@ -11887,12 +11851,14 @@ function renderBankFullList(container){
       if(btn.dataset.act==="del") bankData.splice(i,1);
       else bankData[i].hidden = !bankData[i].hidden;
       saveJSON(NS+"banklinks", bankData);
-      renderBankFullList(container);
+      renderBankFullList(container, scope);
+      renderBankQuickGrid(scope.querySelector("#bank-quick-grid")); // Quick Launch reflects hide/delete immediately, same modal, no reopen needed
     });
   });
 }
 function hydrateBankingFull(scope){
-  renderBankFullList(scope.querySelector("#bank-full-list"));
+  renderBankQuickGrid(scope.querySelector("#bank-quick-grid"));
+  renderBankFullList(scope.querySelector("#bank-full-list"), scope);
   scope.querySelector("#bank-add-btn").addEventListener("click",()=>{
     const labelInput = scope.querySelector("#bank-label-input");
     const urlInput = scope.querySelector("#bank-url-input");
@@ -11901,7 +11867,8 @@ function hydrateBankingFull(scope){
     bankData.push({label, url, hidden:false});
     saveJSON(NS+"banklinks", bankData);
     labelInput.value=""; urlInput.value="";
-    renderBankFullList(scope.querySelector("#bank-full-list"));
+    renderBankFullList(scope.querySelector("#bank-full-list"), scope);
+    renderBankQuickGrid(scope.querySelector("#bank-quick-grid"));
   });
 }
 
