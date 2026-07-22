@@ -5833,8 +5833,16 @@ function buildSparklineSVG(prices, {width=56, height=20}={}){
   /* width:100% (not a width="" attribute) so this scales to whatever its actual cell/container
      width is instead of assuming a fixed ${width}px — the mini table's sparkline column is now
      colgroup-constrained to a percentage of the card (see .mkt-fixed-table), which can be
-     narrower or wider than ${width}px depending on how the widget's been resized. */
-  return `<svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;overflow:visible;">
+     narrower or wider than ${width}px depending on how the widget's been resized.
+     CSS height is a clamp() off --w, same idiom every other icon/graphic-sized element in this
+     file already uses (see e.g. the chrono clock hands' clamp(48px, calc(var(--w,270px)*0.68),
+     900px)) — NOT a fixed px height. Text in this same card scales via clamp() too (see
+     table.mono's font-size), which tracks the widget's baked-in zoom level once pinned (pinning
+     converts the on-canvas zoom into the widget's literal pixel size — see togglePinWidget). A
+     fixed-height sparkline would stay the same size regardless, going visibly out of proportion
+     with the now-differently-sized text the moment a widget is pinned at any zoom level other
+     than 1:1 — confirmed as the actual cause of a reported "pinning distorts this" bug. */
+  return `<svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;overflow:visible;width:100%;height:clamp(14px, calc(var(--w, 270px) * 0.072), 34px);">
     <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 }
