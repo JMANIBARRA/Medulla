@@ -1059,6 +1059,16 @@
   }
   #ambient-mute-btn:hover{opacity:1;color:var(--accent-teal);}
   #ambient-mute-btn.active{opacity:.85;}
+  #fullscreen-toggle-btn{
+    flex:none;
+    width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:none;border:none;color:var(--text-dim);
+    cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.55;margin-right:4px;
+    transition:opacity .12s ease, color .12s ease;
+  }
+  #fullscreen-toggle-btn:hover{opacity:1;color:var(--accent-teal);}
+  #fullscreen-toggle-btn.active{opacity:.85;color:var(--accent-teal);}
   /* hidden by default (0-width, clipped) and revealed by expanding on hover/focus — a lightweight
      "slide open" rather than an absolutely-positioned popover, so it never overlaps the hotbar
      that can rise directly above this same bottom-left corner. */
@@ -1461,6 +1471,7 @@
        controls even shrunk down, and this is a low-priority control that doesn't need to live
        among the main widget/zoom/memory controls anyway. -->
   <div id="ambient-volume-control">
+    <button id="fullscreen-toggle-btn" title="Enter fullscreen">⛶</button>
     <button id="ambient-mute-btn" title="Mute/unmute background ambience — hover for volume, or use your keyboard's volume keys">🔊</button>
     <div id="ambient-volume-popover">
       <input type="range" id="ambient-hover-volume-input" min="0" max="100" title="Ambient volume">
@@ -2860,6 +2871,12 @@ function calendarTimeSortKey(timeStr){
 }
 let ytApiKey = loadJSON(NS+"ytApiKey", "");
 let googleClientId = loadJSON(NS+"googleClientId", "");
+/* Manual "Home city" override for the Weather widget — {city, lat, lon}, or null when unset.
+   Checked FIRST by fetchApproxLocation() before any IP-geolocation lookup, so once someone sets
+   this, Weather no longer depends on a third-party IP-lookup service being reachable at all
+   (see LOCATION_PROVIDERS/fetchApproxLocation below — those are ad-blocker-prone). Resolved
+   once at save time via Open-Meteo's own geocoding endpoint (see Settings' Home city field). */
+let homeLocationOverride = loadJSON(NS+"homeLocation", null);
 /* What Medulla calls the user in conversation — deliberately separate from the signed-in
    account's email/username (fbUser.email), which is an identity/sync concern, not a "what do
    you call me" preference. Guests (no account at all) can still set this. Blank means she just
@@ -3311,6 +3328,30 @@ let ambientSoundBridge = null;
     getMuted: ()=>muted,
     setMuted,
   };
+})();
+
+/* Fullscreen toggle — standard Fullscreen API on the whole document, button lives right next to
+   ambient-mute-btn (see #fullscreen-toggle-btn in the HTML/CSS) since that's the one existing
+   "utility toggle" corner of the screen, not the main topbar this app already keeps deliberately
+   uncluttered. .active mirrors the mute button's own convention (dim when off, fuller opacity
+   when on) rather than swapping the icon glyph, so the two controls read as a matched pair.
+   Listens for fullscreenchange (not just its own click) so the icon/title stay correct if
+   fullscreen is exited any other way — Esc key, browser UI, etc. — not just via this button. */
+(function setupFullscreenToggle(){
+  const btn = $("#fullscreen-toggle-btn");
+  if(!btn) return;
+  function isFullscreen(){ return !!document.fullscreenElement; }
+  function refresh(){
+    const on = isFullscreen();
+    btn.classList.toggle("active", on);
+    btn.title = on ? "Exit fullscreen" : "Enter fullscreen";
+  }
+  btn.addEventListener("click", ()=>{
+    if(isFullscreen()) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(()=>{}); // rejected silently — some browsers require a more direct user gesture than this already is, nothing useful to show for it
+  });
+  document.addEventListener("fullscreenchange", refresh);
+  refresh();
 })();
 
 /* bounding box of every visible widget/capsule, in world space — used by the recenter button
@@ -4964,7 +5005,8 @@ function renderMini(id){
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:none;">
         <button class="hbtn" id="yt-mini-mute-btn" title="Mute / unmute" style="width:20px;height:20px;flex:none;"></button>
-        <input id="yt-mini-volume" type="range" min="0" max="100" style="flex:1;">
+        <input id="yt-mini-volume" type="range" min="0" max="100" style="width:56px;flex:none;">
+        <div style="flex:1;"></div>
         <button class="hbtn" id="yt-mini-browse-btn" title="Browse other videos" style="width:20px;height:20px;flex:none;font-size:11px;">☰</button>
       </div>
     </div>`;
@@ -4982,7 +5024,8 @@ function renderMini(id){
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex:none;">
         <button class="hbtn" id="ytg-mini-mute-btn" title="Mute / unmute" style="width:20px;height:20px;flex:none;"></button>
-        <input id="ytg-mini-volume" type="range" min="0" max="100" style="flex:1;">
+        <input id="ytg-mini-volume" type="range" min="0" max="100" style="width:56px;flex:none;">
+        <div style="flex:1;"></div>
         <button class="hbtn" id="ytg-mini-browse-btn" title="Browse other videos" style="width:20px;height:20px;flex:none;font-size:11px;">☰</button>
       </div>
     </div>`;
@@ -5106,6 +5149,7 @@ function renderFull(id){
           <button class="btn" id="mkt-add-btn">Add</button>
         </div>
         <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values are sample data — wire a keyed API (Alpha Vantage, Finnhub, etc.) here for live indices. Crypto prices are live via CoinGecko.</p>
+        <div id="mkt-charts-full" style="margin-top:14px;"></div>
       </div>
       <div>
         <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">The Wire</h3>
@@ -5191,7 +5235,7 @@ function renderFull(id){
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <button class="btn" id="yt-full-mute-btn">Mute</button>
-        <input id="yt-full-volume" type="range" min="0" max="100" style="flex:1;">
+        <input id="yt-full-volume" type="range" min="0" max="100" style="width:110px;flex:none;">
         <span id="yt-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
       </div>
       <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions</h3>
@@ -5214,7 +5258,7 @@ function renderFull(id){
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <button class="btn" id="ytg-full-mute-btn">Mute</button>
-        <input id="ytg-full-volume" type="range" min="0" max="100" style="flex:1;">
+        <input id="ytg-full-volume" type="range" min="0" max="100" style="width:110px;flex:none;">
         <span id="ytg-full-volume-label" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:2.4em;text-align:right;"></span>
       </div>
       <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin:4px 0 0;">Suggestions (from your Google account)</h3>
@@ -5581,6 +5625,172 @@ async function fetchCoinPrices(ids, attempt=0){
   }
 }
 
+/* Price HISTORY for the sparkline/chart views below — a separate CoinGecko endpoint from the
+   plain current-price one above, so it's cached separately, keyed by coin+range (a 24H chart and
+   a 30D chart for the same coin are genuinely different requests/results). Same free, keyless,
+   CORS-enabled CoinGecko API as the rest of this widget. */
+let marketChartCache = {};
+const MARKET_CHART_CACHE_TTL = 5*60000;
+async function fetchCoinMarketChart(id, days){
+  const key = `${id}:${days}`;
+  const cached = marketChartCache[key];
+  if(cached && (Date.now()-cached.time) < MARKET_CHART_CACHE_TTL) return cached.data;
+  if(isFileOrigin()) return null;
+  try{
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const prices = (data.prices||[]).map(([ts,price])=>({ts,price}));
+    if(prices.length < 2) return null;
+    marketChartCache[key] = {data:prices, time:Date.now()};
+    return prices;
+  }catch(e){ return null; }
+}
+/* Small static trend line for the mini widget's pinned-asset table — no axis, no interaction,
+   just the shape, same "glance, not detail" split as every other mini/full pair in this file
+   (see Weather's mini vs hero view). Colored with this app's ALREADY-established up/down colors
+   (see the .up/.down CSS rule) rather than picking new ones, so green/red keeps meaning the same
+   thing everywhere it appears. Flat prices (min===max) draw a flat mid-height line instead of
+   collapsing to the bottom edge, which dividing by a zero range would otherwise do. */
+function buildSparklineSVG(prices, {width=56, height=20}={}){
+  if(!prices || prices.length<2) return "";
+  const vals = prices.map(p=>p.price);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max-min;
+  const color = vals[vals.length-1] >= vals[0] ? "#3ddc7a" : "#ff5c5c";
+  const pad = 2, usableH = height-pad*2;
+  const stepX = width/(vals.length-1);
+  const pts = vals.map((v,i)=>{
+    const x = i*stepX;
+    const y = range===0 ? height/2 : pad + usableH - ((v-min)/range)*usableH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block;overflow:visible;">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+/* The bigger per-asset chart used in the full modal view — an actual area+line with a hover
+   crosshair (see wireMarketChartHover), not just a shape. data-chart-points isn't read by
+   anything (the hover wiring gets pointsArr directly from this function's return value instead)
+   — left off the DOM deliberately to avoid a second, redundant JSON round-trip through
+   attribute serialization. */
+function buildPriceChartSVG(prices, {width=520, height=130}={}){
+  const vals = prices.map(p=>p.price);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = (max-min) || 1;
+  const color = vals[vals.length-1] >= vals[0] ? "#3ddc7a" : "#ff5c5c";
+  const padTop=10, padBottom=6, padX=4;
+  const usableW = width-padX*2, usableH = height-padTop-padBottom;
+  const stepX = usableW/(vals.length-1);
+  const pointsArr = vals.map((v,i)=>({
+    x: padX + i*stepX,
+    y: padTop + usableH - ((v-min)/range)*usableH,
+    price: v,
+    ts: prices[i].ts,
+  }));
+  const linePath = pointsArr.map((p,i)=>(i===0?"M":"L")+p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
+  const baseline = (padTop+usableH).toFixed(1);
+  const areaPath = `${linePath} L${pointsArr[pointsArr.length-1].x.toFixed(1)},${baseline} L${pointsArr[0].x.toFixed(1)},${baseline} Z`;
+  const gradId = "mktgrad"+Math.random().toString(36).slice(2,8);
+  const svg = `
+    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;overflow:visible;cursor:crosshair;">
+      <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${areaPath}" fill="url(#${gradId})" stroke="none"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line class="mkt-crosshair" x1="0" y1="${padTop}" x2="0" y2="${padTop+usableH}" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="2,2" style="opacity:0;pointer-events:none;"/>
+      <circle class="mkt-crosshair-dot" r="3.5" fill="${color}" stroke="var(--bg-deep)" stroke-width="1.5" style="opacity:0;pointer-events:none;"/>
+    </svg>`;
+  return {svg, color, pointsArr, viewWidth:width};
+}
+/* Hover crosshair + tooltip for one chart block — the interaction layer a line chart needs by
+   default (see the dataviz skill's interaction guidance), just hand-rolled in plain SVG/DOM since
+   this file has no charting library. Nearest-point-by-x rather than requiring an exact pixel
+   hit, so the whole chart width is a hoverable target, not just the 2px line itself. */
+function wireMarketChartHover(block, pointsArr, days){
+  const svg = block.querySelector("svg");
+  if(!svg) return;
+  const crosshair = svg.querySelector(".mkt-crosshair");
+  const dot = svg.querySelector(".mkt-crosshair-dot");
+  const tooltip = block.querySelector(".mkt-chart-tooltip");
+  const viewBoxWidth = svg.viewBox.baseVal.width;
+  function nearestPoint(clientX){
+    const rect = svg.getBoundingClientRect();
+    const vx = ((clientX-rect.left)/rect.width) * viewBoxWidth;
+    let best = pointsArr[0], bestDist = Infinity;
+    for(const p of pointsArr){
+      const d = Math.abs(p.x-vx);
+      if(d<bestDist){ bestDist=d; best=p; }
+    }
+    return best;
+  }
+  svg.addEventListener("mousemove", (e)=>{
+    const p = nearestPoint(e.clientX);
+    crosshair.setAttribute("x1", p.x); crosshair.setAttribute("x2", p.x); crosshair.style.opacity="1";
+    dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y); dot.style.opacity="1";
+    const rect = svg.getBoundingClientRect();
+    const dateStr = new Date(p.ts).toLocaleString(undefined, days<=1 ? {hour:"numeric",minute:"2-digit"} : {month:"short",day:"numeric"});
+    tooltip.textContent = `$${p.price.toLocaleString(undefined,{maximumFractionDigits:2})} · ${dateStr}`;
+    tooltip.style.display = "block";
+    const relX = (p.x/viewBoxWidth) * rect.width;
+    tooltip.style.left = Math.min(Math.max(relX-40,0), Math.max(rect.width-90,0)) + "px";
+  });
+  svg.addEventListener("mouseleave", ()=>{
+    crosshair.style.opacity="0"; dot.style.opacity="0"; tooltip.style.display="none";
+  });
+}
+/* One chart block per pinned asset, each with its own 24H/7D/30D period toggle — kept
+   per-asset (not one shared multi-line overlay) since each coin's price lives on a wildly
+   different scale (BTC vs DOGE); indexing them all to a common base to share one axis would be
+   the "right" way to overlay them, but isn't what was asked for here, just an actual line graph
+   of how each one is moving instead of a flat current-price number. */
+function renderMarketCharts(container){
+  if(!container) return;
+  if(!tickerData.pinned.length){ container.innerHTML = ""; return; }
+  container.innerHTML = tickerData.pinned.map(id=>`
+    <div class="mkt-chart-block" data-coin="${id}" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">${COIN_NAMES[id]||id}</span>
+        <div style="display:flex;gap:4px;">
+          <button type="button" class="btn primary mkt-period-btn" data-days="1" style="padding:2px 8px;font-size:10px;">24H</button>
+          <button type="button" class="btn mkt-period-btn" data-days="7" style="padding:2px 8px;font-size:10px;">7D</button>
+          <button type="button" class="btn mkt-period-btn" data-days="30" style="padding:2px 8px;font-size:10px;">30D</button>
+        </div>
+      </div>
+      <div class="mkt-chart-wrap" style="position:relative;">
+        <div class="mkt-chart-svg" style="color:var(--text-dim);font-size:11px;">Loading chart…</div>
+        <div class="mkt-chart-tooltip" style="position:absolute;top:-4px;display:none;pointer-events:none;background:var(--bg-panel-raised);border:1px solid var(--line);padding:3px 7px;font-family:var(--font-mono);font-size:11px;border-radius:3px;white-space:nowrap;z-index:2;"></div>
+      </div>
+    </div>
+  `).join("");
+  container.querySelectorAll(".mkt-chart-block").forEach(block=>{
+    const id = block.dataset.coin;
+    loadMarketChartInto(block, id, 1);
+    block.querySelectorAll(".mkt-period-btn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        block.querySelectorAll(".mkt-period-btn").forEach(b=>b.classList.remove("primary"));
+        btn.classList.add("primary");
+        loadMarketChartInto(block, id, Number(btn.dataset.days));
+      });
+    });
+  });
+}
+async function loadMarketChartInto(block, id, days){
+  const svgWrap = block.querySelector(".mkt-chart-svg");
+  svgWrap.style.color = "var(--text-dim)";
+  svgWrap.textContent = "Loading chart…";
+  const prices = await fetchCoinMarketChart(id, days);
+  if(!prices){
+    svgWrap.textContent = "Chart unavailable right now.";
+    return;
+  }
+  const {svg, pointsArr} = buildPriceChartSVG(prices);
+  svgWrap.innerHTML = svg;
+  wireMarketChartHover(block, pointsArr, days);
+}
+
 const FEED_ERROR_MESSAGES = {
   "file-origin":"can't reach external feeds from a file:// page — serve this folder locally (e.g. python3 -m http.server) and open it via http://localhost",
   "rate-limit":"CoinGecko rate limit hit, try again shortly",
@@ -5593,30 +5803,43 @@ function feedErrorLabel(reason){
 function renderIndexRows(tbody){
   tbody.innerHTML = SAMPLE_INDICES.map(r=>`<tr><td>${r.sym}</td><td>${r.val.toLocaleString()}</td><td class="${r.chg>=0?'up':'down'}">${r.chg>=0?'+':''}${r.chg}%</td></tr>`).join("");
 }
-async function renderPinRows(tbody){
+/* withSparkline: mini-only — adds a 4th column with a small static 24H trend line per row (see
+   buildSparklineSVG). The full view skips it since it gets its own bigger per-asset chart below
+   the table instead (see renderMarketCharts) — no point fetching the same history twice. */
+async function renderPinRows(tbody, withSparkline){
   const ids = tickerData.pinned;
-  tbody.innerHTML = ids.map(id=>`<tr><td>${COIN_NAMES[id]||id}</td><td colspan="2" style="color:var(--text-dim);">loading…</td></tr>`).join("");
+  const cols = withSparkline ? 4 : 3;
+  tbody.innerHTML = ids.map(id=>`<tr><td>${COIN_NAMES[id]||id}</td><td colspan="2" style="color:var(--text-dim);">loading…</td>${withSparkline?`<td></td>`:""}</tr>`).join("");
   const result = await fetchCoinPrices(ids);
   if(!result.ok){
     const label = feedErrorLabel(result.reason);
-    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--accent-rust);">${label}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols}" style="color:var(--accent-rust);">${label}</td></tr>`;
     return;
   }
   const prices = result.data;
   tbody.innerHTML = ids.map(id=>{
     const p = prices[id];
-    if(!p) return `<tr><td>${id}</td><td colspan="2" style="color:var(--text-dim);">unknown id</td></tr>`;
+    if(!p) return `<tr><td>${id}</td><td colspan="2" style="color:var(--text-dim);">unknown id</td>${withSparkline?`<td></td>`:""}</tr>`;
     const chg = p.usd_24h_change||0;
-    return `<tr><td>${COIN_NAMES[id]||id}</td><td>$${p.usd.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td class="${chg>=0?'up':'down'}">${chg>=0?'+':''}${chg.toFixed(2)}%</td></tr>`;
+    return `<tr data-coin="${id}"><td>${COIN_NAMES[id]||id}</td><td>$${p.usd.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td class="${chg>=0?'up':'down'}">${chg>=0?'+':''}${chg.toFixed(2)}%</td>${withSparkline?`<td class="mkt-spark-cell" style="width:60px;"></td>`:""}</tr>`;
   }).join("");
+  if(withSparkline){
+    ids.forEach(async id=>{
+      const cell = tbody.querySelector(`tr[data-coin="${id}"] .mkt-spark-cell`);
+      if(!cell) return;
+      const chartData = await fetchCoinMarketChart(id, 1);
+      if(chartData) cell.innerHTML = buildSparklineSVG(chartData);
+    });
+  }
 }
 function hydrateMarketMini(scope){
   renderIndexRows(scope.querySelector("#mkt-idx-mini"));
-  renderPinRows(scope.querySelector("#mkt-pin-mini"));
+  renderPinRows(scope.querySelector("#mkt-pin-mini"), true);
 }
 async function hydrateMarketFull(scope){
   renderIndexRows(scope.querySelector("#mkt-idx-full"));
   renderPinRows(scope.querySelector("#mkt-pin-full"));
+  renderMarketCharts(scope.querySelector("#mkt-charts-full"));
   scope.querySelector("#mkt-add-btn").addEventListener("click", async ()=>{
     const inp = scope.querySelector("#mkt-add-input");
     const id = inp.value.trim().toLowerCase();
@@ -5625,6 +5848,7 @@ async function hydrateMarketFull(scope){
     saveJSON(NS+"tickers", tickerData);
     inp.value="";
     renderPinRows(scope.querySelector("#mkt-pin-full"));
+    renderMarketCharts(scope.querySelector("#mkt-charts-full"));
   });
   const wire = scope.querySelector("#mkt-wire");
   if(isFileOrigin()){
@@ -7438,8 +7662,11 @@ $("#settings-btn").addEventListener("click", ()=>{
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Google Sign-In (Video (Google) widget)</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
       An OAuth Client ID from the same Google Cloud project, under "APIs & Services → Credentials
-      → Create Credentials → OAuth client ID → Web application." Add
-      <span style="color:var(--text-primary);">http://localhost:8934</span> under "Authorized JavaScript origins."
+      → Create Credentials → OAuth client ID → Web application." Under "Authorized JavaScript
+      origins," add whatever origin this page is actually loaded from — exactly, with no
+      trailing slash or path — e.g. <span style="color:var(--text-primary);">http://localhost:8934</span>
+      if running locally, or your real domain (e.g. <span style="color:var(--text-primary);">https://your-site.netlify.app</span>)
+      if it's hosted. A mismatch here is exactly what an "Error 400: origin_mismatch" screen means.
       While your OAuth consent screen is in "Testing" mode, add your own Google account under "Test users" —
       otherwise sign-in will be rejected before you even see the consent screen.
     </p>
@@ -7459,6 +7686,19 @@ $("#settings-btn").addEventListener("click", ()=>{
       <button class="btn primary" id="groq-api-key-save-btn">Save</button>
       <a class="btn" href="https://console.groq.com/keys" target="_blank" rel="noopener">Get key ↗</a>
     </div>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Home city (Weather)</h3>
+    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
+      Weather normally figures out where you are from your IP address — but some ad-blockers/
+      privacy extensions silently block that lookup, which is what causes "Weather unavailable
+      right now." Set a city here once and Weather always uses it instead, with no lookup to
+      block. Leave blank to keep automatic detection.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input type="text" id="home-city-input" placeholder="e.g. Miami, FL" style="flex:1;" value="${homeLocationOverride ? escapeHtml(homeLocationOverride.city||"") : ""}"/>
+      <button class="btn primary" id="home-city-save-btn">Save</button>
+      ${homeLocationOverride ? `<button class="btn" id="home-city-clear-btn">Use automatic</button>` : ``}
+    </div>
+    <div id="home-city-status" style="font-size:11px;color:var(--text-dim);margin-bottom:18px;"></div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Sports scores (TheSportsDB)</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
       Free personal key — Sports works without one (using a shared public demo key), but that
@@ -7543,6 +7783,42 @@ $("#settings-btn").addEventListener("click", ()=>{
     saveJSON(NS+"googleClientId", googleClientId);
     $("#google-client-id-save-btn").textContent = "Saved";
     setTimeout(()=>{ $("#google-client-id-save-btn").textContent = "Save"; }, 1200);
+  });
+  $("#home-city-save-btn").addEventListener("click", async ()=>{
+    const name = $("#home-city-input").value.trim();
+    const btn = $("#home-city-save-btn"), status = $("#home-city-status");
+    if(!name){ status.textContent = "Enter a city name first."; return; }
+    btn.textContent = "Looking up…"; btn.disabled = true;
+    const loc = await geocodeCityName(name);
+    btn.disabled = false; btn.textContent = "Save";
+    if(!loc){ status.textContent = `Couldn't find "${name}" — try adding a state or country (e.g. "Springfield, IL").`; return; }
+    homeLocationOverride = loc;
+    saveJSON(NS+"homeLocation", homeLocationOverride);
+    // forces the NEXT weather fetch (this session's periodic refresh, or the widget's next mount) to use the new location instead of stale cached data
+    cachedLocation = null; cachedWeatherData = null;
+    status.textContent = `Saved — Weather will always use ${loc.city || name} now. It'll pick this up on its next refresh (within 15 min), or reopen the widget for it immediately.`;
+    if(!$("#home-city-clear-btn")){
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "btn"; clearBtn.id = "home-city-clear-btn"; clearBtn.textContent = "Use automatic";
+      btn.insertAdjacentElement("afterend", clearBtn);
+      clearBtn.addEventListener("click", ()=>{
+        homeLocationOverride = null;
+        localStorage.removeItem(NS+"homeLocation");
+        cachedLocation = null; cachedWeatherData = null;
+        $("#home-city-input").value = "";
+        clearBtn.remove();
+        status.textContent = "Back to automatic (IP-based) location detection.";
+      });
+    }
+  });
+  const homeCityClearBtn = $("#home-city-clear-btn");
+  if(homeCityClearBtn) homeCityClearBtn.addEventListener("click", ()=>{
+    homeLocationOverride = null;
+    localStorage.removeItem(NS+"homeLocation");
+    cachedLocation = null; cachedWeatherData = null;
+    $("#home-city-input").value = "";
+    homeCityClearBtn.remove();
+    $("#home-city-status").textContent = "Back to automatic (IP-based) location detection.";
   });
   /* .accent-swatch also carries the shared .swatch class for its square-color-chip styling, so
      this must exclude it explicitly — otherwise clicking an accent color would also wrongly
@@ -8049,7 +8325,11 @@ function extractCalendarSearchCore(rawPhrase){
   p = p.replace(/\b(on|for)\s+(my|the)\s+calendar\b/g, " ");
   p = p.replace(/^\s*(what else|else)\s+/, " ");
   p = p.replace(CALENDAR_GENERIC_NOUN_RE, " ");
-  p = p.replace(/\b(a|an|any|my|the|next|upcoming)\b/g, " ");
+  /* "it"/"that"/"this"/"them"/"one" stripped alongside the filler words below — a bare pronoun
+     ("move IT to 6pm") is never a real distinguishing name, and needs to reduce to the same
+     empty core a generic noun does so the caller falls back to context (lastRescheduleTarget)
+     instead of literally searching titles for the word "it". */
+  p = p.replace(/\b(a|an|any|my|the|next|upcoming|it|that|this|them|one)\b/g, " ");
   return p.replace(/\s+/g," ").trim();
 }
 /* Matching is tried against both the full original phrase and the stripped-down core, plus a
@@ -8074,9 +8354,17 @@ function findCalendarEventsByName(phrase){
 function calendarEventDayLabel(key){
   return key===calendarDateKey(new Date()) ? "today" : new Date(key+"T00:00:00").toLocaleDateString(undefined,{weekday:"long", month:"short", day:"numeric"});
 }
+/* Remembers whichever single calendar event the conversation most recently landed on — read OR
+   reschedule — so a later, contextless "move it to 6pm" (no name, no "from <time>" either) has
+   something to resolve "it" against instead of failing outright. Session-only (cleared on
+   reload), same lifetime as cachedLocation/cachedWeatherData elsewhere in this file; there's no
+   real "conversation" state below the LLM layer, so this is the only memory a plain regex-based
+   local command like this one can have. */
+let lastRescheduleTarget = null;
 function calendarNameQueryReply(phrase){
   const matches = findCalendarEventsByName(phrase);
   if(!matches.length) return `I don't see anything called "${phrase}" on your calendar.`;
+  if(matches.length===1) lastRescheduleTarget = matches[0];
   const parts = matches.slice(0,5).map(({key,ev})=>
     ev.time ? `${ev.title} — ${calendarEventDayLabel(key)} at ${ev.time}` : `${ev.title} — ${calendarEventDayLabel(key)}`);
   return `Calendar: ${parts.join("; ")}`;
@@ -8111,15 +8399,34 @@ function calendarNextEventsReply(){
     ev.time ? `${ev.title} — ${calendarEventDayLabel(key)} at ${ev.time}` : `${ev.title} — ${calendarEventDayLabel(key)}`);
   return `Calendar: ${parts.join("; ")}`;
 }
+/* When a reschedule command names nothing distinguishing ("move the appointment") and there's no
+   lastRescheduleTarget to fall back on either, there's still one more unambiguous case worth
+   checking before giving up and asking "which one": if there's EXACTLY one upcoming event on the
+   whole calendar, "the appointment" can only mean that one — no real choice being guessed at.
+   Two or more, or zero, and this correctly returns null so the caller still asks. */
+function soleUpcomingCalendarEvent(){
+  const upcoming = calendarUpcomingEvents(2);
+  return upcoming.length===1 ? upcoming[0] : null;
+}
 /* ---- reschedule/move/change an existing calendar event via chat ----
    Everything above this point only ever READS calendarData; this is the one path that writes
-   to it from the AI dock. "to"/"for" is the connector between the event name and the new
-   date/time in every phrasing this is meant to catch ("move my dentist appointment to Friday at
-   3pm", "reschedule the laser thing for next Tuesday"). Deliberately not anchored to the start
-   of the string so "can you move..." still matches. */
+   to it from the AI dock. "to"/"for" is the connector between the (optional) event name and the
+   new date/time in every phrasing this is meant to catch ("move my dentist appointment to
+   Friday at 3pm", "reschedule the laser thing for next Tuesday"). Deliberately not anchored to
+   the start of the string so "can you move..." still matches.
+   Tried FIRST against a "...from <time> to <time>" shape ("move my appointment from 3pm to
+   5pm") — critical to try this one before the plain to/for pattern below, because without it
+   the plain pattern's lazy name-capture swallows "appointment from 3pm" as if that whole phrase
+   were the event's NAME, which then fails to match anything (a title never literally contains
+   "from 3pm") even when the event obviously exists. Capturing fromPhrase separately here lets
+   the caller fall back to finding the event by its CURRENT time instead of by name whenever the
+   name portion turns out to be just a generic noun ("appointment"/"event"/...) with nothing
+   distinguishing left after extractCalendarSearchCore strips it — see tryRescheduleCalendarEvent. */
 function parseRescheduleCommand(t){
-  const m = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)\s+(?:back\s+)?(?:to|for)\s+(.+?)[?.!\s]*$/);
-  return m ? {namePhrase: m[1].trim(), targetPhrase: m[2].trim()} : null;
+  let m = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.*?)\s*\bfrom\s+(.+?)\s+(?:to|for)\s+(.+?)[?.!\s]*$/);
+  if(m) return {namePhrase: m[1].trim(), fromPhrase: m[2].trim(), targetPhrase: m[3].trim()};
+  m = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)\s+(?:back\s+)?(?:to|for)\s+(.+?)[?.!\s]*$/);
+  return m ? {namePhrase: m[1].trim(), fromPhrase: null, targetPhrase: m[2].trim()} : null;
 }
 const RESCHEDULE_MONTHS = {
   jan:0, january:0, feb:1, february:1, mar:2, march:2, apr:3, april:3, may:4,
@@ -8188,24 +8495,71 @@ function refreshMountedCalendarUI(){
     renderCalendarEventsPanel(modalBody);
   }
 }
+/* Locates an event by its CURRENTLY-SAVED time rather than by name — for "move my appointment
+   from 3pm to 5pm", where "appointment" is just a generic noun, not a real name to search titles
+   for, so this is the only way left to figure out WHICH event is meant. Searches today and every
+   future day first (soonest first, so "today's 3pm" wins over some 3pm a month from now), only
+   falling back to searching the past (most recent first) if nothing upcoming matches — a bare
+   time reference overwhelmingly means something coming up, not something that already happened. */
+function findCalendarEventByCurrentTime(timeStr, dateHint){
+  const targetKey = calendarTimeSortKey(timeStr);
+  if(targetKey === Infinity) return null;
+  const search = (keys)=>{
+    for(const key of keys){
+      const found = (calendarData.events[key]||[]).find(ev=>calendarTimeSortKey(ev.time)===targetKey);
+      if(found) return {key, ev:found};
+    }
+    return null;
+  };
+  if(dateHint) return search([calendarDateKey(dateHint)]);
+  const todayKey = calendarDateKey(new Date());
+  const allKeys = Object.keys(calendarData.events).sort();
+  return search(allKeys.filter(k=>k>=todayKey)) || search(allKeys.filter(k=>k<todayKey).reverse());
+}
 /* Returns null (not a reply string) when this doesn't actually look like a calendar reschedule —
    e.g. "change the theme to dark" names nothing that matches a real event and never mentions an
    appointment/event/calendar word either, so it falls through to the LLM instead of wrongly
    claiming "I don't see anything called that on your calendar." A real event match (by name)
    always proceeds regardless of wording, same as the read-side name search. */
-function tryRescheduleCalendarEvent(namePhrase, targetPhrase, fullText){
-  const matches = findCalendarEventsByName(namePhrase);
-  if(!matches.length){
+function tryRescheduleCalendarEvent(namePhrase, fromPhrase, targetPhrase, fullText){
+  const nameCore = extractCalendarSearchCore(namePhrase);
+  let target;
+  if(nameCore){
+    // a real, distinguishing name was given ("dentist appointment") — search by it, same as the read-side lookup
+    const matches = findCalendarEventsByName(namePhrase);
+    if(!matches.length){
+      return `I don't see anything called "${namePhrase}" on your calendar.`;
+    }
+    // ambiguous names (multiple matches) resolve to the soonest upcoming one, not the first ever saved
+    const todayKey = calendarDateKey(new Date());
+    target = matches.find(mt=>mt.key>=todayKey) || matches[0];
+  } else if(fromPhrase){
+    // no real name ("appointment"/"event"/nothing) — fall back to identifying it by its current time instead
+    const fromTime = parseRescheduleTime(fromPhrase);
+    if(!fromTime){
+      return `I couldn't tell what time to look for — try "move my appointment from 3pm to 5pm".`;
+    }
+    target = findCalendarEventByCurrentTime(fromTime, parseRescheduleDate(fromPhrase));
+    if(!target){
+      return `I don't see anything on your calendar at ${fromTime}.`;
+    }
+  } else if(lastRescheduleTarget){
+    // "move it to 6pm" with no name at all — resolves against whatever calendar event the
+    // conversation last landed on (a previous read query or reschedule), same event a real
+    // person would assume "it" still refers to a turn later.
+    target = lastRescheduleTarget;
+  } else if(soleUpcomingCalendarEvent()){
+    target = soleUpcomingCalendarEvent();
+  } else {
+    // neither a real name, a "from <time>", nor anything to remember from earlier — genuinely ambiguous, not a guess worth making
     return /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/.test(fullText)
-      ? `I don't see anything called "${namePhrase}" on your calendar.`
+      ? `Which one did you mean? Try naming it, or its current time — e.g. "move my appointment from 3pm to 5pm".`
       : null;
   }
-  // ambiguous names (multiple matches) resolve to the soonest upcoming one, not the first ever saved
-  const todayKey = calendarDateKey(new Date());
-  const target = matches.find(mt=>mt.key>=todayKey) || matches[0];
   const newDate = parseRescheduleDate(targetPhrase);
   const newTime = parseRescheduleTime(targetPhrase);
   if(!newDate && !newTime){
+    lastRescheduleTarget = target; // still remembered even though this attempt failed to parse a target — the retry ("ok, to 6pm") shouldn't have to re-name it
     return `I couldn't tell what date or time to move "${target.ev.title}" to — try something like "move it to Friday at 3pm".`;
   }
   const oldKey = target.key;
@@ -8219,6 +8573,7 @@ function tryRescheduleCalendarEvent(namePhrase, targetPhrase, fullText){
   }
   saveJSON(NS+"calendar", calendarData);
   refreshMountedCalendarUI();
+  lastRescheduleTarget = {key:newKey, ev:target.ev};
   const when = target.ev.time ? `${calendarEventDayLabel(newKey)} at ${target.ev.time}` : calendarEventDayLabel(newKey);
   return newKey !== oldKey
     ? `Done — moved "${target.ev.title}" from ${calendarEventDayLabel(oldKey)} to ${when}.`
@@ -8607,8 +8962,42 @@ function tryLocalCommand(text){
      specific, low-collision phrasing and should win over any later, more general handling. */
   const resched = parseRescheduleCommand(t);
   if(resched){
-    const reschedReply = tryRescheduleCalendarEvent(resched.namePhrase, resched.targetPhrase, t);
+    const reschedReply = tryRescheduleCalendarEvent(resched.namePhrase, resched.fromPhrase, resched.targetPhrase, t);
     if(reschedReply) results.push(reschedReply);
+  } else {
+    /* No "to"/"for" clause at all ("move the appointment", "reschedule my dentist thing") — a
+       real intent, just missing the when. Resolves WHICH event is meant right now (by name, or
+       lastRescheduleTarget for a bare "move it") and asks for the missing date/time instead of
+       silently doing nothing or falling through to the LLM (which has no calendar access and
+       would either refuse or, worse, guess). The actual move happens on the NEXT message, once
+       tryRescheduleCalendarEvent's lastRescheduleTarget fallback (above) picks this back up. */
+    const bareMatch = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)[?.!\s]*$/);
+    if(bareMatch){
+      const bareName = bareMatch[1].trim();
+      const bareCore = extractCalendarSearchCore(bareName);
+      const mentionsCalendar = /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/.test(t);
+      let bareTarget = null, bareReply = null;
+      if(bareCore){
+        const matches = findCalendarEventsByName(bareName);
+        if(matches.length){
+          const todayKey = calendarDateKey(new Date());
+          bareTarget = matches.find(mt=>mt.key>=todayKey) || matches[0];
+        } else {
+          bareReply = `I don't see anything called "${bareName}" on your calendar.`;
+        }
+      } else if(lastRescheduleTarget){
+        bareTarget = lastRescheduleTarget;
+      } else if(soleUpcomingCalendarEvent()){
+        bareTarget = soleUpcomingCalendarEvent();
+      } else if(mentionsCalendar){
+        bareReply = `Which one did you mean? Try naming it, e.g. "move my dentist appointment".`;
+      }
+      if(bareTarget){
+        lastRescheduleTarget = bareTarget;
+        bareReply = `Sure — what day or time would you like to move "${bareTarget.ev.title}" to?`;
+      }
+      if(bareReply) results.push(bareReply);
+    }
   }
   /* "do you have a face"/"what do you look like" answered deterministically, in character —
      the LLM's system prompt already tells it to stay embodied and never deny having a face, but
@@ -9917,8 +10306,25 @@ const LOCATION_PROVIDERS = [
     if(data && !data.error && data.latitude) return { city:data.city, lat:data.latitude, lon:data.longitude };
     return null;
   },
+  /* geojs.io — different operator/infra than the two above, so a blocklist or outage that takes
+     out both ipwho.is and ipapi.co (they're common co-targets, both flagged as "IP tracking" by
+     some lists) still has a real chance of missing this one. */
+  async ()=>{
+    const data = await (await fetch("https://get.geojs.io/v1/ip/geo.json")).json();
+    if(data && data.latitude && data.longitude) return { city:data.city, lat:parseFloat(data.latitude), lon:parseFloat(data.longitude) };
+    return null;
+  },
+  async ()=>{
+    const data = await (await fetch("https://freeipapi.com/api/json")).json();
+    if(data && data.latitude && data.longitude) return { city:data.cityName, lat:data.latitude, lon:data.longitude };
+    return null;
+  },
 ];
+/* homeLocationOverride (see Settings' "Home city" field) always wins over IP lookups when set —
+   it's the one path that doesn't depend on any third-party service being reachable at all, so
+   Weather keeps working even if every IP-geolocation provider above is blocked/down at once. */
 async function fetchApproxLocation(){
+  if(homeLocationOverride) return homeLocationOverride;
   if(cachedLocation && (Date.now()-cachedLocationTime) < LOCATION_CACHE_TTL) return cachedLocation;
   for(const provider of LOCATION_PROVIDERS){
     try{
