@@ -5197,16 +5197,17 @@ function renderFull(id){
       <div class="weather-full-layout">
         <div class="weather-hero">
           <div class="weather-hero-temp" id="weather-hero-temp">--°</div>
-          <div style="display:flex;align-items:baseline;gap:6px;">
-            <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
-            <button type="button" id="weather-city-edit-btn" title="Change city" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.6em;opacity:.6;padding:2px;flex:none;">✎</button>
-          </div>
+          <div class="weather-hero-city" id="weather-hero-city">Loading weather…</div>
           <div class="weather-hero-date" id="weather-hero-date"></div>
           <div class="weather-hero-cond" id="weather-hero-cond"></div>
-          <div id="weather-city-editor" style="display:none;gap:6px;align-items:center;margin-top:6px;">
-            <input type="text" id="weather-city-input" placeholder="e.g. Miami, FL" style="flex:1;font-size:12px;padding:4px 6px;">
-            <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
-            <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;">Auto</button>
+          <button type="button" id="weather-city-edit-btn" style="background:none;border:none;color:var(--accent-teal);cursor:pointer;font-size:11px;text-decoration:underline;padding:4px 0;margin-top:4px;">Change city</button>
+          <div id="weather-city-editor" style="display:none;flex-direction:column;gap:6px;margin-top:4px;">
+            <div id="weather-city-current" style="font-size:11px;color:var(--text-dim);"></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="text" id="weather-city-input" placeholder="e.g. Miami, FL" style="flex:1;font-size:12px;padding:4px 6px;">
+              <button type="button" class="btn primary" id="weather-city-save-btn" style="padding:3px 8px;font-size:11px;">Save</button>
+              <button type="button" class="btn" id="weather-city-auto-btn" style="padding:3px 8px;font-size:11px;">Use automatic</button>
+            </div>
           </div>
           <div id="weather-city-status" style="font-size:10px;color:var(--text-dim);margin-top:2px;"></div>
         </div>
@@ -10624,15 +10625,17 @@ function hydrateWeatherFull(scope){
      not something that needs re-attaching on every periodic refresh. */
   const editBtn = scope.querySelector("#weather-city-edit-btn");
   const editor = scope.querySelector("#weather-city-editor");
+  const currentEl = scope.querySelector("#weather-city-current");
   const cityInput = scope.querySelector("#weather-city-input");
   const status = scope.querySelector("#weather-city-status");
   const autoBtn = scope.querySelector("#weather-city-auto-btn");
   if(editBtn && editor){
-    autoBtn.style.display = homeLocationOverride ? "" : "none";
     editBtn.addEventListener("click", ()=>{
       const showing = editor.style.display !== "none";
       editor.style.display = showing ? "none" : "flex";
       if(!showing){
+        // answers "which city does it show up as" directly, rather than making that a guess — "None" is a real, distinct answer, not silence
+        currentEl.textContent = homeLocationOverride ? `Currently set to: ${homeLocationOverride.city||"(unnamed location)"}` : "Currently set to: None (using automatic IP-based detection)";
         cityInput.value = homeLocationOverride ? (homeLocationOverride.city||"") : "";
         cityInput.focus();
       }
@@ -10646,8 +10649,7 @@ function hydrateWeatherFull(scope){
       homeLocationOverride = loc;
       saveJSON(NS+"homeLocation", homeLocationOverride);
       cachedLocation = null; cachedWeatherData = null;
-      autoBtn.style.display = "";
-      editor.style.display = "none";
+      currentEl.textContent = `Currently set to: ${loc.city || name}`;
       status.textContent = `Now using ${loc.city || name}.`;
       refresh();
     });
@@ -10655,8 +10657,7 @@ function hydrateWeatherFull(scope){
       homeLocationOverride = null;
       localStorage.removeItem(NS+"homeLocation");
       cachedLocation = null; cachedWeatherData = null;
-      autoBtn.style.display = "none";
-      editor.style.display = "none";
+      currentEl.textContent = "Currently set to: None (using automatic IP-based detection)";
       status.textContent = "Back to automatic (IP-based) location.";
       refresh();
     });
