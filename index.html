@@ -848,7 +848,7 @@
      it's rendered; 240px comfortably covers the textarea without ever being so tall a transition
      looks like a jump for short content. */
   .fit-plan-day-detail-wrap{max-height:0;opacity:0;overflow:hidden;margin-bottom:0;transition:max-height .2s ease, opacity .15s ease, margin-bottom .2s ease;}
-  .fit-plan-day-detail-wrap.open{max-height:330px;opacity:1;margin-bottom:10px;}
+  .fit-plan-day-detail-wrap.open{max-height:380px;opacity:1;margin-bottom:10px;}
 
   /* ---------- garage vehicle-type picker (add-vehicle form) ----------
      A Pokédex-style grid, not a loose wrapping row — every type sits in its own uniform,
@@ -5679,7 +5679,11 @@ function renderFull(id){
       </div>
     </div>
 
-    <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;">Weekly Plan</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Weekly Plan</h3>
+      <button type="button" class="btn" id="fit-volume-toggle-btn" style="font-size:10px;padding:2px 8px;">Sets/muscle</button>
+    </div>
+    <div id="fit-volume-panel" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-grid-full" style="display:none;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
     <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
@@ -5688,6 +5692,22 @@ function renderFull(id){
       <button class="btn primary" id="fit-plan-submit">Set</button>
     </div>
     <div id="fit-equipment-status" style="font-size:10px;color:var(--text-dim);margin-bottom:10px;"></div>
+
+    <div style="margin-top:22px;padding-top:12px;border-top:1px solid var(--line-soft);opacity:.85;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Cardio</h3>
+        <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer" class="btn" style="font-size:10px;padding:2px 8px;text-decoration:none;">Open Strava ↗</a>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+        <select id="fit-cardio-type" style="flex:1;min-width:80px;font-size:11px;padding:3px 6px;">
+          <option>Run</option><option>Bike</option><option>Swim</option><option>Row</option><option>Walk</option><option>Other</option>
+        </select>
+        <input id="fit-cardio-distance" type="text" placeholder="Distance e.g. 5 mi" style="flex:1;min-width:90px;font-size:11px;padding:3px 7px;"/>
+        <input id="fit-cardio-duration" type="text" placeholder="Duration e.g. 42:00" style="flex:1;min-width:90px;font-size:11px;padding:3px 7px;"/>
+        <button class="btn primary" id="fit-cardio-add-btn" style="flex:none;font-size:11px;padding:3px 9px;">Log</button>
+      </div>
+      <div id="fit-cardio-list" style="max-height:160px;overflow:auto;font-size:.92em;"></div>
+    </div>
 
     <div style="margin-top:22px;padding-top:12px;border-top:1px solid var(--line-soft);opacity:.85;">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
@@ -12130,6 +12150,7 @@ if(!("weightUnit" in fitnessData)) fitnessData.weightUnit = "lbs";
 // equipment selection existed), not "nothing available" — so an old save with no equipment set
 // yet doesn't suddenly lose every barbell/machine exercise it would have gotten before this.
 if(!("equipment" in fitnessData)) fitnessData.equipment = [];
+if(!("cardio" in fitnessData)) fitnessData.cardio = [];
 const FIT_EQUIPMENT_OPTIONS = [
   {key:"barbell", label:"Barbell"},
   {key:"dumbbell", label:"Dumbbells"},
@@ -12248,16 +12269,25 @@ function fitEquipmentAllows(equip, selected){
   if(selected.length===1 && selected[0]==="bodyweight") return equip==="bodyweight";
   return equip==="bodyweight" || selected.includes(equip);
 }
-function exercisesForLabel(label, selectedEquipment){
+// preferLowImpact: bumps bodyweight/machine entries ahead of barbell/free-weight ones in the
+// picked slice rather than filtering anything out — see detectProfileFromText/FIT_ELDERLY_AGE
+// below. A stable sort (Array.prototype.sort is stable in every engine this runs in) so it only
+// ever reorders by that one preference, never scrambling the bank's own hand-picked ordering
+// otherwise.
+function exercisesForLabel(label, selectedEquipment, preferLowImpact){
   const bank = SPLIT_DAY_EXERCISE_BANK[label];
   if(!bank) return "";
   let matches = bank.filter(ex=>fitEquipmentAllows(ex.equip, selectedEquipment));
   if(!matches.length) matches = bank; // only possible if a label ever ships with zero bodyweight entries — falls back to the full list rather than showing nothing
+  if(preferLowImpact){
+    const weight = ex => (ex.equip==="bodyweight" || ex.equip==="machine") ? 0 : 1;
+    matches = matches.slice().sort((a,b)=>weight(a)-weight(b));
+  }
   return matches.slice(0, FIT_LOCAL_PLAN_MAX_EXERCISES).map(ex=>ex.name).join(", ");
 }
-function buildLocalPlanNotes(days){
+function buildLocalPlanNotes(days, preferLowImpact){
   const notes = {};
-  FIT_DAY_ORDER.forEach(d=>{ notes[d] = exercisesForLabel(days[d], fitnessData.equipment); });
+  FIT_DAY_ORDER.forEach(d=>{ notes[d] = exercisesForLabel(days[d], fitnessData.equipment, preferLowImpact); });
   return notes;
 }
 /* No-Groq-key fallback for picking up an equipment mention from plain plan-input text — the AI
@@ -12286,6 +12316,52 @@ function detectEquipmentFromText(text){
   const found = Object.keys(FIT_EQUIPMENT_KEYWORDS).filter(k=>FIT_EQUIPMENT_KEYWORDS[k].test(text));
   return found.length ? found : null;
 }
+/* No-Groq-key fallback for the same age/gender extraction generateAiWorkoutPlan's
+   profileMentioned/age/gender fields do with an actual model — this is deliberately much cruder
+   (a handful of keyword/regex patterns, not real language understanding), but it's what makes
+   "I'm an 80 year old grandma" still fill in Age/Gender and steer exercise selection even with no
+   key configured (see FIT_ELDERLY_AGE_THRESHOLD/preferLowImpact below). Returns null when nothing
+   profile-related was said, same "leave it alone" contract as detectEquipmentFromText. */
+const FIT_AGE_RE = /\b(\d{1,3})\s*(?:years?[\s-]*old|yo|y\/o)\b|\bi'?m\s+(\d{1,3})\b/i;
+const FIT_ELDERLY_WORDS_RE = /\b(grandma|grandmother|grandpa|grandfather|elderly|senior citizen|older (person|adult|lady|man|woman)|in (my|his|her) (60s|70s|80s|90s))\b/i;
+const FIT_FEMALE_WORDS_RE = /\b(grandma|grandmother|woman|female|girl|lady|mom|mother)\b/i;
+const FIT_MALE_WORDS_RE = /\b(grandpa|grandfather|\bman\b|male|\bboy\b|\bguy\b|dad|father)\b/i;
+function detectProfileFromText(text){
+  const ageMatch = text.match(FIT_AGE_RE);
+  let age = ageMatch ? (ageMatch[1] || ageMatch[2]) : (FIT_ELDERLY_WORDS_RE.test(text) ? "70" : "");
+  let gender = FIT_FEMALE_WORDS_RE.test(text) ? "Female" : (FIT_MALE_WORDS_RE.test(text) ? "Male" : "");
+  if(!age && !gender) return null;
+  return {age, gender};
+}
+const FIT_ELDERLY_AGE_THRESHOLD = 60;
+/* Generic "get me started/healthy" framing with no named split — matched only when
+   matchSplitTemplate itself found nothing, so it never overrides an actual split name. Maps to
+   Full Body (SPLIT_TEMPLATES[2]): the one template that's already the safe, simple, low-frequency
+   default regardless of experience level, same reason it's what isFitnessHelpRequest already
+   suggests for "I don't know what I'm doing" style messages. */
+const FIT_GENERIC_HEALTH_GOAL_RE = /\b(get (in(to)? )?(the )?gym|get active|get fit|get healthy|get in shape|start (working out|exercising)|new to (the gym|working out|exercise|this)|out of shape|for (my )?health)\b/i;
+/* "add cardio day to wednesday" / "make cardio on fri" / "cardio wed" — a narrow, fully local
+   (no AI needed) command for relabeling one day of an EXISTING plan to Cardio, checked before
+   anything else in submitPlan so it short-circuits deterministically rather than depending on
+   Groq correctly interpreting it. Deliberately requires both the word "cardio" AND a recognized
+   day name in the same message — either alone is too weak a signal for a box whose normal job is
+   describing a whole split (a plan request never names just one bare day + "cardio" together by
+   coincidence, so this doesn't collide with that). */
+const FIT_DAY_NAME_MAP = {
+  mon:"Mon", monday:"Mon",
+  tue:"Tue", tues:"Tue", tuesday:"Tue",
+  wed:"Wed", weds:"Wed", wednesday:"Wed",
+  thu:"Thu", thur:"Thu", thurs:"Thu", thursday:"Thu",
+  fri:"Fri", friday:"Fri",
+  sat:"Sat", saturday:"Sat",
+  sun:"Sun", sunday:"Sun",
+};
+function detectCardioDayCommand(text){
+  const t = text.toLowerCase();
+  if(!/\bcardio\b/.test(t)) return null;
+  const m = t.match(/\b(mon(day)?|tue(s(day)?)?|wed(s|nesday)?|thu(r(s(day)?)?)?|fri(day)?|sat(urday)?|sun(day)?)\b/);
+  return m ? (FIT_DAY_NAME_MAP[m[0]] || null) : null;
+}
 /* Free-form plan generation via the same Groq endpoint tryGroq (see near AI chat) already calls —
    a separate one-off request rather than routing through tryGroq itself, since this needs a very
    different system prompt (strict JSON, no personality/history) and must never get appended to
@@ -12300,14 +12376,20 @@ function fitPlanSystemPrompt(){
   const equipList = (fitnessData.equipment && fitnessData.equipment.length)
     ? FIT_EQUIPMENT_OPTIONS.filter(o=>fitnessData.equipment.includes(o.key)).map(o=>o.label).join(", ")
     : "a full commercial gym — assume anything is available";
-  return `You are a fitness program generator. The user describes a workout split or goal in free text — it may name a known split (upper/lower, push/pull/legs, full body, bro split) or be a fully custom request. It may also mention what equipment they do or don't have access to, either alongside a plan request or entirely on its own. Respond with STRICT JSON only — no markdown code fences, no commentary before or after — matching exactly this shape:
-{"label":"short name for this plan, e.g. Push Pull Legs","days":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"notes":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"equipmentMentioned":false,"equipment":[]}
+  const profileContext = (fitnessData.age || fitnessData.gender)
+    ? `Known profile from earlier: ${fitnessData.age ? fitnessData.age+" years old" : "age unknown"}${fitnessData.gender ? ", "+fitnessData.gender : ""} — keep tailoring for this unless the current message says otherwise.`
+    : "No age/gender known yet.";
+  return `You are a fitness program generator. The user describes a workout split or goal in free text — it may name a known split (upper/lower, push/pull/legs, full body, bro split), a fully custom request, or just a description of themselves and what they want (e.g. "I'm an 80 year old grandma and need to get active for my health", "trying to gain muscle for a beach body", "older, just want to lose weight and build functional strength"). Tailor the actual exercise selection and rep ranges to whatever's said: for older/beginner/health-focused users favor lower-impact, functional, mobility-friendly movements with more rest days and higher-rep/lighter-implied-load ranges (e.g. 12-15 reps) over anything ballistic or max-effort; for a muscle-gain/"beach body" goal favor moderate hypertrophy rep ranges (8-12) and classic isolation + compound movements; for general "lose weight and get active" favor higher-rep circuits and functional compound movements. ${profileContext} Respond with STRICT JSON only — no markdown code fences, no commentary before or after — matching exactly this shape:
+{"label":"short name for this plan, e.g. Push Pull Legs","days":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"notes":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"equipmentMentioned":false,"equipment":[],"profileMentioned":false,"age":"","gender":""}
 Rules:
 - "days" values are short one-or-two-word labels (e.g. "Upper", "Push", "Legs", "Full Body", "Rest").
 - "notes" values are the actual exercises for that day, comma-separated, each with sets x reps (e.g. "Bench Press 4x8, Barbell Row 4x8, Overhead Press 3x10"). Rest days get an empty notes string.
 - Currently-known equipment available: ${equipList}. Every exercise in "notes" must be doable with ONLY that equipment — bodyweight-only movements (push-ups, squats, lunges, planks, pull-ups only if a pull-up bar is listed, etc.) are always allowed in addition to whatever's listed.
 - "equipmentMentioned": true ONLY if this specific message describes what equipment the user has or lacks access to (e.g. "I only have dumbbells", "no gym, just my bodyweight", "I have a full gym now"). false for any message that's just a plan/split request with no equipment mentioned — do not infer equipment from exercise names alone.
 - "equipment": only meaningful when equipmentMentioned is true. An array using only these exact keys: "barbell", "dumbbell", "machine" (covers cable machines too), "pullup" (pull-up bar), "kettlebell". Use ["bodyweight"] alone to mean bodyweight-only/no equipment at all. Use [] to mean a full commercial gym / everything available. List only what they said they DO have — never guess at equipment they didn't mention.
+- "profileMentioned": true ONLY if THIS message reveals the user's own age and/or gender, directly or clearly implied (e.g. "grandma" implies elderly female, "I'm 45" implies age 45, "as a guy in his 20s" implies male ~20s). false for any message that doesn't reveal this.
+- "age": their age as a plain number string (best estimate if only implied, e.g. "80" for "grandma", "elderly" → a reasonable estimate like "70") if profileMentioned, else "".
+- "gender": a short label as they'd describe it (e.g. "Female", "Male") if profileMentioned, else "".
 - Include all 7 days Mon through Sun. Match the training frequency the user asked for; fill any remaining days as Rest.
 - No extra keys, no explanation text, response under 900 characters.`;
 }
@@ -12344,7 +12426,10 @@ async function generateAiWorkoutPlan(text){
     const equipment = equipmentMentioned && Array.isArray(parsed.equipment)
       ? parsed.equipment.filter(k=>validEquipKeys.includes(k))
       : [];
-    return {label: (parsed.label || "Custom Plan").toString().slice(0,40), days, notes, equipmentMentioned, equipment};
+    const profileMentioned = parsed.profileMentioned===true;
+    const age = profileMentioned && parsed.age ? parsed.age.toString().slice(0,3).replace(/\D/g,"") : "";
+    const gender = profileMentioned && parsed.gender ? parsed.gender.toString().slice(0,20) : "";
+    return {label: (parsed.label || "Custom Plan").toString().slice(0,40), days, notes, equipmentMentioned, equipment, profileMentioned, age, gender};
   }catch(e){
     return null;
   }
@@ -12382,6 +12467,68 @@ async function editWorkoutDayNotes(currentNotes, instruction){
   }catch(e){
     return null;
   }
+}
+/* No-Groq-key fallback for the day-edit box — handles the common cases (swap/replace one
+   exercise, remove one, add one, change an exercise's set count) with plain pattern matching
+   instead of a model. Deliberately narrower than editWorkoutDayNotes: covers "swap sit-ups for
+   dragon flags, sets 4 to 3" (the exact motivating example) and similar single-instruction edits,
+   but won't follow anything more open-ended — returns null rather than guessing wrong, same
+   "don't fake it, just decline" contract as every other local fallback here. */
+function localEditWorkoutDayNotes(currentNotesStr, instruction){
+  const entries = currentNotesStr.split(/,|\n/).map(s=>s.trim()).filter(Boolean);
+  let targetIdx = -1;
+  let changed = false;
+
+  const swapMatch = instruction.match(/\b(?:swap|replace)\s+(.+?)\s+(?:for|with)\s+([^,]+)/i);
+  if(swapMatch){
+    const [, fromText, toText] = swapMatch;
+    targetIdx = entries.findIndex(e=>e.toLowerCase().includes(fromText.trim().toLowerCase()));
+    if(targetIdx!==-1){
+      const setsPart = entries[targetIdx].match(/(\d+\s*[x×]\s*[\w.]+)\s*$/i);
+      entries[targetIdx] = setsPart ? `${toText.trim()} ${setsPart[1]}` : toText.trim();
+      changed = true;
+    }
+  }
+
+  if(!changed){
+    const removeMatch = instruction.match(/\b(?:remove|delete|drop)\s+([^,]+)/i);
+    if(removeMatch){
+      const idx = entries.findIndex(e=>e.toLowerCase().includes(removeMatch[1].trim().toLowerCase()));
+      if(idx!==-1){ entries.splice(idx,1); changed = true; }
+    }
+  }
+
+  if(!changed){
+    const addMatch = instruction.match(/\badd\s+([^,]+)/i);
+    if(addMatch){ entries.push(addMatch[1].trim()); targetIdx = entries.length-1; changed = true; }
+  }
+
+  // A trailing/standalone sets change — "sets 4 to 3", "sets to 3", "3 sets" — applied to
+  // whichever exercise the swap/add above just touched, or (if nothing above matched) to a
+  // named exercise mentioned anywhere in the instruction.
+  let setsMatch = instruction.match(/sets?[^\d]*(\d+)(?:[^\d]+(\d+))?/i);
+  let newSets = setsMatch ? (setsMatch[2] || setsMatch[1]) : null;
+  if(!newSets){
+    const alt = instruction.match(/\b(\d+)\s*sets?\b/i);
+    if(alt) newSets = alt[1];
+  }
+  if(newSets){
+    if(targetIdx===-1){
+      targetIdx = entries.findIndex(e=>{
+        const name = e.replace(/\d+\s*[x×]\s*[\w.]+\s*$/i,"").trim().toLowerCase();
+        return name && instruction.toLowerCase().includes(name);
+      });
+    }
+    if(targetIdx!==-1){
+      const before = entries[targetIdx];
+      entries[targetIdx] = /\d+\s*[x×]/i.test(before)
+        ? before.replace(/(\d+)(\s*[x×])/i, `${newSets}$2`)
+        : `${before} ${newSets}x?`;
+      changed = true;
+    }
+  }
+
+  return changed ? entries.join(", ") : null;
 }
 function isFitnessHelpRequest(text){
   return /help|suggest|recommend|don'?t have|dont have|no plan|not sure|no idea|what.*think|advice|idk/i.test(text);
@@ -12426,26 +12573,86 @@ function fitnessPlanGridOpts(scope){
   };
 }
 const FIT_PLAN_DAY_DETAIL_COLLAPSE_MS = 200; // matches .fit-plan-day-detail-wrap's max-height transition duration
+/* Reformats a day's exercise list — however it's currently stored (comma-separated, straight
+   from the local bank/AI generation, or already newline-separated from a prior save of this same
+   formatting) — into one exercise per line, name left-aligned with its sets x reps figure lined
+   up in a right column: read top-to-bottom like an actual workout card instead of one long
+   comma-separated sentence read left-to-right. Purely a display-time transform — whatever the
+   textarea ends up holding (this, or whatever gets typed over it) is exactly what's saved back to
+   fitnessData.plan.notes[day] as-is, and running this again on its own prior output is idempotent
+   (the padding gets trimmed back out of the name before realigning), so reopening an
+   already-formatted day doesn't drift the spacing further. */
+function formatExerciseListForDisplay(notesStr){
+  if(!notesStr || !notesStr.trim()) return notesStr || "";
+  const entries = notesStr.split(/,|\n/).map(s=>s.trim()).filter(Boolean);
+  const SETS_RE = /^(.*?)\s+(\d+\s*[x×]\s*[\w.]+)\s*$/i;
+  const parsed = entries.map(e=>{
+    const m = e.match(SETS_RE);
+    return m ? {name:m[1].trim(), sets:m[2].trim()} : {name:e, sets:""};
+  });
+  const maxNameLen = Math.max(...parsed.map(p=>p.name.length));
+  return parsed.map(p=> p.sets ? p.name.padEnd(maxNameLen+3)+p.sets : p.name).join("\n");
+}
+/* Keyword classifier, same spirit as categorizeFitnessEntry — order matters: Triceps is checked
+   before Biceps so "Overhead Tricep Extension" doesn't fall through to Biceps' bare /curl/ match
+   (nothing here contains both words, but keeping the more specific check first is what makes that
+   safe regardless of what gets added later). Exercise names are short and mostly conventional
+   (this app's own local bank + typically how an AI-generated plan names things too), so a handful
+   of keyword patterns covers the overwhelming majority without needing real NLP. */
+const MUSCLE_GROUP_RULES = [
+  {group:"Chest", re:/bench press|incline .*press|chest press|cable fly|push-?up|dip/i},
+  {group:"Back", re:/deadlift|row|pulldown|pull-?up|chin-?up/i},
+  {group:"Shoulders", re:/overhead press|shoulder press|push press|lateral raise|rear delt|face pull|pike push-?up/i},
+  {group:"Legs", re:/squat|lunge|leg press|leg curl|leg extension|calf raise|romanian deadlift|goblet|kettlebell swing/i},
+  {group:"Triceps", re:/tricep|diamond push-?up/i},
+  {group:"Biceps", re:/curl/i},
+  {group:"Core", re:/plank|sit-?up|crunch|dragon flag|ab wheel|hollow hold|burpee|thruster/i},
+];
+function classifyMuscleGroup(name){
+  const n = name.toLowerCase();
+  for(const rule of MUSCLE_GROUP_RULES){ if(rule.re.test(n)) return rule.group; }
+  return "Other";
+}
+/* Weekly per-muscle-group set volume — recomputed fresh from fitnessData.plan.notes every time
+   the panel opens (see renderFitnessVolumePanel) rather than cached/stored, so it always reflects
+   the latest edits without needing a separate update path threaded through every place notes can
+   change (day-detail textarea edits, the AI day-edit "Apply" button, a whole new generated plan). */
+function computeMuscleGroupVolume(){
+  const totals = {};
+  if(!fitnessData.plan) return totals;
+  FIT_DAY_ORDER.forEach(d=>{
+    if(fitnessData.plan.days[d]==="Rest") return;
+    const notesStr = (fitnessData.plan.notes && fitnessData.plan.notes[d]) || "";
+    if(!notesStr.trim()) return;
+    notesStr.split(/,|\n/).map(s=>s.trim()).filter(Boolean).forEach(entry=>{
+      const m = entry.match(/^(.*?)\s+(\d+)\s*[x×]\s*[\w.]+\s*$/i);
+      if(!m || !m[1].trim()) return;
+      const sets = parseInt(m[2], 10);
+      if(!sets) return;
+      const group = classifyMuscleGroup(m[1].trim());
+      totals[group] = (totals[group]||0) + sets;
+    });
+  });
+  return totals;
+}
 function fillFitnessPlanDayDetail(scope, el, day){
   el.dataset.day = day;
   const label = fitnessData.plan.days[day];
-  const note = (fitnessData.plan.notes && fitnessData.plan.notes[day]) || "";
+  const note = formatExerciseListForDisplay((fitnessData.plan.notes && fitnessData.plan.notes[day]) || "");
   el.innerHTML = `
     <div style="background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;padding:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-family:var(--font-display);font-size:12px;">${day} — ${label}</span>
         <button class="hbtn" id="fit-plan-day-close" style="flex:none;">✕</button>
       </div>
-      <textarea id="fit-plan-day-notes" placeholder="e.g. Bench press 4x8, row 4x8…" style="width:100%;min-height:90px;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
-      ${groqApiKey ? `
+      <textarea id="fit-plan-day-notes" placeholder="e.g. Bench Press   4x8" style="width:100%;min-height:130px;white-space:pre;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);">
         <div style="display:flex;gap:6px;">
           <input id="fit-plan-day-edit-input" type="text" placeholder="What to change…" style="flex:1;font-size:11px;padding:4px 7px;"/>
           <button class="btn" id="fit-plan-day-edit-btn" style="flex:none;font-size:11px;padding:4px 9px;">Apply</button>
         </div>
         <div id="fit-plan-day-edit-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:1.2em;"></div>
-      </div>` : `
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);font-size:10px;color:var(--text-dim);">Add a Groq key in Settings to enable this.</div>`}
+      </div>
     </div>`;
   const textarea = el.querySelector("#fit-plan-day-notes");
   textarea.addEventListener("input", (e)=>{
@@ -12460,17 +12667,18 @@ function fillFitnessPlanDayDetail(scope, el, day){
     if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
   });
   const editBtn = el.querySelector("#fit-plan-day-edit-btn");
-  if(editBtn){
-    const editInput = el.querySelector("#fit-plan-day-edit-input");
-    const status = el.querySelector("#fit-plan-day-edit-status");
-    async function applyEdit(){
-      const instruction = editInput.value.trim();
-      if(!instruction) return;
+  const editInput = el.querySelector("#fit-plan-day-edit-input");
+  const status = el.querySelector("#fit-plan-day-edit-status");
+  async function applyEdit(){
+    const instruction = editInput.value.trim();
+    if(!instruction) return;
+    let updated;
+    if(groqApiKey){
       editBtn.disabled = true;
       editInput.disabled = true;
       status.style.color = "var(--text-dim)";
       status.textContent = "Updating…";
-      const updated = await editWorkoutDayNotes(textarea.value, instruction);
+      updated = await editWorkoutDayNotes(textarea.value, instruction);
       editBtn.disabled = false;
       editInput.disabled = false;
       if(updated===null){
@@ -12478,17 +12686,28 @@ function fillFitnessPlanDayDetail(scope, el, day){
         status.textContent = "AI request failed.";
         return;
       }
-      textarea.value = updated;
-      if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
-      fitnessData.plan.notes[day] = updated;
-      saveJSON(NS+"fitness", fitnessData);
-      editInput.value = "";
-      status.style.color = "var(--text-dim)";
-      status.textContent = "Updated.";
+    } else {
+      // No key: plain pattern matching (swap/replace, add, remove, change sets) instead of a
+      // model — see localEditWorkoutDayNotes's own doc comment for exactly what it can and can't
+      // follow.
+      updated = localEditWorkoutDayNotes(textarea.value, instruction);
+      if(updated===null){
+        status.style.color = "var(--accent-rust)";
+        status.textContent = `Couldn't parse that — try "swap X for Y", "remove X", "add X", or a Groq key in Settings for open-ended edits.`;
+        return;
+      }
     }
-    editBtn.addEventListener("click", applyEdit);
-    editInput.addEventListener("keydown", e=>{ if(e.key==="Enter") applyEdit(); });
+    const formatted = formatExerciseListForDisplay(updated);
+    textarea.value = formatted;
+    if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
+    fitnessData.plan.notes[day] = formatted;
+    saveJSON(NS+"fitness", fitnessData);
+    editInput.value = "";
+    status.style.color = "var(--text-dim)";
+    status.textContent = "Updated.";
   }
+  editBtn.addEventListener("click", applyEdit);
+  editInput.addEventListener("keydown", e=>{ if(e.key==="Enter") applyEdit(); });
 }
 /* Picking a different day while one's already open collapses that one first, THEN swaps in the
    new day's content and expands — an explicit close-then-open, not just a content jump-cut while
@@ -12569,6 +12788,33 @@ function renderFitnessColumns(scope){
     });
   });
 }
+// Deliberately separate from fitnessData.entries/categorizeFitnessEntry — cardio gets its own
+// structured fields (type/distance/duration) instead of being squeezed through the same free-text
+// keyword-categorized log, since "5 mi" and "42:00" are actual data you'd want to glance at
+// consistently, not just prose that happened to get sorted into the Workout column.
+function addCardioEntry(type, distance, duration){
+  distance = distance.trim(); duration = duration.trim();
+  if(!distance && !duration) return;
+  fitnessData.cardio.unshift({id:"c"+Date.now()+Math.random().toString(36).slice(2,6), type, distance, duration, ts:Date.now()});
+  if(fitnessData.cardio.length>300) fitnessData.cardio.length = 300;
+  saveJSON(NS+"fitness", fitnessData);
+}
+function renderCardioList(scope){
+  const el = scope.querySelector("#fit-cardio-list");
+  if(!el) return;
+  el.innerHTML = fitnessData.cardio.length ? fitnessData.cardio.map(c=>`
+    <div class="list-row" style="align-items:flex-start;">
+      <span style="text-align:left;">${escapeHtml(c.type)}${c.distance?" — "+escapeHtml(c.distance):""}${c.duration?" in "+escapeHtml(c.duration):""}<br><span style="color:var(--text-dim);font-size:0.8em;">${fitRelativeTime(c.ts)}</span></span>
+      <button class="hbtn" data-id="${c.id}" style="flex:none;">✕</button>
+    </div>`).join("") : `<div style="color:var(--text-dim);font-size:12px;">Nothing yet.</div>`;
+  el.querySelectorAll("[data-id]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      fitnessData.cardio = fitnessData.cardio.filter(c=>c.id!==btn.dataset.id);
+      saveJSON(NS+"fitness", fitnessData);
+      renderCardioList(scope);
+    });
+  });
+}
 function renderFitnessMiniSummary(doc){
   const summaryEl = doc.querySelector ? doc.querySelector(".fit-mini-summary") : null;
   if(!summaryEl) return;
@@ -12609,6 +12855,28 @@ function hydrateFitnessMini(scope){
   addBtn.addEventListener("click", submit);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
 }
+let fitnessVolumePanelOpen = false;
+/* Only visible behind the "Sets/muscle" toggle — see the "only see the list when you click the
+   button" requirement this exists for. Recomputes on every call rather than being driven off its
+   own change events, so it stays correct whether it's opened fresh or already open when the plan
+   changes underneath it (new plan generated, a day's exercises edited, etc. — see
+   computeMuscleGroupVolume's own doc comment). */
+function renderFitnessVolumePanel(scope){
+  const el = scope.querySelector("#fit-volume-panel");
+  if(!el) return;
+  if(!fitnessVolumePanelOpen || !fitnessData.plan){
+    el.classList.remove("open");
+    return;
+  }
+  const totals = computeMuscleGroupVolume();
+  const groups = Object.keys(totals).sort((a,b)=>totals[b]-totals[a]);
+  el.innerHTML = `<div style="background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;">${
+    groups.length
+      ? groups.map(g=>`<div style="display:flex;justify-content:space-between;padding:2px 0;"><span>${g}</span><span style="color:var(--text-dim);">${totals[g]}/wk</span></div>`).join("")
+      : `<span style="color:var(--text-dim);">No exercises yet.</span>`
+  }</div>`;
+  el.classList.add("open");
+}
 function renderFitnessPlanSection(scope){
   const gridEl = scope.querySelector("#fit-plan-grid-full");
   const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
@@ -12620,6 +12888,7 @@ function renderFitnessPlanSection(scope){
     fitnessSelectedPlanDay = null;
   }
   renderFitnessPlanDayDetail(scope);
+  renderFitnessVolumePanel(scope);
   if(fitnessPlanSuggestion){
     const tpl = fitnessPlanSuggestion;
     suggestBox.innerHTML = `
@@ -12696,6 +12965,12 @@ function hydrateFitnessFull(scope){
 
   fitnessPlanSuggestion = null;
   fitnessSelectedPlanDay = null;
+  fitnessVolumePanelOpen = false;
+  const volumeToggleBtn = scope.querySelector("#fit-volume-toggle-btn");
+  if(volumeToggleBtn) volumeToggleBtn.addEventListener("click", ()=>{
+    fitnessVolumePanelOpen = !fitnessVolumePanelOpen;
+    renderFitnessVolumePanel(scope);
+  });
   renderFitnessPlanSection(scope);
   const planInput = scope.querySelector("#fit-plan-input");
   const planSubmit = scope.querySelector("#fit-plan-submit");
@@ -12718,6 +12993,24 @@ function hydrateFitnessFull(scope){
   async function submitPlan(){
     const text = planInput.value.trim();
     if(!text) return;
+    // Fully local, checked first, no AI needed — deterministic beats "hope Groq gets this right"
+    // for such a narrow command. Only fires with an existing plan to relabel a day of.
+    if(fitnessData.plan){
+      const cardioDay = detectCardioDayCommand(text);
+      if(cardioDay){
+        fitnessData.plan.days[cardioDay] = "Cardio";
+        if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
+        fitnessData.plan.notes[cardioDay] = ""; // old lifting exercises for that day no longer apply under a Cardio label
+        saveJSON(NS+"fitness", fitnessData);
+        fitnessSelectedPlanDay = null;
+        planInput.value = "";
+        renderFitnessPlanSection(scope);
+        const miniScope = document.querySelector(".fit-mini-plan");
+        if(miniScope) renderFitnessMiniPlan(miniScope.closest(".widget-body"));
+        scope.querySelector("#fit-plan-suggestion-full").innerHTML = `<div style="color:var(--text-dim);font-size:12px;">${cardioDay} set to Cardio.</div>`;
+        return;
+      }
+    }
     if(groqApiKey){
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       planSubmit.disabled = true;
@@ -12733,30 +13026,54 @@ function hydrateFitnessFull(scope){
           saveJSON(NS+"fitness", fitnessData);
           renderEquipmentStatus();
         }
+        // Only ever fills in what the AI actually extracted — an age/gender mention with no
+        // weight said shouldn't touch whatever's already sitting in the weight field, and vice
+        // versa. Both the live input elements AND fitnessData get updated directly (same as
+        // typing into them yourself would), not just fitnessData, so the fields visibly update
+        // without needing the modal to be reopened.
+        if(ai.profileMentioned){
+          if(ai.age){ fitnessData.age = ai.age; ageInput.value = ai.age; }
+          if(ai.gender){ fitnessData.gender = ai.gender; genderInput.value = ai.gender; }
+          saveJSON(NS+"fitness", fitnessData);
+        }
         suggestBox.innerHTML = "";
         applyGeneratedPlan("ai", ai.label, ai.days, ai.notes);
         return;
       }
       suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">AI unavailable — trying local match.</div>`;
     }
-    // No-key fallback: same keyword-based equipment detection generateAiWorkoutPlan's prompt
-    // does more flexibly with an actual model (see detectEquipmentFromText above).
+    // No-key fallback: same keyword-based equipment/profile detection generateAiWorkoutPlan's
+    // prompt does more flexibly with an actual model (see detectEquipmentFromText/
+    // detectProfileFromText above) — cruder, but keeps most of this actually working without a
+    // key configured at all.
     const equipmentDetected = detectEquipmentFromText(text);
     if(equipmentDetected){
       fitnessData.equipment = equipmentDetected;
       saveJSON(NS+"fitness", fitnessData);
       renderEquipmentStatus();
     }
-    const matched = matchSplitTemplate(text);
+    const profileDetected = detectProfileFromText(text);
+    if(profileDetected){
+      if(profileDetected.age){ fitnessData.age = profileDetected.age; ageInput.value = profileDetected.age; }
+      if(profileDetected.gender){ fitnessData.gender = profileDetected.gender; genderInput.value = profileDetected.gender; }
+      saveJSON(NS+"fitness", fitnessData);
+    }
+    const knownAge = parseInt(fitnessData.age, 10);
+    const preferLowImpact = (knownAge && knownAge>=FIT_ELDERLY_AGE_THRESHOLD) || FIT_ELDERLY_WORDS_RE.test(text) || FIT_GENERIC_HEALTH_GOAL_RE.test(text);
+    // A named split always wins; generic "get me started/healthy" framing with nothing more
+    // specific defaults to Full Body (see FIT_GENERIC_HEALTH_GOAL_RE's own doc comment) rather
+    // than falling through to "didn't recognize that split," which would be a strange thing to
+    // say back to someone who never named one in the first place.
+    const matched = matchSplitTemplate(text) || (FIT_GENERIC_HEALTH_GOAL_RE.test(text) ? SPLIT_TEMPLATES[2] : null);
     if(matched){
-      applyGeneratedPlan(matched.key, matched.label, matched.days, buildLocalPlanNotes(matched.days));
-    } else if(equipmentDetected){
-      // equipment-only message with no split named — acknowledge it rather than routing into
-      // the "didn't recognize that split" error, which would read as the equipment mention itself
-      // having failed when it actually landed fine.
+      applyGeneratedPlan(matched.key, matched.label, matched.days, buildLocalPlanNotes(matched.days, preferLowImpact));
+    } else if(equipmentDetected || profileDetected){
+      // equipment/profile-only message with no split named — acknowledge it rather than routing
+      // into the "didn't recognize that split" error, which would read as that detection having
+      // failed when it actually landed fine.
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       planInput.value = "";
-      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Equipment noted.</div>`;
+      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">${equipmentDetected && profileDetected ? "Equipment and profile" : equipmentDetected ? "Equipment" : "Profile"} noted.</div>`;
     } else if(isFitnessHelpRequest(text) || !fitnessData.plan){
       fitnessPlanSuggestion = SPLIT_TEMPLATES[0];
       planInput.value = "";
@@ -12796,6 +13113,21 @@ function hydrateFitnessFull(scope){
     colInput.addEventListener("blur", ()=>{
       if(!colInput.value.trim()) colInput.style.display = "none";
     });
+  });
+
+  renderCardioList(scope);
+  const cardioTypeSel = scope.querySelector("#fit-cardio-type");
+  const cardioDistInput = scope.querySelector("#fit-cardio-distance");
+  const cardioDurInput = scope.querySelector("#fit-cardio-duration");
+  const cardioAddBtn = scope.querySelector("#fit-cardio-add-btn");
+  function submitCardio(){
+    addCardioEntry(cardioTypeSel.value, cardioDistInput.value, cardioDurInput.value);
+    cardioDistInput.value = ""; cardioDurInput.value = "";
+    renderCardioList(scope);
+  }
+  cardioAddBtn.addEventListener("click", submitCardio);
+  [cardioDistInput, cardioDurInput].forEach(inp=>{
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submitCardio(); });
   });
 }
 
