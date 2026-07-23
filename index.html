@@ -839,6 +839,17 @@
   .garage-pc-stats-remove:hover{border-color:var(--accent-amber);color:var(--accent-amber);}
   .garage-pc-empty{width:100%;text-align:center;color:var(--text-dim);padding:30px 0;font-size:13px;}
 
+  /* ---------- fitness weekly-plan per-day workout notes ----------
+     Collapsed to max-height:0 by default so picking a different day genuinely closes the
+     previously-open one instead of just swapping its text out from under you — see
+     renderFitnessPlanDayDetail, which removes .open (collapse), waits for that transition to
+     finish, THEN swaps in the new day's content and adds .open back (expand). max-height (not
+     height) is what's actually animatable here since the content's real height isn't known until
+     it's rendered; 240px comfortably covers the textarea without ever being so tall a transition
+     looks like a jump for short content. */
+  .fit-plan-day-detail-wrap{max-height:0;opacity:0;overflow:hidden;margin-bottom:0;transition:max-height .2s ease, opacity .15s ease, margin-bottom .2s ease;}
+  .fit-plan-day-detail-wrap.open{max-height:240px;opacity:1;margin-bottom:10px;}
+
   /* ---------- garage vehicle-type picker (add-vehicle form) ----------
      A Pokédex-style grid, not a loose wrapping row — every type sits in its own uniform,
      bordered slot (icon boxed in its own inset panel, name below), laid out in real CSS-grid
@@ -5679,7 +5690,7 @@ function renderFull(id){
 
     <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;">Weekly Plan</h3>
     <div id="fit-plan-grid-full" style="display:none;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
-    <div id="fit-plan-day-detail" style="display:none;margin-bottom:10px;"></div>
+    <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:6px;margin-bottom:20px;">
       <input id="fit-plan-input" type="text" placeholder="Tell me your split — e.g. 'upper lower', 'push pull legs' — or ask for help" style="flex:1;"/>
@@ -12180,18 +12191,11 @@ function fitnessPlanGridOpts(scope){
     selectedDay: fitnessSelectedPlanDay,
   };
 }
-function renderFitnessPlanDayDetail(scope){
-  const el = scope.querySelector("#fit-plan-day-detail");
-  if(!el) return;
-  if(!fitnessSelectedPlanDay || !fitnessData.plan){
-    el.style.display = "none";
-    el.innerHTML = "";
-    return;
-  }
-  const day = fitnessSelectedPlanDay;
+const FIT_PLAN_DAY_DETAIL_COLLAPSE_MS = 200; // matches .fit-plan-day-detail-wrap's max-height transition duration
+function fillFitnessPlanDayDetail(scope, el, day){
+  el.dataset.day = day;
   const label = fitnessData.plan.days[day];
   const note = (fitnessData.plan.notes && fitnessData.plan.notes[day]) || "";
-  el.style.display = "block";
   el.innerHTML = `
     <div style="background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;padding:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -12211,6 +12215,32 @@ function renderFitnessPlanDayDetail(scope){
     const gridEl = scope.querySelector("#fit-plan-grid-full");
     if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
   });
+}
+/* Picking a different day while one's already open collapses that one first, THEN swaps in the
+   new day's content and expands — an explicit close-then-open, not just a content jump-cut while
+   staying visually "open" the whole time, so switching days actually reads as one accordion panel
+   closing and another opening rather than text silently changing under you. Opening from fully
+   closed (nothing selected yet) skips straight to filling + expanding since there's nothing to
+   collapse first. */
+function renderFitnessPlanDayDetail(scope){
+  const el = scope.querySelector("#fit-plan-day-detail");
+  if(!el) return;
+  const day = fitnessSelectedPlanDay;
+  if(!day || !fitnessData.plan){
+    el.classList.remove("open");
+    return;
+  }
+  if(el.classList.contains("open") && el.dataset.day !== day){
+    el.classList.remove("open");
+    setTimeout(()=>{
+      if(fitnessSelectedPlanDay !== day) return; // selection moved on again mid-collapse — let that render win
+      fillFitnessPlanDayDetail(scope, el, day);
+      el.classList.add("open");
+    }, FIT_PLAN_DAY_DETAIL_COLLAPSE_MS);
+    return;
+  }
+  fillFitnessPlanDayDetail(scope, el, day);
+  el.classList.add("open");
 }
 function selectFitnessPlanDay(scope, day){
   fitnessSelectedPlanDay = fitnessSelectedPlanDay===day ? null : day; // clicking the same day again closes it
