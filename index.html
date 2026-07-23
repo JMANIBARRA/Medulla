@@ -2404,7 +2404,7 @@ const I18N_ES = {
   "leave blank to use the shared demo key": "déjalo en blanco para usar la clave de demostración compartida",
 
   /* ---- widget card chrome ---- */
-  "Double-click to minimize": "Doble clic para minimizar",
+  "Click to open full view — double-click to minimize": "Haz clic para abrir la vista completa — doble clic para minimizar",
   "Cycle size: small / medium / large": "Cambiar tamaño: pequeño / mediano / grande",
   "Unpin (return to canvas)": "Desfijar (volver al lienzo)",
   "Pin to screen (stays put while you pan/zoom)": "Fijar en la pantalla (permanece fijo mientras desplazas o haces zoom)",
@@ -4798,7 +4798,7 @@ function renderWidgetCard(def,l){
   const clickToExpand = !CLICK_TO_EXPAND_EXCLUDE_IDS.has(def.id);
   const header = document.createElement("div");
   header.className="widget-header";
-  header.innerHTML = `<div class="htitle" title="Double-click to minimize"><span class="led"></span><span class="htitle-text">${escapeHtml(def.title)}</span></div>
+  header.innerHTML = `<div class="htitle" title="Click to open full view — double-click to minimize"><span class="led"></span><span class="htitle-text">${escapeHtml(def.title)}</span></div>
     <div class="hbtns">
       <button class="hbtn hbtn-size" data-act="size" title="Cycle size: small / medium / large">${SIZE_PRESET_ORDER.includes(l.sizePreset) ? l.sizePreset : "M"}</button>
       <button class="hbtn hbtn-pin${l.pinned ? " active" : ""}" data-act="pin" title="${l.pinned ? "Unpin (return to canvas)" : "Pin to screen (stays put while you pan/zoom)"}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6.5-9 12-9 12s-9-5.5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="2.75"/></svg></button>
@@ -4825,6 +4825,18 @@ function renderWidgetCard(def,l){
       cardClickTimer = setTimeout(()=>{ def.isLink ? openSiteUrl(def.site, def.url) : openModal(def); }, 320);
     });
   }
+  /* Clicking the title also opens the full view — same shared cardClickTimer/320ms debounce as
+     the body above, so a real double-click on the title still falls through to the card-wide
+     dblclick-to-minimize handler instead of flashing the modal open first. Unlike the body click
+     above, this is NOT gated behind clickToExpand/CLICK_TO_EXPAND_EXCLUDE_IDS — chrono/arcade/
+     youtube/youtubeoauth exclude body clicks specifically because their mini view has its own
+     interactive content (game canvas, video controls, clock face toggle) that a click-to-expand
+     would fight with, but the title bar is never part of that content for any widget, so it's
+     always safe to use as an explicit "open full view" target regardless. */
+  header.querySelector(".htitle").addEventListener("click",(e)=>{
+    clearTimeout(cardClickTimer);
+    cardClickTimer = setTimeout(()=>{ def.isLink ? openSiteUrl(def.site, def.url) : openModal(def); }, 320);
+  });
   header.querySelector('[data-act="size"]').addEventListener("click",(e)=>{
     e.stopPropagation();
     cycleWidgetSize(def, l, card, header);
