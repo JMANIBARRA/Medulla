@@ -3202,6 +3202,16 @@ function setupCameraMemoryButtons(){
       // mem.hotbar is only present on memories saved after this existed — an older save simply
       // leaves the hot bar as whatever it currently is, rather than blanking it out.
       if(mem.hotbar && hotbarConfigBridge) hotbarConfigBridge.setConfig(mem.hotbar);
+      // Minimized widgets' capsule icon size is driven by this one global preset (see
+      // capsuleSizeMetrics/renderCapsule) rather than anything per-widget in state.layout, so
+      // without restoring it here too, clicking the S/M/L "size all" buttons after saving a
+      // memory would leave every capsule stuck at that size even after loading a memory saved
+      // at a different size — everything else in the snapshot would snap back, capsules
+      // wouldn't. Same "older save just leaves it alone" fallback as mem.hotbar above.
+      if(mem.capsuleSizePreset){
+        capsuleSizePreset = mem.capsuleSizePreset;
+        saveJSON(NS+"capsuleSize", capsuleSizePreset);
+      }
       backfillMissingWidgetLayouts(state); // a widget added to WIDGET_DEFS since this memory was saved needs a real entry
       recalcTopZ();
       renderWidgets();
@@ -3215,6 +3225,7 @@ function setupCameraMemoryButtons(){
       layout: JSON.parse(JSON.stringify(state.layout)),
       linkWidgets: JSON.parse(JSON.stringify(state.linkWidgets||{})),
       hotbar: hotbarConfigBridge ? hotbarConfigBridge.getConfig() : null,
+      capsuleSizePreset,
     };
     saveProfileState();
     refreshCameraMemoryButtons();
