@@ -5684,14 +5684,11 @@ function renderFull(id){
     <div id="fit-plan-grid-full" style="display:none;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
     <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;">Equipment available (leave all off to assume a full gym)</div>
-      <div id="fit-equipment-row" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal — e.g. 'upper lower', or your own custom request" style="flex:1;"/>
+    <div style="display:flex;gap:6px;margin-bottom:2px;">
+      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal — e.g. 'upper lower', or 'I only have dumbbells and a pull-up bar'" style="flex:1;"/>
       <button class="btn primary" id="fit-plan-submit">Set</button>
     </div>
+    <div id="fit-equipment-status" style="font-size:10px;color:var(--text-dim);margin-bottom:10px;"></div>
 
     <div style="margin-top:22px;padding-top:12px;border-top:1px solid var(--line-soft);opacity:.85;">
       <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Quick Log <span style="text-transform:none;letter-spacing:0;font-weight:400;">— jot down anything, sorted below</span></h3>
@@ -12246,9 +12243,13 @@ const SPLIT_DAY_EXERCISE_BANK = {
   ],
 };
 const FIT_LOCAL_PLAN_MAX_EXERCISES = 6;
-// empty selection = no restriction set yet, i.e. assume a full gym — see fitnessData.equipment above
+// empty selection = no restriction set yet, i.e. assume a full gym — see fitnessData.equipment above.
+// selected === ["bodyweight"] specifically is the one explicit restriction that excludes even
+// bodyweight's own usual always-allowed status for everything else — "I only have my body."
 function fitEquipmentAllows(equip, selected){
-  return equip==="bodyweight" || !selected || !selected.length || selected.includes(equip);
+  if(!selected || !selected.length) return true;
+  if(selected.length===1 && selected[0]==="bodyweight") return equip==="bodyweight";
+  return equip==="bodyweight" || selected.includes(equip);
 }
 function exercisesForLabel(label, selectedEquipment){
   const bank = SPLIT_DAY_EXERCISE_BANK[label];
@@ -12261,6 +12262,32 @@ function buildLocalPlanNotes(days){
   const notes = {};
   FIT_DAY_ORDER.forEach(d=>{ notes[d] = exercisesForLabel(days[d], fitnessData.equipment); });
   return notes;
+}
+/* No-Groq-key fallback for picking up an equipment mention from plain plan-input text — the AI
+   path (generateAiWorkoutPlan's equipmentMentioned/equipment fields) handles this far more
+   flexibly, this is just enough pattern-matching to still do SOMETHING useful without a key.
+   Deliberately requires an explicit restriction phrase ("only have", "don't have", etc.) before
+   touching fitnessData.equipment at all — a plan request that just happens to mention "dumbbell"
+   in passing ("give me a dumbbell-focused push pull legs") shouldn't silently lock every future
+   plan to dumbbells only. Returns null when nothing equipment-related was said, so the caller
+   knows to leave fitnessData.equipment exactly as it already was (see the "sticks until you say
+   otherwise" requirement this whole thing exists for). */
+const FIT_EQUIPMENT_KEYWORDS = {
+  barbell: /\bbarbells?\b/i,
+  dumbbell: /\bdumbbells?\b/i,
+  machine: /\bmachines?\b|\bcables?\b/i,
+  pullup: /\bpull[\s-]?up bars?\b/i,
+  kettlebell: /\bkettlebells?\b/i,
+};
+const FIT_NO_EQUIPMENT_RE = /\b(no equipment|bodyweight only|just (my )?bodyweight|nothing but (my )?body|only my body)\b/i;
+const FIT_FULL_GYM_RE = /\b(full (commercial )?gym|access to (a |the )?(full )?gym|any equipment|everything('s| is)? available)\b/i;
+const FIT_EQUIPMENT_RESTRICTION_SIGNAL_RE = /\b(only have|just have|all i have|all i've got|no access to|don'?t have (a |an |any )?)\b/i;
+function detectEquipmentFromText(text){
+  if(FIT_FULL_GYM_RE.test(text)) return [];
+  if(FIT_NO_EQUIPMENT_RE.test(text)) return ["bodyweight"];
+  if(!FIT_EQUIPMENT_RESTRICTION_SIGNAL_RE.test(text)) return null;
+  const found = Object.keys(FIT_EQUIPMENT_KEYWORDS).filter(k=>FIT_EQUIPMENT_KEYWORDS[k].test(text));
+  return found.length ? found : null;
 }
 /* Free-form plan generation via the same Groq endpoint tryGroq (see near AI chat) already calls —
    a separate one-off request rather than routing through tryGroq itself, since this needs a very
@@ -12276,12 +12303,14 @@ function fitPlanSystemPrompt(){
   const equipList = (fitnessData.equipment && fitnessData.equipment.length)
     ? FIT_EQUIPMENT_OPTIONS.filter(o=>fitnessData.equipment.includes(o.key)).map(o=>o.label).join(", ")
     : "a full commercial gym — assume anything is available";
-  return `You are a fitness program generator. The user describes a workout split or goal in free text — it may name a known split (upper/lower, push/pull/legs, full body, bro split) or be a fully custom request. Respond with STRICT JSON only — no markdown code fences, no commentary before or after — matching exactly this shape:
-{"label":"short name for this plan, e.g. Push Pull Legs","days":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"notes":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."}}
+  return `You are a fitness program generator. The user describes a workout split or goal in free text — it may name a known split (upper/lower, push/pull/legs, full body, bro split) or be a fully custom request. It may also mention what equipment they do or don't have access to, either alongside a plan request or entirely on its own. Respond with STRICT JSON only — no markdown code fences, no commentary before or after — matching exactly this shape:
+{"label":"short name for this plan, e.g. Push Pull Legs","days":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"notes":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"equipmentMentioned":false,"equipment":[]}
 Rules:
 - "days" values are short one-or-two-word labels (e.g. "Upper", "Push", "Legs", "Full Body", "Rest").
 - "notes" values are the actual exercises for that day, comma-separated, each with sets x reps (e.g. "Bench Press 4x8, Barbell Row 4x8, Overhead Press 3x10"). Rest days get an empty notes string.
-- Equipment available: ${equipList}. Every exercise in "notes" must be doable with ONLY that equipment — bodyweight-only movements (push-ups, squats, lunges, planks, pull-ups only if a pull-up bar is listed, etc.) are always allowed in addition to whatever's listed.
+- Currently-known equipment available: ${equipList}. Every exercise in "notes" must be doable with ONLY that equipment — bodyweight-only movements (push-ups, squats, lunges, planks, pull-ups only if a pull-up bar is listed, etc.) are always allowed in addition to whatever's listed.
+- "equipmentMentioned": true ONLY if this specific message describes what equipment the user has or lacks access to (e.g. "I only have dumbbells", "no gym, just my bodyweight", "I have a full gym now"). false for any message that's just a plan/split request with no equipment mentioned — do not infer equipment from exercise names alone.
+- "equipment": only meaningful when equipmentMentioned is true. An array using only these exact keys: "barbell", "dumbbell", "machine" (covers cable machines too), "pullup" (pull-up bar), "kettlebell". Use ["bodyweight"] alone to mean bodyweight-only/no equipment at all. Use [] to mean a full commercial gym / everything available. List only what they said they DO have — never guess at equipment they didn't mention.
 - Include all 7 days Mon through Sun. Match the training frequency the user asked for; fill any remaining days as Rest.
 - No extra keys, no explanation text, response under 900 characters.`;
 }
@@ -12313,7 +12342,12 @@ async function generateAiWorkoutPlan(text){
       days[d] = (parsed.days[d] || "Rest").toString().slice(0,24);
       notes[d] = parsed.notes && parsed.notes[d] ? parsed.notes[d].toString().slice(0,600) : "";
     });
-    return {label: (parsed.label || "Custom Plan").toString().slice(0,40), days, notes};
+    const validEquipKeys = FIT_EQUIPMENT_OPTIONS.map(o=>o.key).concat("bodyweight");
+    const equipmentMentioned = parsed.equipmentMentioned===true;
+    const equipment = equipmentMentioned && Array.isArray(parsed.equipment)
+      ? parsed.equipment.filter(k=>validEquipKeys.includes(k))
+      : [];
+    return {label: (parsed.label || "Custom Plan").toString().slice(0,40), days, notes, equipmentMentioned, equipment};
   }catch(e){
     return null;
   }
@@ -12640,26 +12674,24 @@ function hydrateFitnessFull(scope){
   weightLbsBtn.addEventListener("click", ()=>setWeightUnit("lbs"));
   weightKgBtn.addEventListener("click", ()=>setWeightUnit("kg"));
 
-  // Feeds both plan-generation paths (exercisesForLabel's local bank filtering and
-  // fitPlanSystemPrompt's AI instructions) — toggled here rather than requiring a fresh plan
-  // request to take effect on ITS OWN notes, so changing equipment doesn't silently do nothing
-  // to a plan you already have (see the "Regenerate" hint this earns once something's toggled).
-  const equipRow = scope.querySelector("#fit-equipment-row");
-  function renderEquipmentRow(){
-    equipRow.innerHTML = FIT_EQUIPMENT_OPTIONS.map(opt=>
-      `<button type="button" class="btn${fitnessData.equipment.includes(opt.key)?" primary":""}" data-equip="${opt.key}" style="padding:3px 9px;font-size:11px;">${opt.label}</button>`
-    ).join("");
-    equipRow.querySelectorAll("[data-equip]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const key = btn.dataset.equip;
-        const i = fitnessData.equipment.indexOf(key);
-        if(i===-1) fitnessData.equipment.push(key); else fitnessData.equipment.splice(i,1);
-        saveJSON(NS+"fitness", fitnessData);
-        renderEquipmentRow();
-      });
-    });
+  // No toggle buttons for this — equipment is inferred from whatever you type in the plan input
+  // itself (see detectEquipmentFromText/fitPlanSystemPrompt's equipmentMentioned handling below)
+  // and just sticks until a later message changes it. This is purely a read-only reflection of
+  // whatever that inference last landed on, so "did it actually pick that up" isn't a guessing
+  // game — not an input of its own.
+  const equipStatusEl = scope.querySelector("#fit-equipment-status");
+  function renderEquipmentStatus(){
+    if(!equipStatusEl) return;
+    if(!fitnessData.equipment.length){
+      equipStatusEl.textContent = "Assuming a full commercial gym — say what you actually have (e.g. \"I only have dumbbells\") to narrow it down.";
+    } else if(fitnessData.equipment.length===1 && fitnessData.equipment[0]==="bodyweight"){
+      equipStatusEl.textContent = "Assuming bodyweight only — mention any equipment you get access to, to add it back in.";
+    } else {
+      const labels = FIT_EQUIPMENT_OPTIONS.filter(o=>fitnessData.equipment.includes(o.key)).map(o=>o.label);
+      equipStatusEl.textContent = `Assuming: ${labels.join(", ")} (plus bodyweight). Say "I have a full gym" to reset.`;
+    }
   }
-  renderEquipmentRow();
+  renderEquipmentStatus();
 
   fitnessPlanSuggestion = null;
   fitnessSelectedPlanDay = null;
@@ -12695,15 +12727,35 @@ function hydrateFitnessFull(scope){
       planSubmit.disabled = false;
       planSubmit.textContent = originalLabel;
       if(ai){
+        if(ai.equipmentMentioned){
+          fitnessData.equipment = ai.equipment;
+          saveJSON(NS+"fitness", fitnessData);
+          renderEquipmentStatus();
+        }
         suggestBox.innerHTML = "";
         applyGeneratedPlan("ai", ai.label, ai.days, ai.notes);
         return;
       }
       suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">Couldn't reach the AI — trying a local match instead.</div>`;
     }
+    // No-key fallback: same keyword-based equipment detection generateAiWorkoutPlan's prompt
+    // does more flexibly with an actual model (see detectEquipmentFromText above).
+    const equipmentDetected = detectEquipmentFromText(text);
+    if(equipmentDetected){
+      fitnessData.equipment = equipmentDetected;
+      saveJSON(NS+"fitness", fitnessData);
+      renderEquipmentStatus();
+    }
     const matched = matchSplitTemplate(text);
     if(matched){
       applyGeneratedPlan(matched.key, matched.label, matched.days, buildLocalPlanNotes(matched.days));
+    } else if(equipmentDetected){
+      // equipment-only message with no split named — acknowledge it rather than routing into
+      // the "didn't recognize that split" error, which would read as the equipment mention itself
+      // having failed when it actually landed fine.
+      const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
+      planInput.value = "";
+      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Got it — noted your equipment. Now tell me your split (or ask for help).</div>`;
     } else if(isFitnessHelpRequest(text) || !fitnessData.plan){
       fitnessPlanSuggestion = SPLIT_TEMPLATES[0];
       planInput.value = "";
