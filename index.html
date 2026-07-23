@@ -2623,9 +2623,9 @@ const I18N_ES = {
   /* ---- fitness ---- */
   "Age": "Edad",
   "Gender": "Género",
-  "Weight": "Peso",
+  "Bodyweight": "Peso corporal",
   "Weekly Plan": "Plan Semanal",
-  "Describe your split or goal…": "Describe tu split u objetivo…",
+  "Describe your split or goal, or tell me what to change…": "Describe tu split u objetivo, o dime qué cambiar…",
   "Set": "Establecer",
   "Type anything: ran 5 miles, bench 185x5, ate chicken and rice, Vitamin D 28 ng/mL…": "Escribe lo que sea: corrí 5 millas, press banca 185x5, comí pollo con arroz, Vitamina D 28 ng/mL…",
   "Type anything: ran 5 miles, ate chicken, Vitamin D 28…": "Escribe lo que sea: corrí 5 millas, comí pollo, Vitamina D 28…",
@@ -5670,7 +5670,7 @@ function renderFull(id){
         <input id="fit-gender-input" type="text" style="width:120px;">
       </div>
       <div class="field-row" style="margin-bottom:0;">
-        <label>Weight</label>
+        <label>Bodyweight</label>
         <div style="display:flex;gap:4px;align-items:center;">
           <input id="fit-weight-input" type="text" inputmode="decimal" style="width:70px;">
           <button class="btn${fitnessData.weightUnit==="lbs"?" primary":""}" id="fit-weight-unit-lbs" data-unit="lbs">lb</button>
@@ -5688,7 +5688,7 @@ function renderFull(id){
     <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:6px;margin-bottom:2px;">
-      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal…" style="flex:1;"/>
+      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal, or tell me what to change…" style="flex:1;"/>
       <button class="btn primary" id="fit-plan-submit">Set</button>
     </div>
     <div id="fit-equipment-status" style="font-size:10px;color:var(--text-dim);margin-bottom:10px;"></div>
@@ -12479,7 +12479,7 @@ function localEditWorkoutDayNotes(currentNotesStr, instruction){
   let targetIdx = -1;
   let changed = false;
 
-  const swapMatch = instruction.match(/\b(?:swap|replace)\s+(.+?)\s+(?:for|with)\s+([^,]+)/i);
+  const swapMatch = instruction.match(/\b(?:swap|switch|replace)\s+(.+?)\s+(?:for|with|to)\s+([^,]+)/i);
   if(swapMatch){
     const [, fromText, toText] = swapMatch;
     targetIdx = entries.findIndex(e=>e.toLowerCase().includes(fromText.trim().toLowerCase()));
@@ -12529,6 +12529,65 @@ function localEditWorkoutDayNotes(currentNotesStr, instruction){
   }
 
   return changed ? entries.join(", ") : null;
+}
+function fitEscapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+/* Which day(s) of the CURRENT plan already contain an exercise whose name shows up in `text` —
+   used by tryHandleAsExerciseEdit below to decide "this message is editing something I already
+   have" vs. "this is a new split/goal description," BEFORE any plan-generation path (AI or
+   local) ever runs. Confirmed as a real, reported failure mode: typing "switch russian twists to
+   dragon flags" got handed to whole-plan generation like any other plan-input message, which
+   read it as a new split description and regenerated the entire week — silently dropping the
+   Core day (and both exercises on it) since nothing about the new plan happened to include one.
+   Word-boundary matching (not a plain substring check) so a short exercise name doesn't false-
+   positive match as a fragment of an unrelated word. */
+function findDaysReferencingText(text){
+  if(!fitnessData.plan) return [];
+  const t = text.toLowerCase();
+  return FIT_DAY_ORDER.filter(d=>{
+    const notes = (fitnessData.plan.notes && fitnessData.plan.notes[d]) || "";
+    if(!notes.trim()) return false;
+    return notes.split(/,|\n/).map(s=>s.trim()).some(entry=>{
+      const name = entry.replace(/\d+\s*[x×]\s*[\w.]+\s*$/i,"").trim().toLowerCase();
+      if(name.length<3) return false;
+      return new RegExp("\\b"+fitEscapeRegExp(name)+"\\b","i").test(t);
+    });
+  });
+}
+/* The single entry point for "does this plan-input message edit something I already have,"
+   called first in submitPlan for exactly that reason. Returns false only when nothing in the
+   current plan is even referenced — safe to fall through to normal plan-generation in that case.
+   Once a reference IS found, this ALWAYS returns true (handled) even if the actual edit fails to
+   apply — showing an explicit "couldn't apply that" message instead of silently falling through
+   to whole-plan generation, which is the exact bug this exists to prevent. Uses the AI editor
+   (better at genuinely open-ended phrasing) when a Groq key is configured, otherwise the local
+   pattern-matching version — same "AI enhances, local still works" split as everything else here.
+   This is also now the ONLY per-exercise edit surface — the old separate day-detail "what to
+   change" box was folded into this same top-level input instead of existing as a second,
+   redundant text field. */
+async function tryHandleAsExerciseEdit(scope, text){
+  const editDays = findDaysReferencingText(text);
+  if(!editDays.length) return false;
+  const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
+  suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Updating…</div>`;
+  let anyChanged = false;
+  for(const d of editDays){
+    const current = fitnessData.plan.notes[d] || "";
+    const edited = groqApiKey ? await editWorkoutDayNotes(current, text) : localEditWorkoutDayNotes(current, text);
+    if(edited!==null){ fitnessData.plan.notes[d] = formatExerciseListForDisplay(edited); anyChanged = true; }
+  }
+  if(anyChanged){
+    saveJSON(NS+"fitness", fitnessData);
+    fitnessSelectedPlanDay = null;
+    const planInputEl = scope.querySelector("#fit-plan-input");
+    if(planInputEl) planInputEl.value = "";
+    renderFitnessPlanSection(scope);
+    const miniScope = document.querySelector(".fit-mini-plan");
+    if(miniScope) renderFitnessMiniPlan(miniScope.closest(".widget-body"));
+    scope.querySelector("#fit-plan-suggestion-full").innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Updated.</div>`;
+  } else {
+    scope.querySelector("#fit-plan-suggestion-full").innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">Mentioned something you already have, but couldn't apply an edit — try "swap X for Y", "remove X", or be more specific.</div>`;
+  }
+  return true;
 }
 function isFitnessHelpRequest(text){
   return /help|suggest|recommend|don'?t have|dont have|no plan|not sure|no idea|what.*think|advice|idk/i.test(text);
@@ -12635,6 +12694,10 @@ function computeMuscleGroupVolume(){
   });
   return totals;
 }
+/* No separate "what to change" box here anymore — that was a second text field doing basically
+   the same job as the top-level plan-input box (see tryHandleAsExerciseEdit), which now handles
+   both generating a whole plan AND editing something you already have from the same input. This
+   view is just the raw exercise list, still directly editable by typing into it like before. */
 function fillFitnessPlanDayDetail(scope, el, day){
   el.dataset.day = day;
   const label = fitnessData.plan.days[day];
@@ -12646,13 +12709,6 @@ function fillFitnessPlanDayDetail(scope, el, day){
         <button class="hbtn" id="fit-plan-day-close" style="flex:none;">✕</button>
       </div>
       <textarea id="fit-plan-day-notes" placeholder="e.g. Bench Press   4x8" style="width:100%;min-height:130px;white-space:pre;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);">
-        <div style="display:flex;gap:6px;">
-          <input id="fit-plan-day-edit-input" type="text" placeholder="What to change…" style="flex:1;font-size:11px;padding:4px 7px;"/>
-          <button class="btn" id="fit-plan-day-edit-btn" style="flex:none;font-size:11px;padding:4px 9px;">Apply</button>
-        </div>
-        <div id="fit-plan-day-edit-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:1.2em;"></div>
-      </div>
     </div>`;
   const textarea = el.querySelector("#fit-plan-day-notes");
   textarea.addEventListener("input", (e)=>{
@@ -12666,48 +12722,6 @@ function fillFitnessPlanDayDetail(scope, el, day){
     const gridEl = scope.querySelector("#fit-plan-grid-full");
     if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
   });
-  const editBtn = el.querySelector("#fit-plan-day-edit-btn");
-  const editInput = el.querySelector("#fit-plan-day-edit-input");
-  const status = el.querySelector("#fit-plan-day-edit-status");
-  async function applyEdit(){
-    const instruction = editInput.value.trim();
-    if(!instruction) return;
-    let updated;
-    if(groqApiKey){
-      editBtn.disabled = true;
-      editInput.disabled = true;
-      status.style.color = "var(--text-dim)";
-      status.textContent = "Updating…";
-      updated = await editWorkoutDayNotes(textarea.value, instruction);
-      editBtn.disabled = false;
-      editInput.disabled = false;
-      if(updated===null){
-        status.style.color = "var(--accent-rust)";
-        status.textContent = "AI request failed.";
-        return;
-      }
-    } else {
-      // No key: plain pattern matching (swap/replace, add, remove, change sets) instead of a
-      // model — see localEditWorkoutDayNotes's own doc comment for exactly what it can and can't
-      // follow.
-      updated = localEditWorkoutDayNotes(textarea.value, instruction);
-      if(updated===null){
-        status.style.color = "var(--accent-rust)";
-        status.textContent = `Couldn't parse that — try "swap X for Y", "remove X", "add X", or a Groq key in Settings for open-ended edits.`;
-        return;
-      }
-    }
-    const formatted = formatExerciseListForDisplay(updated);
-    textarea.value = formatted;
-    if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
-    fitnessData.plan.notes[day] = formatted;
-    saveJSON(NS+"fitness", fitnessData);
-    editInput.value = "";
-    status.style.color = "var(--text-dim)";
-    status.textContent = "Updated.";
-  }
-  editBtn.addEventListener("click", applyEdit);
-  editInput.addEventListener("keydown", e=>{ if(e.key==="Enter") applyEdit(); });
 }
 /* Picking a different day while one's already open collapses that one first, THEN swaps in the
    new day's content and expands — an explicit close-then-open, not just a content jump-cut while
@@ -13011,6 +13025,10 @@ function hydrateFitnessFull(scope){
         return;
       }
     }
+    // Also fully checked before any plan-generation path — see tryHandleAsExerciseEdit's own doc
+    // comment for the exact bug this prevents (a targeted edit getting treated as a whole new
+    // plan description and wiping days that weren't part of whatever came back).
+    if(await tryHandleAsExerciseEdit(scope, text)) return;
     if(groqApiKey){
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       planSubmit.disabled = true;
