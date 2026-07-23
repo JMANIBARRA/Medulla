@@ -1809,7 +1809,7 @@ const WIDGET_DEFS = [
   {id:"mail", title:"Mail", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Quick-launch cards for Gmail, Outlook, ProtonMail in a new tab. Editable link list."},
   {id:"arcade", title:"Arcade", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Flappy-style canvas game with saved high score, plus an infinite-bankroll blackjack simulator."},
   {id:"chrono", title:"Chrono", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Digital / analog clock toggle plus a 25/50/90 min focus timer that logs total focused minutes."},
-  {id:"bluetooth", title:"Bluetooth", profiles:["main"], built:false, accent:"var(--accent-violet)", spec:"navigator.bluetooth battery_service telemetry for paired peripherals."},
+  {id:"bluetooth", title:"Bluetooth", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"navigator.bluetooth battery_service telemetry for paired peripherals."},
   {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"A quick-launch popover of banks and brokerages (Chase, Fidelity, Robinhood, Vanguard, and whatever else you add) — official sites only, opened in a new isolated tab. No scraping."},
   {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
   {id:"garage", title:"Garage", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Add vehicles you own, keep a running garage list."},
@@ -2045,25 +2045,19 @@ function cycleWidgetSize(def, l, card, header){
    when unpinned, raw screen pixels when pinned — converted once, right here, at the moment of
    toggling, using the camera's transform at that instant. Moves the existing card node itself
    (not a renderWidgets() rebuild) so anything stateful inside it — a playing YouTube iframe,
-   an in-progress blackjack hand — survives the switch untouched. */
-function togglePinWidget(l, card, header){
-  const cam = state.camera;
-  /* Size DOES scale on the way IN (pinning) now, to match whatever the widget visually looks
-     like at this exact moment — pinning must never change how big it looks, only that it stops
-     moving. (An earlier version deliberately snapped to nominal size instead, to dodge a
-     clamp()-based font-sizing bug at extreme zoom-out — reintroducing the Math.max(MIN_W/MIN_H,…)
-     floor below keeps that fix: it stops the pinned box from ever landing so tiny that the
-     font's minimum clamp() floor no longer fits inside it, which was the actual failure mode,
-     without giving up "pin looks the same as it did a second ago" at normal zoom levels.)
-     Size still also converts on the way OUT (unpinning) — dividing by the CURRENT zoom (which
-     may differ from whatever it was at pin time, since the entire point of pinning is staying
-     fixed while you pan/zoom around it) keeps the widget's on-screen appearance from jumping at
-     the exact moment it drops back into the zoomed canvas. */
+   an in-progress blackjack hand — survives the switch untouched.
+   Size scales on the way IN (pinning) to match whatever the widget visually looks like at this
+   exact moment — pinning must never change how big it looks, only that it stops moving — and
+   deliberately has NO floor/cap and no later resizing of any kind once pinned (see
+   fitWidgetsToContent's `l.pinned` exclusion): confirmed as an explicit requirement — "the same
+   exact layout and dimensions from the moment I press pin, it just sticks to the screen." A
+   widget whose content doesn't fit at that exact size relies on its own internal scroll (see
+   .has-overflow) instead of ever silently resizing itself afterward. */
   if(!l.pinned){
     l.x = l.x*cam.scale + cam.x;
     l.y = l.y*cam.scale + cam.y;
-    l.w = Math.max(MIN_W, l.w*cam.scale);
-    l.h = Math.max(MIN_H, l.h*cam.scale);
+    l.w = l.w*cam.scale;
+    l.h = l.h*cam.scale;
     l.pinned = true;
     pinnedLayer.appendChild(card);
     card.style.width = l.w+"px";
@@ -2946,6 +2940,7 @@ let sportsData = loadJSON(NS+"sports", {teams:["Miami Heat","Miami Dolphins"]});
 let garageData = loadJSON(NS+"garage", {vehicles:[]});
 garageData.vehicles = garageData.vehicles.map(v => typeof v==="string" ? {vehicle:v, year:"", mileage:""} : v);
 let phoneData = loadJSON(NS+"phone", {contacts:[]});
+let bluetoothData = loadJSON(NS+"bluetooth", {devices:[]});
 let videoData = loadJSON(NS+"video", {url:"", videoId:"", volume:70, muted:false});
 let videoDataOAuth = loadJSON(NS+"videoOAuth", {url:"", videoId:"", volume:70, muted:false});
 /* events keyed by local "YYYY-MM-DD" (see calendarDateKey) rather than a Date object or ISO
@@ -4710,19 +4705,14 @@ const widgetResizeObserver = new ResizeObserver(entries=>{
    as a last-resort scroll cue. Runs on: the card being resized (this observer), its content
    changing post-mount (e.g. async data landing — overflowMutationObserver below), and scrolling
    (the listener below, which only needs to update the fade, not re-run growth).
-   Pinned widgets USED to be excluded entirely, on a "pinning is a deliberate 'keep this exact
-   size' choice" theory — but pinning bakes the camera's CURRENT zoom into the widget's literal
-   pixel size (see togglePinWidget), while its font/graphic sizing is real CSS layout (clamp()
-   off --w/--h) that doesn't scale at quite the same rate a fixed few px of cell padding does.
-   Confirmed in practice: pinning at any zoom other than 1:1 could leave content needing MORE
-   height than the naive linear "old height × zoom" conversion provided, clipping it with no
-   visible cue (the "invisible scrollbar" problem above) — worse than just letting it grow.
-   Pinned widgets now use a generous viewport-fraction cap instead of a nominal "L" preset, since
-   their w/h are screen-space pixels already scaled by whatever zoom was active at pin time, not
-   the same nominal canvas units the size presets are defined in — "L" itself could be smaller
-   than a widget pinned while zoomed in, which would make this actively shrink it. This still
-   never SHRINKS a pinned widget back down on its own, same one-directional behavior as unpinned
-   widgets always had. */
+   Pinned widgets are excluded entirely — confirmed as an explicit requirement: pinning is
+   supposed to freeze a widget at exactly the size/position it had the instant you pinned it,
+   "it just sticks to the screen and stays there," full stop, never resizing itself again for
+   any reason afterward (that's also why togglePinWidget's pin-in conversion has no MIN_W/MIN_H
+   floor either — nothing about pinning is allowed to touch the size after that one conversion).
+   A pinned widget whose content doesn't fit relies on its own internal scroll (.has-overflow's
+   fade, see CSS) instead — same as content that's still too big even at the L cap for an
+   unpinned widget. */
 function fitWidgetsToContent(){
   let changed = false;
   $$(".claustrum-widget").forEach(card=>{
@@ -4730,8 +4720,8 @@ function fitWidgetsToContent(){
     const l = state.layout[id];
     const header = card.querySelector(".widget-header");
     const body = card.querySelector(".widget-body");
-    if(!l || !header || !body) return;
-    const cap = l.pinned ? {w: window.innerWidth*0.9, h: window.innerHeight*0.9} : presetSize(id, "L");
+    if(!l || !header || !body || l.pinned) return;
+    const cap = presetSize(id, "L");
     /* arcade's height is entirely managed by bjFitMiniWidgetToCards/bjResetMiniWidgetHeight
        instead (blackjack needs a taller cap than "L" for a long hand, and needs to shrink back
        down between hands, which this grow-only function never does) — letting both systems
@@ -4902,6 +4892,7 @@ function renderWidgetCard(def,l){
   if(def.id==="fitness") setTimeout(()=>hydrateFitnessMini(body),0);
   if(def.id==="garage") setTimeout(()=>hydrateGarageMini(body),0);
   if(def.id==="phone") setTimeout(()=>hydratePhoneMini(body),0);
+  if(def.id==="bluetooth") setTimeout(()=>hydrateBluetoothMini(body),0);
   if(def.id==="calendar") setTimeout(()=>hydrateCalendarMini(body),0);
   if(def.id==="youtube") setTimeout(()=>{ const c = hydrateYouTubeMini(body); if(c) activeMiniCleanups.push(c); },0);
   if(def.id==="youtubeoauth") setTimeout(()=>{ const c = hydrateYouTubeOAuthMini(body); if(c) activeMiniCleanups.push(c); },0);
@@ -5072,6 +5063,7 @@ function openModal(def){
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
     if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
     if(def.id==="phone") hydratePhoneFull(modalBody);
+    if(def.id==="bluetooth") hydrateBluetoothFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
     if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
@@ -5229,6 +5221,13 @@ function renderMini(id){
           <button class="btn primary" id="phone-mini-add-btn" style="flex:none;padding:0 0.6em;">+</button>
         </div>
       </div>
+    </div>`;
+  }
+  if(id==="bluetooth"){
+    return `
+    <div style="display:flex;flex-direction:column;gap:0.5em;width:100%;height:100%;text-align:left;">
+      <div id="bt-mini-list" style="flex:1;overflow:auto;font-family:var(--font-mono);"></div>
+      <button class="btn primary" id="bt-mini-pair-btn" style="flex:none;">+ Pair Device</button>
     </div>`;
   }
   if(id==="mail"){
@@ -5518,6 +5517,18 @@ function renderFull(id){
       </div>
       <div id="phone-import-status" style="font-size:.82em;color:var(--text-dim);margin-top:6px;"></div>
     </div>`;
+  }
+  if(id==="bluetooth"){
+    return `
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Paired Peripherals</h3>
+    <div id="bt-list" style="margin:10px 0;"></div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn primary" id="bt-pair-btn">Pair New Device</button>
+      <span id="bt-status" style="font-size:.8em;color:var(--text-dim);"></span>
+    </div>
+    <p style="font-size:.75em;color:var(--text-dim);margin-top:14px;line-height:1.6;">
+      Reads battery telemetry (GATT battery_service) from paired Bluetooth peripherals that expose it — headphones, earbuds, and mice often do; many keyboards and speakers don't. Requires Chrome or Edge on desktop or Android (Web Bluetooth isn't supported in Firefox or Safari). A device stays "connected" only for this browser tab's session — click its row after a reload to reconnect and get a fresh reading.
+    </p>`;
   }
   if(id==="mail"){
     return `
@@ -7094,6 +7105,128 @@ function hydratePhoneMini(scope){
   [nameInp, numberInp].forEach(inp=>{
     inp.addEventListener("keydown", e=>{ if(e.key==="Enter") submitMini(); });
   });
+}
+
+/* ================= BLUETOOTH WIDGET ================= */
+/* Web Bluetooth (Chrome/Edge desktop+Android only, secure-context only) — read-only GATT
+   battery_service telemetry for paired peripherals, nothing here writes to a device. The live
+   BluetoothDevice/GATT handles in bluetoothLive can't be serialized to localStorage, so only
+   {id, name, battery, connected} survives a reload; a device falls back to "last known" battery
+   and needs one more click (a fresh user-gesture requirement of the API) to reconnect. */
+const bluetoothLive = {}; // device.id -> live BluetoothDevice, this tab session only
+function saveBluetoothData(){ saveJSON(NS+"bluetooth", bluetoothData); }
+
+function bluetoothBatteryLabel(d){
+  if(d.battery==null) return d.connected ? "Connected — no battery service" : "Tap to reconnect";
+  return `${d.battery}% battery${d.connected ? "" : " (last known)"}`;
+}
+function bluetoothRowHTML(d, i){
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 0;">
+      <div style="display:flex;flex-direction:column;overflow:hidden;min-width:0;cursor:pointer;" data-bt-reconnect="${i}">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+        <span style="font-size:.85em;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${bluetoothBatteryLabel(d)}</span>
+      </div>
+      <button class="hbtn" data-bt-forget="${i}" style="flex:none;width:16px;height:16px;font-size:9px;" title="Forget device">✕</button>
+    </div>`;
+}
+function refreshBluetoothList(scope, listSel){
+  const el = scope.querySelector(listSel);
+  if(!el) return;
+  el.innerHTML = bluetoothData.devices.length
+    ? bluetoothData.devices.map((d,i)=>bluetoothRowHTML(d,i)).join("")
+    : `<div style="color:var(--text-dim);">No paired devices yet.</div>`;
+}
+function wireBluetoothList(scope, listSel){
+  scope.querySelector(listSel).addEventListener("click", e=>{
+    const forgetBtn = e.target.closest("[data-bt-forget]");
+    if(forgetBtn){
+      const i = Number(forgetBtn.dataset.btForget);
+      const entry = bluetoothData.devices[i];
+      const device = entry && bluetoothLive[entry.id];
+      if(device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+      if(entry) delete bluetoothLive[entry.id];
+      bluetoothData.devices.splice(i,1);
+      saveBluetoothData();
+      refreshBluetoothList(scope, listSel);
+      return;
+    }
+    const row = e.target.closest("[data-bt-reconnect]");
+    if(row){
+      const i = Number(row.dataset.btReconnect);
+      const entry = bluetoothData.devices[i];
+      const device = entry && bluetoothLive[entry.id];
+      if(!device) return; // needs a fresh Pair click — the live handle doesn't survive a reload
+      connectBluetoothBattery(device, entry, ()=>refreshBluetoothList(scope, listSel));
+    }
+  });
+}
+async function connectBluetoothBattery(device, entry, onUpdate){
+  try{
+    const server = await device.gatt.connect();
+    entry.connected = true;
+    saveBluetoothData();
+    onUpdate();
+    let level = null;
+    try{
+      const service = await server.getPrimaryService("battery_service");
+      const chara = await service.getCharacteristic("battery_level");
+      level = (await chara.readValue()).getUint8(0);
+      chara.addEventListener("characteristicvaluechanged", e=>{
+        entry.battery = e.target.value.getUint8(0);
+        saveBluetoothData();
+        onUpdate();
+      });
+      chara.startNotifications().catch(()=>{});
+    }catch(e){ /* device just doesn't expose battery_service — not an error */ }
+    entry.battery = level;
+    saveBluetoothData();
+    onUpdate();
+  }catch(e){
+    entry.connected = false;
+    saveBluetoothData();
+    onUpdate();
+  }
+}
+async function pairBluetoothDevice(scope, listSel, statusSel){
+  const status = statusSel ? scope.querySelector(statusSel) : null;
+  if(!navigator.bluetooth){
+    if(status) status.textContent = "Web Bluetooth isn't supported in this browser — try Chrome or Edge on desktop or Android.";
+    return;
+  }
+  try{
+    const device = await navigator.bluetooth.requestDevice({acceptAllDevices:true, optionalServices:["battery_service"]});
+    let entry = bluetoothData.devices.find(d=>d.id===device.id);
+    if(!entry){
+      entry = {id:device.id, name:device.name || "Unknown device", battery:null, connected:false};
+      bluetoothData.devices.push(entry);
+    }
+    bluetoothLive[device.id] = device;
+    device.addEventListener("gattserverdisconnected", ()=>{
+      entry.connected = false;
+      saveBluetoothData();
+      refreshBluetoothList(scope, listSel);
+    });
+    if(status) status.textContent = "";
+    refreshBluetoothList(scope, listSel);
+    await connectBluetoothBattery(device, entry, ()=>refreshBluetoothList(scope, listSel));
+  }catch(e){
+    if(status && !(e && e.name==="NotFoundError")) status.textContent = "Couldn't pair — device may be out of range or unsupported.";
+  }
+}
+function hydrateBluetoothFull(scope){
+  refreshBluetoothList(scope, "#bt-list");
+  wireBluetoothList(scope, "#bt-list");
+  if(!navigator.bluetooth){
+    const s = scope.querySelector("#bt-status");
+    if(s) s.textContent = "Web Bluetooth isn't supported in this browser — try Chrome or Edge on desktop or Android.";
+  }
+  scope.querySelector("#bt-pair-btn").addEventListener("click", ()=>pairBluetoothDevice(scope, "#bt-list", "#bt-status"));
+}
+function hydrateBluetoothMini(scope){
+  refreshBluetoothList(scope, "#bt-mini-list");
+  wireBluetoothList(scope, "#bt-mini-list");
+  scope.querySelector("#bt-mini-pair-btn").addEventListener("click", ()=>pairBluetoothDevice(scope, "#bt-mini-list", null));
 }
 
 /* ================= CALENDAR WIDGET ================= */
