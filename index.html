@@ -2053,6 +2053,7 @@ function cycleWidgetSize(def, l, card, header){
    exact layout and dimensions from the moment I press pin, it just sticks to the screen." A
    widget whose content doesn't fit at that exact size relies on its own internal scroll (see
    .has-overflow) instead of ever silently resizing itself afterward. */
+function togglePinWidget(l, card, header){
   if(!l.pinned){
     l.x = l.x*cam.scale + cam.x;
     l.y = l.y*cam.scale + cam.y;
