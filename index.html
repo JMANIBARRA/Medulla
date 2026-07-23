@@ -848,7 +848,7 @@
      it's rendered; 240px comfortably covers the textarea without ever being so tall a transition
      looks like a jump for short content. */
   .fit-plan-day-detail-wrap{max-height:0;opacity:0;overflow:hidden;margin-bottom:0;transition:max-height .2s ease, opacity .15s ease, margin-bottom .2s ease;}
-  .fit-plan-day-detail-wrap.open{max-height:240px;opacity:1;margin-bottom:10px;}
+  .fit-plan-day-detail-wrap.open{max-height:330px;opacity:1;margin-bottom:10px;}
 
   /* ---------- garage vehicle-type picker (add-vehicle form) ----------
      A Pokédex-style grid, not a loose wrapping row — every type sits in its own uniform,
@@ -1426,7 +1426,7 @@
       <div class="tbtn-divider"></div>
       <button class="tbtn tbtn-icon" id="cursor-toggle-btn" title="Toggle middle-finger cursor">🖕</button>
       <button class="tbtn" id="recenter-btn" title="Pan back to your apps">recenter</button>
-      <button class="tbtn tbtn-icon" id="stacks-btn" title="Arrange open widgets into a tidy grid, click again to restore their positions">
+      <button class="tbtn tbtn-icon" id="stacks-btn" title="Arrange every open widget into a tidy grid">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="display:block;">
           <rect x="2" y="2" width="12" height="12"/>
           <rect x="7" y="7" width="12" height="12" fill="currentColor" fill-opacity=".15"/>
@@ -2065,11 +2065,12 @@ function cycleWidgetSize(def, l, card, header){
    widget whose content doesn't fit at that exact size relies on its own internal scroll (see
    .has-overflow) instead of ever silently resizing itself afterward. */
 function togglePinWidget(l, card, header){
+  const cam = state.camera;
   if(!l.pinned){
     l.x = l.x*cam.scale + cam.x;
     l.y = l.y*cam.scale + cam.y;
-    l.w = l.w*cam.scale;
-    l.h = l.h*cam.scale;
+    l.w = Math.max(MIN_W, l.w*cam.scale);
+    l.h = Math.max(MIN_H, l.h*cam.scale);
     l.pinned = true;
     pinnedLayer.appendChild(card);
     card.style.width = l.w+"px";
@@ -2237,7 +2238,6 @@ function setAllWidgetSizes(preset){
   }
 
   state.stacked = true;
-  $("#stacks-btn").classList.add("active");
 
   targets.forEach(def=>{
     const l = state.layout[def.id];
@@ -2324,7 +2324,7 @@ const I18N_ES = {
   "Toggle middle-finger cursor": "Alternar el cursor de dedo medio",
   "recenter": "recentrar",
   "Pan back to your apps": "Volver a centrar tus aplicaciones",
-  "Arrange open widgets into a tidy grid, click again to restore their positions": "Organiza los widgets abiertos en una cuadrícula ordenada; vuelve a hacer clic para restaurar sus posiciones",
+  "Arrange every open widget into a tidy grid": "Organiza todos los widgets abiertos en una cuadrícula ordenada",
   "pin all": "fijar todo",
   "unpin all": "desfijar todo",
   "Pin every open widget to the screen; click again to unpin them all": "Fija todos los widgets abiertos en la pantalla; vuelve a hacer clic para desfijarlos todos",
@@ -2625,7 +2625,7 @@ const I18N_ES = {
   "Gender": "Género",
   "Weight": "Peso",
   "Weekly Plan": "Plan Semanal",
-  "Tell me your split — e.g. 'upper lower', 'push pull legs' — or ask for help": "Dime tu split — p. ej. 'upper lower', 'push pull legs' — o pide ayuda",
+  "Describe your split or goal — e.g. 'upper lower', or your own custom request": "Describe tu split u objetivo — p. ej. 'upper lower', o tu propia solicitud personalizada",
   "Set": "Establecer",
   "Type anything: ran 5 miles, bench 185x5, ate chicken and rice, Vitamin D 28 ng/mL…": "Escribe lo que sea: corrí 5 millas, press banca 185x5, comí pollo con arroz, Vitamina D 28 ng/mL…",
   "Type anything: ran 5 miles, ate chicken, Vitamin D 28…": "Escribe lo que sea: corrí 5 millas, comí pollo, Vitamina D 28…",
@@ -4266,61 +4266,53 @@ function fitToScreen(){
 }
 $("#recenter-btn").addEventListener("click", recenterOnWidgets);
 
-/* Stacks — tidies every open widget into a neat row-by-row, column-by-column grid anchored
-   at the current view, click again to restore each widget to where it was before. */
-function toggleStacks(){
-  const btn = $("#stacks-btn");
-  if(!state.stacked){
-    // pinned widgets' x/y are screen coordinates, not world ones — left out of the repack
-    const fullTargets = widgetsForActiveProfile().filter(def=>{
-      const l = state.layout[def.id];
-      return l && l.visible && !l.minimized && !l.pinned;
-    });
-    const minimizedTargets = widgetsForActiveProfile().filter(def=>{
-      const l = state.layout[def.id];
-      return l && l.visible && l.minimized && !l.pinned;
-    });
-    if(!fullTargets.length && !minimizedTargets.length) return;
+/* Stacks — tidies every open widget into a neat row-by-row, column-by-column grid anchored at
+   the current view. One-way "tidy up" action, not a toggle — used to flip back to the pre-stack
+   (often very spread-out) positions on a second click, which read as the button being
+   broken/stuck once you forgot that's what a second click did. Always (re-)arranges everything
+   into a tidy grid now; there's no button-driven way back to the scattered layout.
+   state.stacked/stackSnapshot stick around purely so setAllWidgetSizes' own "don't clobber an
+   existing pre-stack snapshot" check still means something — nothing reads stackSnapshot to
+   restore positions anymore. */
+function stackAllWidgets(){
+  // pinned widgets' x/y are screen coordinates, not world ones — left out of the repack
+  const fullTargets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && !l.minimized && !l.pinned;
+  });
+  const minimizedTargets = widgetsForActiveProfile().filter(def=>{
+    const l = state.layout[def.id];
+    return l && l.visible && l.minimized && !l.pinned;
+  });
+  if(!fullTargets.length && !minimizedTargets.length) return;
 
+  if(!state.stacked){
     const snapshot = {};
     fullTargets.concat(minimizedTargets).forEach(def=>{
       const l = state.layout[def.id];
       snapshot[def.id] = {x:l.x, y:l.y};
     });
-
-    const rect = viewport.getBoundingClientRect();
-    const origin = screenToWorld(rect.left + 40, rect.top + 40);
-    const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
-    const bottomY = packWidgetsIntoGrid(fullTargets, origin.x, origin.y, maxRowWidth);
-    /* minimized capsules get their own tidy row underneath the full-size grid (or right at the
-       origin if there's no full-size grid at all) instead of being left scattered wherever they
-       happened to be — same "keep it tidy" idea Stacks already applies to everything else. */
-    if(minimizedTargets.length){
-      const capsuleOriginY = fullTargets.length ? bottomY + 24 : origin.y;
-      packCapsulesIntoRow(minimizedTargets, origin.x, capsuleOriginY, maxRowWidth);
-    }
-
     state.stackSnapshot = snapshot;
-    state.stacked = true;
-  } else {
-    const snapshot = state.stackSnapshot || {};
-    Object.keys(snapshot).forEach(id=>{
-      const l = state.layout[id];
-      /* skip a widget that got pinned WHILE stacked — its x/y now mean screen pixels (see
-         togglePinWidget), not the world coordinates this snapshot captured, so restoring them
-         would overwrite a valid on-screen position with garbage, moving it off-screen. Pinned
-         widgets are excluded from the pack itself (above) for the same reason; a widget that
-         became pinned mid-stack just needs the same exclusion applied here too. */
-      if(l && !l.pinned){ l.x = snapshot[id].x; l.y = snapshot[id].y; }
-    });
-    state.stackSnapshot = null;
-    state.stacked = false;
   }
-  btn.classList.toggle("active", state.stacked);
+
+  const rect = viewport.getBoundingClientRect();
+  const origin = screenToWorld(rect.left + 40, rect.top + 40);
+  const maxRowWidth = Math.max(400, rect.width / state.camera.scale - 80);
+  const bottomY = packWidgetsIntoGrid(fullTargets, origin.x, origin.y, maxRowWidth);
+  /* minimized capsules get their own tidy row underneath the full-size grid (or right at the
+     origin if there's no full-size grid at all) instead of being left scattered wherever they
+     happened to be — same "keep it tidy" idea Stacks already applies to everything else. */
+  if(minimizedTargets.length){
+    const capsuleOriginY = fullTargets.length ? bottomY + 24 : origin.y;
+    packCapsulesIntoRow(minimizedTargets, origin.x, capsuleOriginY, maxRowWidth);
+  }
+
+  state.stacked = true;
   saveProfileState();
   renderWidgets();
+  recenterOnWidgets(); // brings the newly-stacked layout into view instead of leaving the camera wherever it was panned to before — also calls applyCamera()/saveProfileState() itself
 }
-$("#stacks-btn").addEventListener("click", toggleStacks);
+$("#stacks-btn").addEventListener("click", stackAllWidgets);
 
 let focusedWidgetId = null;
 function bringToFront(l, el, id){
@@ -4338,7 +4330,7 @@ function bringToFront(l, el, id){
    navigation moves the selection without touching focusedWidgetId. */
 let selectedWidgetId = null;
 /* Pinned widgets live in screen-space (#pinned-layer) instead of world-space, same reason
-   fitToScreen()/toggleStacks() already exclude them from spatial layout math — mixing both
+   fitToScreen()/stackAllWidgets() already exclude them from spatial layout math — mixing both
    coordinate systems into one distance calculation would give nonsense distances. Rather than
    exclude pinned widgets from arrow-key nav entirely, they get their own layer instead — bare Tab
    (see the keydown handler near moveWidgetSelectionLinear below) toggles which one arrow keys
@@ -5692,34 +5684,41 @@ function renderFull(id){
     <div id="fit-plan-grid-full" style="display:none;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
     <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
-    <div style="display:flex;gap:6px;margin-bottom:20px;">
-      <input id="fit-plan-input" type="text" placeholder="Tell me your split — e.g. 'upper lower', 'push pull legs' — or ask for help" style="flex:1;"/>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;">Equipment available (leave all off to assume a full gym)</div>
+      <div id="fit-equipment-row" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
+      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal — e.g. 'upper lower', or your own custom request" style="flex:1;"/>
       <button class="btn primary" id="fit-plan-submit">Set</button>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:16px;">
-      <input id="fit-full-input" type="text" placeholder="Type anything: ran 5 miles, bench 185x5, ate chicken and rice, Vitamin D 28 ng/mL…" style="flex:1;"/>
-      <button class="btn primary" id="fit-full-add">Log</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-teal);">Workout</h3>
-        <div class="fit-col-workout" style="margin-top:8px;max-height:320px;overflow:auto;"></div>
+    <div style="margin-top:22px;padding-top:12px;border-top:1px solid var(--line-soft);opacity:.85;">
+      <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Quick Log <span style="text-transform:none;letter-spacing:0;font-weight:400;">— jot down anything, sorted below</span></h3>
+      <div style="display:flex;gap:4px;margin-bottom:10px;">
+        <input id="fit-full-input" type="text" placeholder="ran 5 miles, bench 185x5, ate chicken, Vitamin D 28 ng/mL…" style="flex:1;font-size:11px;padding:3px 7px;"/>
+        <button class="btn" id="fit-full-add" style="flex:none;font-size:11px;padding:3px 9px;">Log</button>
       </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-amber);">Food</h3>
-        <div class="fit-col-food" style="margin-top:8px;max-height:320px;overflow:auto;"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-teal);">Workout</h3>
+          <div class="fit-col-workout" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+        </div>
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-amber);">Food</h3>
+          <div class="fit-col-food" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+        </div>
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-rust);">Labs</h3>
+          <div class="fit-col-labs" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+        </div>
+        <div>
+          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-violet);">Notes</h3>
+          <div class="fit-col-notes" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+        </div>
       </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-rust);">Labs</h3>
-        <div class="fit-col-labs" style="margin-top:8px;max-height:320px;overflow:auto;"></div>
-      </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-violet);">Notes</h3>
-        <div class="fit-col-notes" style="margin-top:8px;max-height:320px;overflow:auto;"></div>
-      </div>
-    </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:14px;">Entries auto-sort by keyword.</p>`;
+      <p style="font-size:10px;color:var(--text-dim);margin-top:8px;">Entries auto-sort by keyword.</p>
+    </div>`;
   }
   if(id==="holoportrait"){
     return `
@@ -10225,26 +10224,36 @@ async function fetchDrivingRoute(here, there){
    "nearest X by name" at all; Open-Meteo's geocoder only ever resolves named PLACES, never
    businesses. Searches both the "name" and "brand" OSM tags (a location might be tagged either
    way depending on who mapped it) within ~25 miles, picks whichever match is closest by straight-
-   line distance. */
+   line distance.
+   The free public overpass-api.de instance is well-known for returning 504s when it's under
+   load — confirmed as a real reported failure mode, not a bug in this query. OVERPASS_ENDPOINTS
+   tries a second independent public mirror (overpass.kumi.systems, same query language/API
+   shape, no key needed) before actually giving up, so one busy instance doesn't fail the whole
+   request; only the LAST endpoint's failure reason is what the user ends up seeing. */
+const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 async function findNearestPOI(query, here){
   const radiusMeters = 40000;
   const escaped = query.replace(/["\\]/g, "");
   const ql = `[out:json][timeout:20];(node["name"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});node["brand"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});way["name"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon});way["brand"~"${escaped}",i](around:${radiusMeters},${here.lat},${here.lon}););out center 20;`;
-  try{
-    const res = await fetch("https://overpass-api.de/api/interpreter", { method:"POST", body:"data="+encodeURIComponent(ql) });
-    if(!res.ok) return {ok:false, reason:`OpenStreetMap search returned HTTP ${res.status}`};
-    const data = await res.json();
-    const elements = (data.elements||[]).map(el=>{
-      const lat = el.lat ?? (el.center && el.center.lat), lon = el.lon ?? (el.center && el.center.lon);
-      return (lat==null || lon==null) ? null : {lat, lon, tags: el.tags||{}};
-    }).filter(Boolean);
-    if(!elements.length) return {ok:false, reason:`no "${query}" found within about 25 miles`};
-    elements.forEach(el=> el.dist = haversineMiles(here.lat, here.lon, el.lat, el.lon));
-    elements.sort((a,b)=> a.dist-b.dist);
-    return {ok:true, poi: elements[0]};
-  }catch(e){
-    return {ok:false, reason:`network error reaching OpenStreetMap (${e.message})`};
+  let lastReason = "OpenStreetMap search failed";
+  for(const endpoint of OVERPASS_ENDPOINTS){
+    try{
+      const res = await fetch(endpoint, { method:"POST", body:"data="+encodeURIComponent(ql) });
+      if(!res.ok){ lastReason = `OpenStreetMap search returned HTTP ${res.status}`; continue; }
+      const data = await res.json();
+      const elements = (data.elements||[]).map(el=>{
+        const lat = el.lat ?? (el.center && el.center.lat), lon = el.lon ?? (el.center && el.center.lon);
+        return (lat==null || lon==null) ? null : {lat, lon, tags: el.tags||{}};
+      }).filter(Boolean);
+      if(!elements.length) return {ok:false, reason:`no "${query}" found within about 25 miles`};
+      elements.forEach(el=> el.dist = haversineMiles(here.lat, here.lon, el.lat, el.lon));
+      elements.sort((a,b)=> a.dist-b.dist);
+      return {ok:true, poi: elements[0]};
+    }catch(e){
+      lastReason = `network error reaching OpenStreetMap (${e.message})`;
+    }
   }
+  return {ok:false, reason: lastReason};
 }
 function formatPOIAddress(tags){
   const parts = [];
@@ -12123,6 +12132,17 @@ if(!("plan" in fitnessData)) fitnessData.plan = null;
 if(fitnessData.plan && !("notes" in fitnessData.plan)) fitnessData.plan.notes = {};
 if(!("weight" in fitnessData)) fitnessData.weight = "";
 if(!("weightUnit" in fitnessData)) fitnessData.weightUnit = "lbs";
+// Empty = "not restricted" (assume a full gym — same exercises this always generated before
+// equipment selection existed), not "nothing available" — so an old save with no equipment set
+// yet doesn't suddenly lose every barbell/machine exercise it would have gotten before this.
+if(!("equipment" in fitnessData)) fitnessData.equipment = [];
+const FIT_EQUIPMENT_OPTIONS = [
+  {key:"barbell", label:"Barbell"},
+  {key:"dumbbell", label:"Dumbbells"},
+  {key:"machine", label:"Machines/Cables"},
+  {key:"pullup", label:"Pull-up Bar"},
+  {key:"kettlebell", label:"Kettlebell"},
+];
 function convertFitWeight(value, fromUnit, toUnit){
   const num = parseFloat(value);
   if(isNaN(num) || fromUnit===toUnit) return value;
@@ -12148,6 +12168,189 @@ function matchSplitTemplate(text){
   if(/full[\s-]?body/.test(t)) return SPLIT_TEMPLATES[2];
   if(/bro split|chest.*back.*legs|body ?builder/.test(t)) return SPLIT_TEMPLATES[3];
   return null;
+}
+/* Canned exercise selections keyed by the same day-labels SPLIT_TEMPLATES already uses (Upper,
+   Lower, Push, Pull, Legs, Full Body, Chest, Back, Shoulders, Arms) — the no-Groq-key fallback for
+   auto-filling a day's actual workout (fitnessData.plan.notes) the moment a recognized split is
+   picked, instead of leaving every day blank for the user to type in by hand. Each entry is
+   tagged with the one piece of equipment it needs (see FIT_EQUIPMENT_OPTIONS) or "bodyweight" —
+   exercisesForLabel below filters this down to whatever fitnessData.equipment says is actually
+   available before picking what to show, same idea as generateAiWorkoutPlan's system prompt doing
+   the equivalent for the AI path. Every label deliberately keeps at least a couple of bodyweight
+   entries so someone with zero equipment selected never gets an empty list. */
+const SPLIT_DAY_EXERCISE_BANK = {
+  "Upper": [
+    {name:"Bench Press 4x8", equip:"barbell"}, {name:"Barbell Row 4x8", equip:"barbell"},
+    {name:"Overhead Press 3x10", equip:"barbell"}, {name:"Incline Dumbbell Press 3x10", equip:"dumbbell"},
+    {name:"Dumbbell Row 3x10", equip:"dumbbell"}, {name:"Lat Pulldown 3x12", equip:"machine"},
+    {name:"Cable Row 3x12", equip:"machine"}, {name:"Pull-Up 3xAMRAP", equip:"pullup"},
+    {name:"Kettlebell Row 3x12", equip:"kettlebell"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
+    {name:"Pike Push-Up 3x12", equip:"bodyweight"},
+  ],
+  "Lower": [
+    {name:"Back Squat 4x8", equip:"barbell"}, {name:"Romanian Deadlift 4x8", equip:"barbell"},
+    {name:"Leg Press 3x12", equip:"machine"}, {name:"Leg Curl 3x12", equip:"machine"},
+    {name:"Dumbbell Romanian Deadlift 3x10", equip:"dumbbell"}, {name:"Goblet Squat 3x12", equip:"kettlebell"},
+    {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Bodyweight Squat 4x20", equip:"bodyweight"},
+    {name:"Walking Lunge 3x12", equip:"bodyweight"}, {name:"Calf Raise 4x15", equip:"bodyweight"},
+  ],
+  "Push": [
+    {name:"Bench Press 4x8", equip:"barbell"}, {name:"Overhead Press 3x10", equip:"barbell"},
+    {name:"Incline Dumbbell Press 3x10", equip:"dumbbell"}, {name:"Dumbbell Shoulder Press 3x10", equip:"dumbbell"},
+    {name:"Cable Fly 3x12", equip:"machine"}, {name:"Tricep Pushdown 3x12", equip:"machine"},
+    {name:"Kettlebell Push Press 3x10", equip:"kettlebell"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
+    {name:"Dip 3xAMRAP", equip:"bodyweight"},
+  ],
+  "Pull": [
+    {name:"Deadlift 3x5", equip:"barbell"}, {name:"Barbell Row 4x8", equip:"barbell"},
+    {name:"Pull-Up 4xAMRAP", equip:"pullup"}, {name:"Lat Pulldown 3x12", equip:"machine"},
+    {name:"Cable Row 3x12", equip:"machine"}, {name:"Face Pull 3x15", equip:"machine"},
+    {name:"Dumbbell Row 3x10", equip:"dumbbell"}, {name:"Kettlebell Row 3x12", equip:"kettlebell"},
+    {name:"Inverted Row 3x12", equip:"bodyweight"},
+  ],
+  "Legs": [
+    {name:"Back Squat 4x8", equip:"barbell"}, {name:"Romanian Deadlift 3x10", equip:"barbell"},
+    {name:"Leg Curl 3x12", equip:"machine"}, {name:"Leg Extension 3x12", equip:"machine"},
+    {name:"Dumbbell Walking Lunge 3x12", equip:"dumbbell"}, {name:"Goblet Squat 3x12", equip:"kettlebell"},
+    {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Bodyweight Squat 4x20", equip:"bodyweight"},
+    {name:"Calf Raise 4x15", equip:"bodyweight"},
+  ],
+  "Full Body": [
+    {name:"Squat 3x8", equip:"barbell"}, {name:"Bench Press 3x8", equip:"barbell"},
+    {name:"Barbell Row 3x8", equip:"barbell"}, {name:"Dumbbell Thruster 3x10", equip:"dumbbell"},
+    {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Pull-Up 3xAMRAP", equip:"pullup"},
+    {name:"Push-Up 3x15", equip:"bodyweight"}, {name:"Burpee 3x12", equip:"bodyweight"},
+    {name:"Plank 3x45s", equip:"bodyweight"},
+  ],
+  "Chest": [
+    {name:"Bench Press 4x8", equip:"barbell"}, {name:"Incline Dumbbell Press 3x10", equip:"dumbbell"},
+    {name:"Cable Fly 3x12", equip:"machine"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
+    {name:"Dip 3xAMRAP", equip:"bodyweight"},
+  ],
+  "Back": [
+    {name:"Deadlift 3x5", equip:"barbell"}, {name:"Barbell Row 4x8", equip:"barbell"},
+    {name:"Pull-Up 4xAMRAP", equip:"pullup"}, {name:"Lat Pulldown 3x12", equip:"machine"},
+    {name:"Dumbbell Row 3x10", equip:"dumbbell"}, {name:"Kettlebell Row 3x12", equip:"kettlebell"},
+    {name:"Inverted Row 3x12", equip:"bodyweight"},
+  ],
+  "Shoulders": [
+    {name:"Overhead Press 4x8", equip:"barbell"}, {name:"Dumbbell Lateral Raise 3x15", equip:"dumbbell"},
+    {name:"Rear Delt Fly 3x15", equip:"dumbbell"}, {name:"Cable Lateral Raise 3x15", equip:"machine"},
+    {name:"Kettlebell Overhead Press 3x10", equip:"kettlebell"}, {name:"Pike Push-Up 3x12", equip:"bodyweight"},
+  ],
+  "Arms": [
+    {name:"Barbell Curl 3x12", equip:"barbell"}, {name:"Dumbbell Curl 3x12", equip:"dumbbell"},
+    {name:"Hammer Curl 3x12", equip:"dumbbell"}, {name:"Overhead Tricep Extension 3x12", equip:"dumbbell"},
+    {name:"Tricep Pushdown 3x12", equip:"machine"}, {name:"Chin-Up 3xAMRAP", equip:"pullup"},
+    {name:"Diamond Push-Up 3x15", equip:"bodyweight"},
+  ],
+};
+const FIT_LOCAL_PLAN_MAX_EXERCISES = 6;
+// empty selection = no restriction set yet, i.e. assume a full gym — see fitnessData.equipment above
+function fitEquipmentAllows(equip, selected){
+  return equip==="bodyweight" || !selected || !selected.length || selected.includes(equip);
+}
+function exercisesForLabel(label, selectedEquipment){
+  const bank = SPLIT_DAY_EXERCISE_BANK[label];
+  if(!bank) return "";
+  let matches = bank.filter(ex=>fitEquipmentAllows(ex.equip, selectedEquipment));
+  if(!matches.length) matches = bank; // only possible if a label ever ships with zero bodyweight entries — falls back to the full list rather than showing nothing
+  return matches.slice(0, FIT_LOCAL_PLAN_MAX_EXERCISES).map(ex=>ex.name).join(", ");
+}
+function buildLocalPlanNotes(days){
+  const notes = {};
+  FIT_DAY_ORDER.forEach(d=>{ notes[d] = exercisesForLabel(days[d], fitnessData.equipment); });
+  return notes;
+}
+/* Free-form plan generation via the same Groq endpoint tryGroq (see near AI chat) already calls —
+   a separate one-off request rather than routing through tryGroq itself, since this needs a very
+   different system prompt (strict JSON, no personality/history) and must never get appended to
+   the general AI chat conversation the way a real chat message would. Returns null on any failure
+   (no key, network error, malformed JSON) so the caller can fall back to matchSplitTemplate +
+   the local exercise bank above — same "AI enhances, local always still works" pattern as
+   tryGroq/tryLocalLLM. */
+function fitPlanSystemPrompt(){
+  // Same "empty = no restriction, assume a full gym" convention as exercisesForLabel/
+  // fitEquipmentAllows above — keeps the AI and local-fallback paths agreeing on what "no
+  // equipment selected" means instead of one assuming a full gym and the other assuming nothing.
+  const equipList = (fitnessData.equipment && fitnessData.equipment.length)
+    ? FIT_EQUIPMENT_OPTIONS.filter(o=>fitnessData.equipment.includes(o.key)).map(o=>o.label).join(", ")
+    : "a full commercial gym — assume anything is available";
+  return `You are a fitness program generator. The user describes a workout split or goal in free text — it may name a known split (upper/lower, push/pull/legs, full body, bro split) or be a fully custom request. Respond with STRICT JSON only — no markdown code fences, no commentary before or after — matching exactly this shape:
+{"label":"short name for this plan, e.g. Push Pull Legs","days":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."},"notes":{"Mon":"...","Tue":"...","Wed":"...","Thu":"...","Fri":"...","Sat":"...","Sun":"..."}}
+Rules:
+- "days" values are short one-or-two-word labels (e.g. "Upper", "Push", "Legs", "Full Body", "Rest").
+- "notes" values are the actual exercises for that day, comma-separated, each with sets x reps (e.g. "Bench Press 4x8, Barbell Row 4x8, Overhead Press 3x10"). Rest days get an empty notes string.
+- Equipment available: ${equipList}. Every exercise in "notes" must be doable with ONLY that equipment — bodyweight-only movements (push-ups, squats, lunges, planks, pull-ups only if a pull-up bar is listed, etc.) are always allowed in addition to whatever's listed.
+- Include all 7 days Mon through Sun. Match the training frequency the user asked for; fill any remaining days as Rest.
+- No extra keys, no explanation text, response under 900 characters.`;
+}
+async function generateAiWorkoutPlan(text){
+  if(!groqApiKey) return null;
+  try{
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
+      body: JSON.stringify({
+        model:"llama-3.3-70b-versatile",
+        messages:[
+          {role:"system", content: fitPlanSystemPrompt()},
+          {role:"user", content: text}
+        ],
+        temperature: 0.4,
+      })
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    const raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if(!raw) return null;
+    const jsonMatch = raw.match(/\{[\s\S]*\}/); // strips any stray fencing the model adds despite the system prompt
+    if(!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+    if(!parsed || typeof parsed.days !== "object") return null;
+    const days = {}, notes = {};
+    FIT_DAY_ORDER.forEach(d=>{
+      days[d] = (parsed.days[d] || "Rest").toString().slice(0,24);
+      notes[d] = parsed.notes && parsed.notes[d] ? parsed.notes[d].toString().slice(0,600) : "";
+    });
+    return {label: (parsed.label || "Custom Plan").toString().slice(0,40), days, notes};
+  }catch(e){
+    return null;
+  }
+}
+/* Lets you revise a day's exercise list by describing the change ("swap sit-ups for dragon
+   flags, sets 4 to 3") instead of hand-editing the textarea every time — same Groq endpoint as
+   generateAiWorkoutPlan above, but a separate one-off request/prompt since this edits ONE day's
+   existing text in place rather than generating a whole 7-day plan from scratch. Requires a Groq
+   key same as plan generation (see fillFitnessPlanDayDetail, which hides this entirely rather
+   than showing a control that can't work without one) — there's no local/offline fallback for
+   free-form instruction-following, only for picking from the fixed exercise bank. */
+function fitDayEditSystemPrompt(){
+  return `You edit a single day's workout note in place. You'll be given the CURRENT note text and an instruction describing a change to make to it. Return ONLY the updated note text — comma-separated exercises, each formatted as "Name SETSxREPS" (e.g. "Bench Press 4x8"), matching the same style as the current text — no commentary, no markdown, no quotes around it, no explanation. Apply ONLY what the instruction asks; leave every other exercise exactly as it was. If the current text is empty, build a short reasonable list from the instruction alone. Keep the response under 400 characters.`;
+}
+async function editWorkoutDayNotes(currentNotes, instruction){
+  if(!groqApiKey) return null;
+  try{
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
+      body: JSON.stringify({
+        model:"llama-3.3-70b-versatile",
+        messages:[
+          {role:"system", content: fitDayEditSystemPrompt()},
+          {role:"user", content: `Current: ${currentNotes || "(empty)"}\nInstruction: ${instruction}`}
+        ],
+        temperature: 0.3,
+      })
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    const raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if(!raw) return null;
+    return raw.trim().replace(/^```[a-z]*\n?/i, "").replace(/```$/, "").trim().slice(0,600);
+  }catch(e){
+    return null;
+  }
 }
 function isFitnessHelpRequest(text){
   return /help|suggest|recommend|don'?t have|dont have|no plan|not sure|no idea|what.*think|advice|idk/i.test(text);
@@ -12203,8 +12406,18 @@ function fillFitnessPlanDayDetail(scope, el, day){
         <button class="hbtn" id="fit-plan-day-close" style="flex:none;">✕</button>
       </div>
       <textarea id="fit-plan-day-notes" placeholder="What you actually do on ${day}s — e.g. Bench press 4x8, incline dumbbell press 3x10, cable fly 3x12…" style="width:100%;min-height:90px;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
+      ${groqApiKey ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);">
+        <div style="display:flex;gap:6px;">
+          <input id="fit-plan-day-edit-input" type="text" placeholder="Tell me what to change — e.g. 'swap sit-ups for dragon flags, sets 4→3'" style="flex:1;font-size:11px;padding:4px 7px;"/>
+          <button class="btn" id="fit-plan-day-edit-btn" style="flex:none;font-size:11px;padding:4px 9px;">Apply</button>
+        </div>
+        <div id="fit-plan-day-edit-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:1.2em;"></div>
+      </div>` : `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);font-size:10px;color:var(--text-dim);">Add a free Groq key in Settings to describe changes here instead of editing by hand.</div>`}
     </div>`;
-  el.querySelector("#fit-plan-day-notes").addEventListener("input", (e)=>{
+  const textarea = el.querySelector("#fit-plan-day-notes");
+  textarea.addEventListener("input", (e)=>{
     if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
     fitnessData.plan.notes[day] = e.target.value;
     saveJSON(NS+"fitness", fitnessData);
@@ -12215,6 +12428,36 @@ function fillFitnessPlanDayDetail(scope, el, day){
     const gridEl = scope.querySelector("#fit-plan-grid-full");
     if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
   });
+  const editBtn = el.querySelector("#fit-plan-day-edit-btn");
+  if(editBtn){
+    const editInput = el.querySelector("#fit-plan-day-edit-input");
+    const status = el.querySelector("#fit-plan-day-edit-status");
+    async function applyEdit(){
+      const instruction = editInput.value.trim();
+      if(!instruction) return;
+      editBtn.disabled = true;
+      editInput.disabled = true;
+      status.style.color = "var(--text-dim)";
+      status.textContent = "Updating…";
+      const updated = await editWorkoutDayNotes(textarea.value, instruction);
+      editBtn.disabled = false;
+      editInput.disabled = false;
+      if(updated===null){
+        status.style.color = "var(--accent-rust)";
+        status.textContent = "Couldn't reach the AI — try again, or edit the list above directly.";
+        return;
+      }
+      textarea.value = updated;
+      if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
+      fitnessData.plan.notes[day] = updated;
+      saveJSON(NS+"fitness", fitnessData);
+      editInput.value = "";
+      status.style.color = "var(--text-dim)";
+      status.textContent = "Updated.";
+    }
+    editBtn.addEventListener("click", applyEdit);
+    editInput.addEventListener("keydown", e=>{ if(e.key==="Enter") applyEdit(); });
+  }
 }
 /* Picking a different day while one's already open collapses that one first, THEN swaps in the
    new day's content and expands — an explicit close-then-open, not just a content jump-cut while
@@ -12353,9 +12596,10 @@ function renderFitnessPlanSection(scope){
       </div>`;
     renderPlanGrid(suggestBox.querySelector(".plan-preview-grid"), tpl.days);
     suggestBox.querySelector("#fit-plan-accept").addEventListener("click", ()=>{
-      fitnessData.plan = {type:tpl.key, days:tpl.days, notes:{}};
+      fitnessData.plan = {type:tpl.key, label:tpl.label, days:tpl.days, notes:buildLocalPlanNotes(tpl.days)};
       saveJSON(NS+"fitness", fitnessData);
       fitnessPlanSuggestion = null;
+      fitnessSelectedPlanDay = null;
       suggestBox.innerHTML = "";
       renderFitnessPlanSection(scope);
       const miniScope = document.querySelector(".fit-mini-plan");
@@ -12396,30 +12640,80 @@ function hydrateFitnessFull(scope){
   weightLbsBtn.addEventListener("click", ()=>setWeightUnit("lbs"));
   weightKgBtn.addEventListener("click", ()=>setWeightUnit("kg"));
 
+  // Feeds both plan-generation paths (exercisesForLabel's local bank filtering and
+  // fitPlanSystemPrompt's AI instructions) — toggled here rather than requiring a fresh plan
+  // request to take effect on ITS OWN notes, so changing equipment doesn't silently do nothing
+  // to a plan you already have (see the "Regenerate" hint this earns once something's toggled).
+  const equipRow = scope.querySelector("#fit-equipment-row");
+  function renderEquipmentRow(){
+    equipRow.innerHTML = FIT_EQUIPMENT_OPTIONS.map(opt=>
+      `<button type="button" class="btn${fitnessData.equipment.includes(opt.key)?" primary":""}" data-equip="${opt.key}" style="padding:3px 9px;font-size:11px;">${opt.label}</button>`
+    ).join("");
+    equipRow.querySelectorAll("[data-equip]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const key = btn.dataset.equip;
+        const i = fitnessData.equipment.indexOf(key);
+        if(i===-1) fitnessData.equipment.push(key); else fitnessData.equipment.splice(i,1);
+        saveJSON(NS+"fitness", fitnessData);
+        renderEquipmentRow();
+      });
+    });
+  }
+  renderEquipmentRow();
+
   fitnessPlanSuggestion = null;
   fitnessSelectedPlanDay = null;
   renderFitnessPlanSection(scope);
   const planInput = scope.querySelector("#fit-plan-input");
   const planSubmit = scope.querySelector("#fit-plan-submit");
-  function submitPlan(){
+  function applyGeneratedPlan(type, label, days, notes){
+    fitnessData.plan = {type, label, days, notes};
+    saveJSON(NS+"fitness", fitnessData);
+    fitnessPlanSuggestion = null;
+    fitnessSelectedPlanDay = null;
+    planInput.value = "";
+    renderFitnessPlanSection(scope);
+    const miniScope = document.querySelector(".fit-mini-plan");
+    if(miniScope) renderFitnessMiniPlan(miniScope.closest(".widget-body"));
+  }
+  /* Free text goes to Groq first when a key's configured — it can act on anything ("3 day full
+     body for a beginner", "I want to focus on arms this month"), not just the four fixed splits
+     matchSplitTemplate recognizes, and fills in real exercises per day instead of leaving every
+     day for you to type in by hand (see generateAiWorkoutPlan above). No key, or the request
+     fails: falls back to the old fixed-split matching, now also pre-filled from the local
+     exercise bank rather than leaving notes blank. */
+  async function submitPlan(){
     const text = planInput.value.trim();
     if(!text) return;
+    if(groqApiKey){
+      const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
+      planSubmit.disabled = true;
+      const originalLabel = planSubmit.textContent;
+      planSubmit.textContent = "…";
+      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Writing your plan…</div>`;
+      const ai = await generateAiWorkoutPlan(text);
+      planSubmit.disabled = false;
+      planSubmit.textContent = originalLabel;
+      if(ai){
+        suggestBox.innerHTML = "";
+        applyGeneratedPlan("ai", ai.label, ai.days, ai.notes);
+        return;
+      }
+      suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">Couldn't reach the AI — trying a local match instead.</div>`;
+    }
     const matched = matchSplitTemplate(text);
     if(matched){
-      fitnessData.plan = {type:matched.key, days:matched.days, notes:{}};
-      saveJSON(NS+"fitness", fitnessData);
-      fitnessPlanSuggestion = null;
-      planInput.value = "";
-      renderFitnessPlanSection(scope);
-      const miniScope = document.querySelector(".fit-mini-plan");
-      if(miniScope) renderFitnessMiniPlan(miniScope.closest(".widget-body"));
+      applyGeneratedPlan(matched.key, matched.label, matched.days, buildLocalPlanNotes(matched.days));
     } else if(isFitnessHelpRequest(text) || !fitnessData.plan){
       fitnessPlanSuggestion = SPLIT_TEMPLATES[0];
       planInput.value = "";
       renderFitnessPlanSection(scope);
     } else {
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
-      suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">Didn't recognize that split — try "upper lower", "push pull legs", "full body", "bro split", or just ask for help.</div>`;
+      const hint = groqApiKey
+        ? `Didn't recognize that split, and the AI request didn't come back — try again, or try "upper lower", "push pull legs", "full body", "bro split".`
+        : `Didn't recognize that split — try "upper lower", "push pull legs", "full body", "bro split", add a free Groq key in Settings to describe absolutely anything, or just ask for help.`;
+      suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">${hint}</div>`;
     }
   }
   planSubmit.addEventListener("click", submitPlan);
@@ -12445,7 +12739,6 @@ applyCamera();
 renderStrokes();
 renderTexts();
 renderWidgets();
-$("#stacks-btn").classList.toggle("active", !!state.stacked);
 maybeApplyLargeDefaultMigration();
 updateAccountButton();
 initAuthGate();
