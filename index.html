@@ -2625,7 +2625,7 @@ const I18N_ES = {
   "Gender": "Género",
   "Weight": "Peso",
   "Weekly Plan": "Plan Semanal",
-  "Describe your split or goal — e.g. 'upper lower', or your own custom request": "Describe tu split u objetivo — p. ej. 'upper lower', o tu propia solicitud personalizada",
+  "Describe your split or goal…": "Describe tu split u objetivo…",
   "Set": "Establecer",
   "Type anything: ran 5 miles, bench 185x5, ate chicken and rice, Vitamin D 28 ng/mL…": "Escribe lo que sea: corrí 5 millas, press banca 185x5, comí pollo con arroz, Vitamina D 28 ng/mL…",
   "Type anything: ran 5 miles, ate chicken, Vitamin D 28…": "Escribe lo que sea: corrí 5 millas, comí pollo, Vitamina D 28…",
@@ -2643,7 +2643,6 @@ const I18N_ES = {
   "Bro Split": "Split por Grupo Muscular",
   "Use this plan": "Usar este plan",
   "Try another": "Probar otro",
-  "Didn't recognize that split — try \"upper lower\", \"push pull legs\", \"full body\", \"bro split\", or just ask for help.": "No reconocí ese split — prueba \"upper lower\", \"push pull legs\", \"full body\", \"bro split\", o simplemente pide ayuda.",
   "Since you don't have a plan yet, here's one I'd suggest:": "Como aún no tienes un plan, aquí tienes uno que te sugeriría:",
   "Rest": "Descanso",
   "Upper": "Superior",
@@ -5685,36 +5684,34 @@ function renderFull(id){
     <div id="fit-plan-day-detail" class="fit-plan-day-detail-wrap"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:6px;margin-bottom:2px;">
-      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal — e.g. 'upper lower', or 'I only have dumbbells and a pull-up bar'" style="flex:1;"/>
+      <input id="fit-plan-input" type="text" placeholder="Describe your split or goal…" style="flex:1;"/>
       <button class="btn primary" id="fit-plan-submit">Set</button>
     </div>
     <div id="fit-equipment-status" style="font-size:10px;color:var(--text-dim);margin-bottom:10px;"></div>
 
     <div style="margin-top:22px;padding-top:12px;border-top:1px solid var(--line-soft);opacity:.85;">
-      <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Quick Log <span style="text-transform:none;letter-spacing:0;font-weight:400;">— jot down anything, sorted below</span></h3>
-      <div style="display:flex;gap:4px;margin-bottom:10px;">
-        <input id="fit-full-input" type="text" placeholder="ran 5 miles, bench 185x5, ate chicken, Vitamin D 28 ng/mL…" style="flex:1;font-size:11px;padding:3px 7px;"/>
-        <button class="btn" id="fit-full-add" style="flex:none;font-size:11px;padding:3px 9px;">Log</button>
-      </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-        <div>
+        <div class="fit-log-col" data-cat="workout" style="cursor:text;">
           <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-teal);">Workout</h3>
           <div class="fit-col-workout" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+          <input class="fit-col-input" data-cat="workout" type="text" style="display:none;width:100%;margin-top:6px;font-size:11px;padding:3px 7px;"/>
         </div>
-        <div>
+        <div class="fit-log-col" data-cat="food" style="cursor:text;">
           <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-amber);">Food</h3>
           <div class="fit-col-food" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+          <input class="fit-col-input" data-cat="food" type="text" style="display:none;width:100%;margin-top:6px;font-size:11px;padding:3px 7px;"/>
         </div>
-        <div>
-          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-rust);">Labs</h3>
+        <div class="fit-log-col" data-cat="labs" style="cursor:text;">
+          <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-rust);">Bloodwork</h3>
           <div class="fit-col-labs" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+          <input class="fit-col-input" data-cat="labs" type="text" style="display:none;width:100%;margin-top:6px;font-size:11px;padding:3px 7px;"/>
         </div>
-        <div>
+        <div class="fit-log-col" data-cat="notes" style="cursor:text;">
           <h3 style="font-family:var(--font-display);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-violet);">Notes</h3>
           <div class="fit-col-notes" style="margin-top:6px;max-height:200px;overflow:auto;font-size:.92em;"></div>
+          <input class="fit-col-input" data-cat="notes" type="text" style="display:none;width:100%;margin-top:6px;font-size:11px;padding:3px 7px;"/>
         </div>
       </div>
-      <p style="font-size:10px;color:var(--text-dim);margin-top:8px;">Entries auto-sort by keyword.</p>
     </div>`;
   }
   if(id==="holoportrait"){
@@ -12439,16 +12436,16 @@ function fillFitnessPlanDayDetail(scope, el, day){
         <span style="font-family:var(--font-display);font-size:12px;">${day} — ${label}</span>
         <button class="hbtn" id="fit-plan-day-close" style="flex:none;">✕</button>
       </div>
-      <textarea id="fit-plan-day-notes" placeholder="What you actually do on ${day}s — e.g. Bench press 4x8, incline dumbbell press 3x10, cable fly 3x12…" style="width:100%;min-height:90px;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
+      <textarea id="fit-plan-day-notes" placeholder="e.g. Bench press 4x8, row 4x8…" style="width:100%;min-height:90px;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
       ${groqApiKey ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);">
         <div style="display:flex;gap:6px;">
-          <input id="fit-plan-day-edit-input" type="text" placeholder="Tell me what to change — e.g. 'swap sit-ups for dragon flags, sets 4→3'" style="flex:1;font-size:11px;padding:4px 7px;"/>
+          <input id="fit-plan-day-edit-input" type="text" placeholder="What to change…" style="flex:1;font-size:11px;padding:4px 7px;"/>
           <button class="btn" id="fit-plan-day-edit-btn" style="flex:none;font-size:11px;padding:4px 9px;">Apply</button>
         </div>
         <div id="fit-plan-day-edit-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:1.2em;"></div>
       </div>` : `
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);font-size:10px;color:var(--text-dim);">Add a free Groq key in Settings to describe changes here instead of editing by hand.</div>`}
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);font-size:10px;color:var(--text-dim);">Add a Groq key in Settings to enable this.</div>`}
     </div>`;
   const textarea = el.querySelector("#fit-plan-day-notes");
   textarea.addEventListener("input", (e)=>{
@@ -12478,7 +12475,7 @@ function fillFitnessPlanDayDetail(scope, el, day){
       editInput.disabled = false;
       if(updated===null){
         status.style.color = "var(--accent-rust)";
-        status.textContent = "Couldn't reach the AI — try again, or edit the list above directly.";
+        status.textContent = "AI request failed.";
         return;
       }
       textarea.value = updated;
@@ -12533,10 +12530,14 @@ function categorizeFitnessEntry(text){
   if(FIT_FOOD_KEYWORDS.some(k=>t.includes(k))) return "food";
   return "notes";
 }
-function addFitnessEntry(text){
+// category: explicit override for the full view's per-column inputs (see hydrateFitnessFull),
+// which already know their category from which column you clicked into — no need to guess it
+// back out of the text. Omitted entirely by the mini widget's single shared input, which still
+// falls back to categorizeFitnessEntry's keyword guess same as always.
+function addFitnessEntry(text, category){
   text = text.trim();
   if(!text) return;
-  fitnessData.entries.unshift({id:"e"+Date.now()+Math.random().toString(36).slice(2,6), text, category:categorizeFitnessEntry(text), ts:Date.now()});
+  fitnessData.entries.unshift({id:"e"+Date.now()+Math.random().toString(36).slice(2,6), text, category: category || categorizeFitnessEntry(text), ts:Date.now()});
   if(fitnessData.entries.length>300) fitnessData.entries.length = 300;
   saveJSON(NS+"fitness", fitnessData);
 }
@@ -12683,12 +12684,12 @@ function hydrateFitnessFull(scope){
   function renderEquipmentStatus(){
     if(!equipStatusEl) return;
     if(!fitnessData.equipment.length){
-      equipStatusEl.textContent = "Assuming a full commercial gym — say what you actually have (e.g. \"I only have dumbbells\") to narrow it down.";
+      equipStatusEl.textContent = "Equipment: full gym.";
     } else if(fitnessData.equipment.length===1 && fitnessData.equipment[0]==="bodyweight"){
-      equipStatusEl.textContent = "Assuming bodyweight only — mention any equipment you get access to, to add it back in.";
+      equipStatusEl.textContent = "Equipment: bodyweight only.";
     } else {
       const labels = FIT_EQUIPMENT_OPTIONS.filter(o=>fitnessData.equipment.includes(o.key)).map(o=>o.label);
-      equipStatusEl.textContent = `Assuming: ${labels.join(", ")} (plus bodyweight). Say "I have a full gym" to reset.`;
+      equipStatusEl.textContent = `Equipment: ${labels.join(", ")}.`;
     }
   }
   renderEquipmentStatus();
@@ -12736,7 +12737,7 @@ function hydrateFitnessFull(scope){
         applyGeneratedPlan("ai", ai.label, ai.days, ai.notes);
         return;
       }
-      suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">Couldn't reach the AI — trying a local match instead.</div>`;
+      suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">AI unavailable — trying local match.</div>`;
     }
     // No-key fallback: same keyword-based equipment detection generateAiWorkoutPlan's prompt
     // does more flexibly with an actual model (see detectEquipmentFromText above).
@@ -12755,7 +12756,7 @@ function hydrateFitnessFull(scope){
       // having failed when it actually landed fine.
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       planInput.value = "";
-      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Got it — noted your equipment. Now tell me your split (or ask for help).</div>`;
+      suggestBox.innerHTML = `<div style="color:var(--text-dim);font-size:12px;">Equipment noted.</div>`;
     } else if(isFitnessHelpRequest(text) || !fitnessData.plan){
       fitnessPlanSuggestion = SPLIT_TEMPLATES[0];
       planInput.value = "";
@@ -12763,8 +12764,8 @@ function hydrateFitnessFull(scope){
     } else {
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       const hint = groqApiKey
-        ? `Didn't recognize that split, and the AI request didn't come back — try again, or try "upper lower", "push pull legs", "full body", "bro split".`
-        : `Didn't recognize that split — try "upper lower", "push pull legs", "full body", "bro split", add a free Groq key in Settings to describe absolutely anything, or just ask for help.`;
+        ? `Try "upper lower", "push pull legs", "full body", or "bro split".`
+        : `Try "upper lower", "push pull legs", "full body", "bro split", or ask for help.`;
       suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">${hint}</div>`;
     }
   }
@@ -12772,17 +12773,30 @@ function hydrateFitnessFull(scope){
   planInput.addEventListener("keydown", e=>{ if(e.key==="Enter") submitPlan(); });
 
   renderFitnessColumns(scope);
-  const input = scope.querySelector("#fit-full-input");
-  const addBtn = scope.querySelector("#fit-full-add");
-  function submit(){
-    if(!input.value.trim()) return;
-    addFitnessEntry(input.value);
-    input.value="";
-    renderFitnessColumns(scope);
-    renderFitnessMiniSummary(document);
-  }
-  addBtn.addEventListener("click", submit);
-  input.addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); });
+  // Click into a column to log straight into it — no shared input to guess the category from
+  // anymore, since which column you clicked already says what it is. renderFitnessColumns above
+  // only ever touches .fit-col-* (the entry list itself), never these wrapper/input elements, so
+  // the same input node stays mounted (and focused) across re-renders after each add.
+  scope.querySelectorAll(".fit-log-col").forEach(col=>{
+    const cat = col.dataset.cat;
+    const colInput = col.querySelector(".fit-col-input");
+    col.addEventListener("click", (e)=>{
+      if(e.target.closest("button, input")) return;
+      colInput.style.display = "block";
+      colInput.focus();
+    });
+    colInput.addEventListener("keydown", e=>{
+      if(e.key!=="Enter" || !colInput.value.trim()) return;
+      addFitnessEntry(colInput.value, cat);
+      colInput.value = "";
+      renderFitnessColumns(scope);
+      renderFitnessMiniSummary(document);
+      colInput.focus();
+    });
+    colInput.addEventListener("blur", ()=>{
+      if(!colInput.value.trim()) colInput.style.display = "none";
+    });
+  });
 }
 
 /* ================= INIT ================= */
