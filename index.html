@@ -5539,7 +5539,7 @@ function renderFull(id){
       <span id="bt-status" style="font-size:.8em;color:var(--text-dim);"></span>
     </div>
     <p style="font-size:.75em;color:var(--text-dim);margin-top:14px;line-height:1.6;">
-      Reads battery telemetry (GATT battery_service) from paired Bluetooth peripherals that expose it — headphones, earbuds, and mice often do; many keyboards and speakers don't. Requires Chrome or Edge on desktop or Android (Web Bluetooth isn't supported in Firefox or Safari). A device stays "connected" only for this browser tab's session — click its row after a reload to reconnect and get a fresh reading.
+      Shows battery level for connected Bluetooth devices.
     </p>`;
   }
   if(id==="mail"){
@@ -5638,7 +5638,7 @@ function renderFull(id){
         <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
         <button class="btn primary" id="bank-add-btn">Add</button>
       </div>
-      <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new isolated tab — no embedded frames, no balance scraping, just a launcher. Hiding one here also drops it from Quick Launch above.</p>
+      <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new tab.</p>
     </div>`;
   }
   if(id==="claudeprojects"){
@@ -5679,6 +5679,7 @@ function renderFull(id){
 
     <h3 style="font-family:var(--font-display);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;">Weekly Plan</h3>
     <div id="fit-plan-grid-full" style="display:none;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px;"></div>
+    <div id="fit-plan-day-detail" style="display:none;margin-bottom:10px;"></div>
     <div id="fit-plan-suggestion-full" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:6px;margin-bottom:20px;">
       <input id="fit-plan-input" type="text" placeholder="Tell me your split — e.g. 'upper lower', 'push pull legs' — or ask for help" style="flex:1;"/>
@@ -5707,7 +5708,7 @@ function renderFull(id){
         <div class="fit-col-notes" style="margin-top:8px;max-height:320px;overflow:auto;"></div>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:14px;">Entries are sorted into a column automatically based on keywords — no need to pick a category yourself. This is a simple rules-based sort, not medical analysis.</p>`;
+    <p style="font-size:11px;color:var(--text-dim);margin-top:14px;">Entries auto-sort by keyword.</p>`;
   }
   if(id==="holoportrait"){
     return `
@@ -12106,6 +12107,9 @@ function hydrateClaudeProjectsFull(scope){
 /* ================= FITNESS & BLOODWORK WIDGET ================= */
 let fitnessData = loadJSON(NS+"fitness", {age:"", gender:"", weight:"", weightUnit:"lbs", entries:[], plan:null});
 if(!("plan" in fitnessData)) fitnessData.plan = null;
+// a plan saved before per-day notes existed just has no notes object yet — same "old save simply
+// has nothing here" fallback as the rest of this file's backward-compat fields.
+if(fitnessData.plan && !("notes" in fitnessData.plan)) fitnessData.plan.notes = {};
 if(!("weight" in fitnessData)) fitnessData.weight = "";
 if(!("weightUnit" in fitnessData)) fitnessData.weightUnit = "lbs";
 function convertFitWeight(value, fromUnit, toUnit){
@@ -12138,16 +12142,82 @@ function isFitnessHelpRequest(text){
   return /help|suggest|recommend|don'?t have|dont have|no plan|not sure|no idea|what.*think|advice|idk/i.test(text);
 }
 const FIT_DAY_ORDER = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-function renderPlanGrid(container, days){
+/* opts.onDayClick turns each day cell into a per-day workout editor trigger (see
+   renderFitnessPlanDayDetail below) — only passed by the confirmed-plan grid in the full view;
+   the mini-widget grid and the not-yet-accepted suggestion preview grid both call this with no
+   opts at all, same as before this existed, so they stay plain/unclickable. */
+function renderPlanGrid(container, days, opts={}){
+  const {onDayClick, notes, selectedDay} = opts;
   container.innerHTML = FIT_DAY_ORDER.map(d=>{
     const isRest = days[d]==="Rest";
-    return `<div style="text-align:center;">
+    const hasNote = !!(notes && notes[d] && notes[d].trim());
+    const isSelected = selectedDay===d;
+    return `<div data-day="${d}" style="text-align:center;${onDayClick?"cursor:pointer;":""}">
       <div style="font-size:0.72em;color:var(--text-dim);">${d}</div>
-      <div style="margin-top:2px;padding:0.3em 0.2em;border-radius:6px;background:${isRest?"var(--bg-panel-raised)":"var(--accent-teal)"};color:${isRest?"var(--text-dim)":"var(--bg-deep)"};font-weight:600;font-size:0.75em;">${days[d]}</div>
+      <div style="margin-top:2px;padding:0.3em 0.2em;border-radius:6px;background:${isRest?"var(--bg-panel-raised)":"var(--accent-teal)"};color:${isRest?"var(--text-dim)":"var(--bg-deep)"};font-weight:600;font-size:0.75em;${isSelected?"outline:2px solid var(--accent-amber);outline-offset:1px;":""}">${days[d]}${hasNote?` <span title="Has a custom workout note">•</span>`:""}</div>
     </div>`;
   }).join("");
+  if(onDayClick){
+    container.querySelectorAll("[data-day]").forEach(el=>{
+      el.addEventListener("click", ()=>onDayClick(el.dataset.day));
+    });
+  }
 }
 let fitnessPlanSuggestion = null;
+let fitnessSelectedPlanDay = null;
+/* Per-day free-text workout details, keyed the same way as plan.days (e.g. "Bench 4x8, incline
+   DB press 3x10…") — separate from plan.days' own value, which stays the short label ("Upper",
+   "Push", "Legs"...) the grid always shows at a glance. Letting someone type their own exercises
+   for, say, "Upper" without losing that quick label is the whole point: the label is still what
+   a template (SPLIT_TEMPLATES) sets, but what's actually done that day is fully custom per user,
+   not tied to the label's name. Optional — an old saved plan from before this existed just has no
+   notes object yet (backfilled to {} where fitnessData.plan is loaded/created, see below), same
+   "old save simply has nothing here" pattern the camera-memory hotbar field uses. */
+function fitnessPlanGridOpts(scope){
+  return {
+    onDayClick: (d)=>selectFitnessPlanDay(scope, d),
+    notes: fitnessData.plan && fitnessData.plan.notes,
+    selectedDay: fitnessSelectedPlanDay,
+  };
+}
+function renderFitnessPlanDayDetail(scope){
+  const el = scope.querySelector("#fit-plan-day-detail");
+  if(!el) return;
+  if(!fitnessSelectedPlanDay || !fitnessData.plan){
+    el.style.display = "none";
+    el.innerHTML = "";
+    return;
+  }
+  const day = fitnessSelectedPlanDay;
+  const label = fitnessData.plan.days[day];
+  const note = (fitnessData.plan.notes && fitnessData.plan.notes[day]) || "";
+  el.style.display = "block";
+  el.innerHTML = `
+    <div style="background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;padding:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-family:var(--font-display);font-size:12px;">${day} — ${label}</span>
+        <button class="hbtn" id="fit-plan-day-close" style="flex:none;">✕</button>
+      </div>
+      <textarea id="fit-plan-day-notes" placeholder="What you actually do on ${day}s — e.g. Bench press 4x8, incline dumbbell press 3x10, cable fly 3x12…" style="width:100%;min-height:90px;background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;">${escapeHtml(note)}</textarea>
+    </div>`;
+  el.querySelector("#fit-plan-day-notes").addEventListener("input", (e)=>{
+    if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
+    fitnessData.plan.notes[day] = e.target.value;
+    saveJSON(NS+"fitness", fitnessData);
+  });
+  el.querySelector("#fit-plan-day-close").addEventListener("click", ()=>{
+    fitnessSelectedPlanDay = null;
+    renderFitnessPlanDayDetail(scope);
+    const gridEl = scope.querySelector("#fit-plan-grid-full");
+    if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
+  });
+}
+function selectFitnessPlanDay(scope, day){
+  fitnessSelectedPlanDay = fitnessSelectedPlanDay===day ? null : day; // clicking the same day again closes it
+  const gridEl = scope.querySelector("#fit-plan-grid-full");
+  if(gridEl) renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
+  renderFitnessPlanDayDetail(scope);
+}
 
 function categorizeFitnessEntry(text){
   const t = text.toLowerCase();
@@ -12236,10 +12306,12 @@ function renderFitnessPlanSection(scope){
   const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
   if(fitnessData.plan){
     gridEl.style.display = "grid";
-    renderPlanGrid(gridEl, fitnessData.plan.days);
+    renderPlanGrid(gridEl, fitnessData.plan.days, fitnessPlanGridOpts(scope));
   } else {
     gridEl.style.display = "none";
+    fitnessSelectedPlanDay = null;
   }
+  renderFitnessPlanDayDetail(scope);
   if(fitnessPlanSuggestion){
     const tpl = fitnessPlanSuggestion;
     suggestBox.innerHTML = `
@@ -12251,7 +12323,7 @@ function renderFitnessPlanSection(scope){
       </div>`;
     renderPlanGrid(suggestBox.querySelector(".plan-preview-grid"), tpl.days);
     suggestBox.querySelector("#fit-plan-accept").addEventListener("click", ()=>{
-      fitnessData.plan = {type:tpl.key, days:tpl.days};
+      fitnessData.plan = {type:tpl.key, days:tpl.days, notes:{}};
       saveJSON(NS+"fitness", fitnessData);
       fitnessPlanSuggestion = null;
       suggestBox.innerHTML = "";
@@ -12295,6 +12367,7 @@ function hydrateFitnessFull(scope){
   weightKgBtn.addEventListener("click", ()=>setWeightUnit("kg"));
 
   fitnessPlanSuggestion = null;
+  fitnessSelectedPlanDay = null;
   renderFitnessPlanSection(scope);
   const planInput = scope.querySelector("#fit-plan-input");
   const planSubmit = scope.querySelector("#fit-plan-submit");
@@ -12303,7 +12376,7 @@ function hydrateFitnessFull(scope){
     if(!text) return;
     const matched = matchSplitTemplate(text);
     if(matched){
-      fitnessData.plan = {type:matched.key, days:matched.days};
+      fitnessData.plan = {type:matched.key, days:matched.days, notes:{}};
       saveJSON(NS+"fitness", fitnessData);
       fitnessPlanSuggestion = null;
       planInput.value = "";
