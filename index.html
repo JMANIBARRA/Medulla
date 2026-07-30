@@ -3249,10 +3249,12 @@ setupCameraMemoryButtons();
 /* ================= AMBIENT SOUND =================
    A continuous, quiet game-menu-style ambient bed — a warm sustained chord (root/third/fifth/
    octave/ninth, sine/triangle voices each slowly breathing its own volume on an independent LFO)
-   with a slow, sparse bell/pluck melody wandering over it through a soft delay, generated
-   entirely with the Web Audio API rather than shipping/loading an actual audio file (also
-   sidesteps any licensing question a real game/movie soundtrack would raise). No noise/static
-   anywhere in the signal path — that was the first version's actual problem, not volume or pitch.
+   plus a steady arpeggiated pulse (see PULSE_PATTERN/schedulePulse below) giving the bed forward
+   rhythmic motion, with a slow, sparse bell/pluck melody still wandering over the top of both
+   through a soft delay — generated entirely with the Web Audio API rather than shipping/loading
+   an actual audio file (also sidesteps any licensing question a real game/movie soundtrack would
+   raise). No noise/static anywhere in the signal path — that was the first version's actual
+   problem, not volume or pitch.
    Global (not per-profile) preference, same as the hot bar: mute/unmute is the small button by
    the chat bar (#ambient-mute-btn); the actual volume is deliberately only in Settings (see
    ambientSoundBridge/#ambient-volume-input there) so it's not something a stray click nudges by
@@ -3312,11 +3314,46 @@ let ambientSoundBridge = null;
     osc.stop(time+2.8);
   }
   function scheduleBell(){
-    const wait = 3000 + Math.random()*5000; // 3–8s apart — sparse, not a repeating riff
+    const wait = 5000 + Math.random()*7000; // 5–12s apart, rarer than before — the pulse below is now the bed's main rhythmic character, this is just an occasional accent over it
     bellTimer = setTimeout(()=>{
       if(ctx) playBell(BELL_NOTES[Math.floor(Math.random()*BELL_NOTES.length)], ctx.currentTime+0.05);
       scheduleBell();
     }, wait);
+  }
+
+  /* Steady arpeggiated pulse under the pad — root/fifth/third/fifth of the same A-minor chord,
+     one note per eighth note, giving the bed forward rhythmic motion instead of just slowly
+     breathing in place. Scheduled via the standard Web-Audio "lookahead" pattern (a plain
+     setInterval that keeps queuing notes PULSE_SCHEDULE_AHEAD seconds into ctx.currentTime,
+     rather than scheduling one note per setTimeout) so the beat stays sample-accurate regardless
+     of setInterval's own timer jitter/throttling in a background tab. */
+  const PULSE_PATTERN = [110.00, 164.81, 130.81, 164.81]; // A2 root, E3 fifth, C3 third, E3 fifth
+  const PULSE_INTERVAL = 0.3; // eighth notes at 100bpm
+  const PULSE_SCHEDULE_AHEAD = 0.2;
+  let pulseStep = 0, nextPulseTime = 0, pulseTimerId = null;
+  function playPulse(freq, time){
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, time);
+    const filt = ctx.createBiquadFilter(); // lowpass keeps the pulse soft/round rather than plucky-bright — it's a rhythmic floor, not a melody
+    filt.type = "lowpass";
+    filt.frequency.value = 900;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(0.045, time+0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, time+PULSE_INTERVAL*0.9);
+    osc.connect(filt).connect(g);
+    g.connect(masterGain);
+    g.connect(delay);
+    osc.start(time);
+    osc.stop(time+PULSE_INTERVAL);
+  }
+  function schedulePulse(){
+    while(nextPulseTime < ctx.currentTime + PULSE_SCHEDULE_AHEAD){
+      playPulse(PULSE_PATTERN[pulseStep % PULSE_PATTERN.length], nextPulseTime);
+      pulseStep++;
+      nextPulseTime += PULSE_INTERVAL;
+    }
   }
 
   /* Browsers refuse to produce actual sound from a freshly-created AudioContext until a real
@@ -3373,6 +3410,9 @@ let ambientSoundBridge = null;
       });
 
       scheduleBell();
+
+      nextPulseTime = ctx.currentTime + 0.1;
+      pulseTimerId = setInterval(schedulePulse, 100);
 
       if(ctx.state === "suspended"){
         const resume = ()=> ctx.resume();
