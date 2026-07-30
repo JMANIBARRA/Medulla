@@ -8958,6 +8958,7 @@ function parseCalendarNameQuery(t){
    caller falls back to "what's coming up" instead of literally searching for the word
    "appointment". Non-empty ("laser") = an actual name to search titles for. */
 const CALENDAR_GENERIC_NOUN_RE = /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|call|thing|things)\b/g;
+const CALENDAR_GENERIC_NOUN_LIST = ["appointment","appointments","event","events","meeting","meetings","checkup","exam","visit","call","thing","things"];
 function extractCalendarSearchCore(rawPhrase){
   let p = " "+rawPhrase.toLowerCase().trim()+" ";
   p = p.replace(/\b(on|for)\s+(my|the)\s+calendar\b/g, " ");
@@ -8968,6 +8969,13 @@ function extractCalendarSearchCore(rawPhrase){
      empty core a generic noun does so the caller falls back to context (lastRescheduleTarget)
      instead of literally searching titles for the word "it". */
   p = p.replace(/\b(a|an|any|my|the|next|upcoming|it|that|this|them|one)\b/g, " ");
+  /* A MISSPELLED generic noun ("appintment") slips past the exact regex above untouched, and gets
+     treated as if it were a real distinguishing name — same edit-distance tolerance the
+     widget-topic keyword matching already relies on elsewhere in this file (see levenshtein)
+     catches this too, word by word, rather than adding a second hand-maintained typo list. */
+  p = p.split(/\s+/).filter(Boolean).filter(w=>
+    !CALENDAR_GENERIC_NOUN_LIST.some(n=>Math.abs(w.length-n.length)<=2 && levenshtein(w,n)<=2)
+  ).join(" ");
   return p.replace(/\s+/g," ").trim();
 }
 /* Matching is tried against both the full original phrase and the stripped-down core, plus a
@@ -9106,8 +9114,10 @@ function parseRescheduleDate(phrase){
   return null;
 }
 /* Normalizes to the same "H:MM AM/PM" shape calendarTimeSortKey already expects, whether the
-   user said "3pm", "3:30pm", or 24-hour "15:30". */
+   user said "3pm", "3:30pm", 24-hour "15:30", or plain "noon"/"midnight". */
 function parseRescheduleTime(phrase){
+  if(/\bnoon\b/.test(phrase)) return "12:00 PM";
+  if(/\bmidnight\b/.test(phrase)) return "12:00 AM";
   const ampm = phrase.match(/\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b/i);
   if(ampm){
     let h = parseInt(ampm[1],10) % 12;
@@ -9247,9 +9257,14 @@ function stripAddEventScaffolding(rest){
   p = p.replace(/\b(?:for|on)?\s*\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, " ");
   p = p.replace(/\b(?:at)?\s*\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?\b/gi, " ");
   p = p.replace(/\b(?:at)?\s*(?:[01]?\d|2[0-3]):[0-5]\d\b/g, " ");
+  p = p.replace(/\b(?:at)?\s*(?:noon|midnight)\b/gi, " ");
   p = p.replace(/\b(?:called|titled|named)\b\s*:?/gi, " ");
   p = p.replace(/\b(?:a|an|the|my)\b/gi, " ");
-  return p.replace(/\s+/g," ").trim();
+  /* Whatever separator originally sat between the title and the now-removed date/time (a comma,
+     usually — "Firestone, noon") is left dangling at the edge once its neighbor is gone; trimmed
+     here rather than stripping commas everywhere, since a comma genuinely INSIDE a title (a real
+     name, not scaffolding) should survive untouched. */
+  return p.replace(/\s+/g," ").trim().replace(/^[,;:]+\s*|\s*[,;:]+$/g, "");
 }
 /* Returns null (not a reply) when this doesn't actually look like a calendar add at all — e.g.
    "add a project" or "add 5 and 3" match the bare verb pattern but never mention any
@@ -9280,6 +9295,66 @@ function tryAddCalendarEvent(rest, fullText){
   return time
     ? `Done — added "${core}" to your calendar for ${calendarEventDayLabel(key)} at ${time}.`
     : `Done — added "${core}" to your calendar for ${calendarEventDayLabel(key)}.`;
+}
+/* ---- rename an existing calendar event (and/or change its time/date) via chat ----
+   The third write path, alongside tryRescheduleCalendarEvent and tryAddCalendarEvent above.
+   "rename my dentist appointment to Firestone" is the clean case; "rename appointment to have it
+   just be Firestone, noon" (the actual phrasing this was built against) is messier — a filler
+   clause before the new value, and a bare comma-separated title+time with no "at"/"called"
+   connector at all. The optional filler alternation below eats "have it (just) be"/"just be"/
+   "be"/"say"; stripAddEventScaffolding (shared with tryAddCalendarEvent) already knows how to pull
+   a time back out of a trailing bare phrase and trims the leftover comma. */
+function parseRenameCommand(text){
+  const m = text.match(/\b(?:rename|relabel|retitle)\s+(?:my |the )?(.+?)\s+to\s+(?:have it (?:just )?be\s+|just\s+be\s+|be\s+|say\s+)?(.+?)[?.!\s]*$/i);
+  return m ? {namePhrase: m[1].trim(), newPhrase: m[2].trim()} : null;
+}
+function tryRenameCalendarEvent(namePhrase, newPhrase, fullText){
+  const nameCore = extractCalendarSearchCore(namePhrase);
+  let target;
+  if(nameCore){
+    const matches = findCalendarEventsByName(namePhrase);
+    if(!matches.length) return `I don't see anything called "${namePhrase}" on your calendar.`;
+    const todayKey = calendarDateKey(new Date());
+    target = matches.find(mt=>mt.key>=todayKey) || matches[0];
+  } else if(lastRescheduleTarget){
+    target = lastRescheduleTarget;
+  } else if(soleUpcomingCalendarEvent()){
+    target = soleUpcomingCalendarEvent();
+  } else {
+    return /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/i.test(fullText)
+      ? `Which one did you mean? Try naming it first, e.g. "rename my dentist appointment to Firestone".`
+      : null;
+  }
+
+  const lowerNew = newPhrase.toLowerCase();
+  const newTime = parseRescheduleTime(lowerNew);
+  const newDate = parseRescheduleDate(lowerNew); // only moves the day if one was actually named — renaming shouldn't silently relocate the event otherwise
+  const newTitle = stripAddEventScaffolding(newPhrase);
+  if(!newTitle && !newTime && !newDate){
+    return `I couldn't tell what to change "${target.ev.title}" to — try "rename it to Firestone, noon".`;
+  }
+
+  const oldTitle = target.ev.title;
+  if(newTitle) target.ev.title = newTitle;
+  if(newTime) target.ev.time = newTime;
+  let key = target.key;
+  if(newDate){
+    const newKey = calendarDateKey(newDate);
+    if(newKey !== key){
+      const arr = calendarData.events[key];
+      arr.splice(arr.indexOf(target.ev), 1);
+      if(!arr.length) delete calendarData.events[key];
+      (calendarData.events[newKey] = calendarData.events[newKey] || []).push(target.ev);
+      key = newKey;
+    }
+  }
+  saveJSON(NS+"calendar", calendarData);
+  refreshMountedCalendarUI();
+  lastRescheduleTarget = {key, ev: target.ev};
+  const when = target.ev.time ? `${calendarEventDayLabel(key)} at ${target.ev.time}` : calendarEventDayLabel(key);
+  return newTitle && newTitle.toLowerCase() !== oldTitle.toLowerCase()
+    ? `Done — renamed "${oldTitle}" to "${target.ev.title}", set for ${when}.`
+    : `Done — "${target.ev.title}" is now set for ${when}.`;
 }
 /* Shared by both places that call readWidgetContentReply for a resolved widget (explicit "what's
    on my calendar" naming it, and the topic-inference fallback below) — Calendar is the one widget
@@ -9668,6 +9743,15 @@ function tryLocalCommand(text){
   if(addRest){
     const addReply = tryAddCalendarEvent(addRest, t);
     if(addReply) results.push(addReply);
+  }
+  /* "rename/relabel/retitle my X to Y" — changes an existing event's title (and/or its time/date
+     if the new phrase names one), same write path as add/reschedule above. Checked before
+     reschedule below since "rename" is specific enough to never collide with "move/change ... to"
+     phrasing. */
+  const renameCmd = parseRenameCommand(text);
+  if(renameCmd){
+    const renameReply = tryRenameCalendarEvent(renameCmd.namePhrase, renameCmd.newPhrase, t);
+    if(renameReply) results.push(renameReply);
   }
   /* "move/reschedule/change my X to <date/time>" — actually writes to calendarData instead of
      just reading it back (see tryRescheduleCalendarEvent above). Checked early since it's a very
