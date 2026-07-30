@@ -3485,13 +3485,64 @@ let ambientSoundBridge = null;
     else if(e.key==="AudioVolumeMute"){ e.preventDefault(); setMuted(!muted); }
   });
 
+  /* Faint UI "whoosh" — a short noise burst swept through a bandpass filter (a quick low→high
+     sweep is what makes filtered noise read as "whoosh" rather than just "static blip"), reused
+     for every hover rather than allocating a fresh noise buffer each time. Routed straight to
+     muteGain (post-mute, but NOT through masterGain/the ambient volume slider) so it stays a
+     fixed, always-faint level regardless of how loud the user has the ambient music set — it's a
+     UI sound effect piggybacking on the ambient system's audio graph, not part of the music. Still
+     silenced by the same mute toggle since there's no separate UI-sfx mute in this app. */
+  let noiseBuffer = null;
+  function getNoiseBuffer(){
+    if(noiseBuffer) return noiseBuffer;
+    const len = Math.floor(ctx.sampleRate * 0.3);
+    noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
+    return noiseBuffer;
+  }
+  function playHoverWhoosh(){
+    if(!started) start();
+    if(!ctx || muted) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = getNoiseBuffer();
+    const filt = ctx.createBiquadFilter();
+    filt.type = "bandpass";
+    filt.Q.value = 0.7;
+    filt.frequency.setValueAtTime(500, t);
+    filt.frequency.exponentialRampToValueAtTime(2400, t+0.16);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.028, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.2);
+    src.connect(filt).connect(g).connect(muteGain);
+    src.start(t);
+    src.stop(t+0.22);
+  }
+
   ambientSoundBridge = {
     getVolume: ()=>volume,
     setVolume,
     getMuted: ()=>muted,
     setMuted,
+    playHoverWhoosh,
   };
 })();
+
+/* Faint hover whoosh on hot bar icons and widget cards — delegated on document with a capturing
+   listener since mouseenter doesn't bubble; capture-phase listeners on an ancestor still see it
+   fire on the actual descendant target though, so this works without wiring a listener onto every
+   icon/widget individually (both are created/destroyed dynamically at runtime). Matches the exact
+   target element (not closest()) so hovering a button *inside* a widget doesn't also re-trigger
+   the widget's own whoosh — each element gets its own mouseenter only when its own boundary is
+   crossed from outside. */
+document.addEventListener("mouseenter", (e)=>{
+  if(!ambientSoundBridge) return;
+  if(e.target.matches && e.target.matches(".hotbar-icon, .claustrum-widget")){
+    ambientSoundBridge.playHoverWhoosh();
+  }
+}, true);
 
 /* Fullscreen toggle — standard Fullscreen API on the whole document, button lives right next to
    ambient-mute-btn (see #fullscreen-toggle-btn in the HTML/CSS) since that's the one existing
@@ -8996,8 +9047,9 @@ function soleUpcomingCalendarEvent(){
   return upcoming.length===1 ? upcoming[0] : null;
 }
 /* ---- reschedule/move/change an existing calendar event via chat ----
-   Everything above this point only ever READS calendarData; this is the one path that writes
-   to it from the AI dock. "to"/"for" is the connector between the (optional) event name and the
+   Everything above this point only ever READS calendarData; this and tryAddCalendarEvent further
+   below are the two paths that write to it from the AI dock. "to"/"for" is the connector between
+   the (optional) event name and the
    new date/time in every phrasing this is meant to catch ("move my dentist appointment to
    Friday at 3pm", "reschedule the laser thing for next Tuesday"). Deliberately not anchored to
    the start of the string so "can you move..." still matches.
@@ -9165,6 +9217,69 @@ function tryRescheduleCalendarEvent(namePhrase, fromPhrase, targetPhrase, fullTe
   return newKey !== oldKey
     ? `Done — moved "${target.ev.title}" from ${calendarEventDayLabel(oldKey)} to ${when}.`
     : `Done — "${target.ev.title}" is now set for ${when}.`;
+}
+/* ---- add a brand-new calendar event via chat (no Groq key needed) ----
+   The other write path alongside tryRescheduleCalendarEvent above. Matched against the ORIGINAL,
+   not lowercased, text (the "i" flag handles case-insensitive verb matching instead) specifically
+   so the extracted title preserves whatever capitalization the user actually typed — everything
+   else in this file works off the lowercased `t`, but a title lowercased into "dentist
+   appointment" would look visibly wrong sitting next to a manually-typed "Dentist Appointment" in
+   the actual calendar UI. */
+function parseAddEventCommand(text){
+  const m = text.match(/\b(?:add|create|schedule|set up|book|put)\s+(.+)$/i);
+  return m ? m[1].trim() : null;
+}
+/* Strips every date/time/connector/filler bit out of the ORIGINAL-case rest-phrase so whatever's
+   left is exactly the title to save — deliberately case-insensitive on the MATCHING side (/gi)
+   while leaving whatever survives untouched, same reasoning as parseAddEventCommand above. Unlike
+   extractCalendarSearchCore (used for SEARCHING existing titles), this does NOT strip generic
+   nouns like "appointment"/"event" — if that's genuinely part of what the user said, it's part of
+   the title to save ("dentist appointment" should save as "dentist appointment", not "dentist").
+   The generic-noun check instead happens separately, in tryAddCalendarEvent, only to decide
+   whether ANYTHING distinguishing was said at all. */
+function stripAddEventScaffolding(rest){
+  let p = " "+rest+" ";
+  p = p.replace(/\b(for|on|to)\s+(my|the)\s+calendar\b/gi, " ");
+  p = p.replace(/\bcalendar\b/gi, " ");
+  p = p.replace(/\b(?:for|on)?\s*(?:today|tomorrow|yesterday)\b/gi, " ");
+  p = p.replace(/\b(?:for|on)?\s*(?:next\s+)?(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, " ");
+  p = p.replace(/\b(?:for|on)?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s*\d{4})?\b/gi, " ");
+  p = p.replace(/\b(?:for|on)?\s*\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, " ");
+  p = p.replace(/\b(?:at)?\s*\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?\b/gi, " ");
+  p = p.replace(/\b(?:at)?\s*(?:[01]?\d|2[0-3]):[0-5]\d\b/g, " ");
+  p = p.replace(/\b(?:called|titled|named)\b\s*:?/gi, " ");
+  p = p.replace(/\b(?:a|an|the|my)\b/gi, " ");
+  return p.replace(/\s+/g," ").trim();
+}
+/* Returns null (not a reply) when this doesn't actually look like a calendar add at all — e.g.
+   "add a project" or "add 5 and 3" match the bare verb pattern but never mention any
+   calendar/appointment/event word, so this falls through to whatever else handles those instead
+   of wrongly hijacking them. Requires a real distinguishing title, same rule the widget's own
+   Add Event field enforces (an empty title never gets saved there either) — asks rather than
+   saving something generically titled "Appointment" the user never actually chose. */
+function tryAddCalendarEvent(rest, fullText){
+  if(!/\b(calendar|appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit)\b/i.test(fullText)) return null;
+
+  const lower = rest.toLowerCase();
+  const time = parseRescheduleTime(lower);
+  const date = parseRescheduleDate(lower) || new Date();
+
+  const core = stripAddEventScaffolding(rest);
+  const hasRealTitle = core.replace(new RegExp(CALENDAR_GENERIC_NOUN_RE.source, "gi"), " ").replace(/\s+/g," ").trim();
+  if(!hasRealTitle){
+    return `What would you like to call it? Try "add a dentist appointment for today at 3pm".`;
+  }
+
+  const key = calendarDateKey(date);
+  if(!calendarData.events[key]) calendarData.events[key] = [];
+  const ev = {title: core, time: time || ""};
+  calendarData.events[key].push(ev);
+  saveJSON(NS+"calendar", calendarData);
+  refreshMountedCalendarUI();
+  lastRescheduleTarget = {key, ev};
+  return time
+    ? `Done — added "${core}" to your calendar for ${calendarEventDayLabel(key)} at ${time}.`
+    : `Done — added "${core}" to your calendar for ${calendarEventDayLabel(key)}.`;
 }
 /* Shared by both places that call readWidgetContentReply for a resolved widget (explicit "what's
    on my calendar" naming it, and the topic-inference fallback below) — Calendar is the one widget
@@ -9543,6 +9658,16 @@ function tryLocalCommand(text){
       return /there's nothing showing on it right now/.test(reply) ? null : reply;
     }).filter(Boolean);
     results.push(todayParts.length ? todayParts.join(" ") : "Open your Calendar, Fitness, or Projects widget so I can see what's on your plate today.");
+  }
+  /* "add/create/schedule/book/put a <title> [date] [time]" — writes a brand-new event to
+     calendarData (see tryAddCalendarEvent above) instead of falling through to the read-only
+     "what's on my calendar today" reply this used to silently get instead. Matched against the
+     original `text`, not `t`, so the saved title keeps whatever casing the user actually typed;
+     the fullText guard passed in still uses `t` since that check is case-insensitive anyway. */
+  const addRest = parseAddEventCommand(text);
+  if(addRest){
+    const addReply = tryAddCalendarEvent(addRest, t);
+    if(addReply) results.push(addReply);
   }
   /* "move/reschedule/change my X to <date/time>" — actually writes to calendarData instead of
      just reading it back (see tryRescheduleCalendarEvent above). Checked early since it's a very
