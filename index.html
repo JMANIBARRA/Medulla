@@ -9303,10 +9303,35 @@ function tryAddCalendarEvent(rest, fullText){
    clause before the new value, and a bare comma-separated title+time with no "at"/"called"
    connector at all. The optional filler alternation below eats "have it (just) be"/"just be"/
    "be"/"say"; stripAddEventScaffolding (shared with tryAddCalendarEvent) already knows how to pull
-   a time back out of a trailing bare phrase and trims the leftover comma. */
+   a time back out of a trailing bare phrase and trims the leftover comma.
+   Second pattern below catches "change the name/title of X to Y" — a real, common way to phrase
+   a rename that doesn't use the word "rename" at all. Critical that this whole function is tried
+   BEFORE parseRescheduleCommand in the dispatcher and the two are mutually exclusive (not just two
+   independent ifs): "change" is a trigger word for BOTH, and without that ordering "change the
+   name of my appointment to Firestone" was matching reschedule's generic "change ... to ..."
+   pattern too, misreading "name of my appointment" as a literal title to search for (which
+   obviously never matches anything) instead of being recognized as a rename at all. */
 function parseRenameCommand(text){
-  const m = text.match(/\b(?:rename|relabel|retitle)\s+(?:my |the )?(.+?)\s+to\s+(?:have it (?:just )?be\s+|just\s+be\s+|be\s+|say\s+)?(.+?)[?.!\s]*$/i);
+  let m = text.match(/\b(?:rename|relabel|retitle)\s+(?:my |the )?(.+?)\s+to\s+(?:have it (?:just )?be\s+|just\s+be\s+|be\s+|say\s+)?(.+?)[?.!\s]*$/i);
+  if(m) return {namePhrase: m[1].trim(), newPhrase: m[2].trim()};
+  m = text.match(/\bchange\s+(?:the\s+)?(?:name|title)\s+of\s+(?:my |the )?(.+?)\s+to\s+(?:have it (?:just )?be\s+|just\s+be\s+|be\s+|say\s+)?(.+?)[?.!\s]*$/i);
   return m ? {namePhrase: m[1].trim(), newPhrase: m[2].trim()} : null;
+}
+/* "...to Firestone and make sure the time is set for noon" — the trailing "and ..." clause is
+   about the TIME, not part of the new title, but stripAddEventScaffolding has no idea "make sure
+   the time is set for" is throwaway phrasing (it only knows fixed scaffolding like dates/times/
+   articles). Splitting off a trailing "and ..." clause whenever that clause itself mentions a
+   time/date reference keeps it out of the title entirely, rather than mashing "and make sure time
+   is set for" into the saved name. Only applies to a genuinely TIME/DATE-flavored trailing clause,
+   so a real title that happens to contain "and" ("Mom and Dad's Anniversary") is left alone. */
+function splitTitleFromTrailingTimeClause(phrase){
+  const m = phrase.match(/^(.*?)\s+\band\b\s+(.+)$/i);
+  if(!m) return phrase;
+  const after = m[2];
+  const mentionsTimeOrDate = /\b(time|noon|midnight|today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(after)
+    || /\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?\b/i.test(after)
+    || /\b([01]?\d|2[0-3]):[0-5]\d\b/.test(after);
+  return mentionsTimeOrDate ? m[1].trim() : phrase;
 }
 function tryRenameCalendarEvent(namePhrase, newPhrase, fullText){
   const nameCore = extractCalendarSearchCore(namePhrase);
@@ -9329,7 +9354,7 @@ function tryRenameCalendarEvent(namePhrase, newPhrase, fullText){
   const lowerNew = newPhrase.toLowerCase();
   const newTime = parseRescheduleTime(lowerNew);
   const newDate = parseRescheduleDate(lowerNew); // only moves the day if one was actually named — renaming shouldn't silently relocate the event otherwise
-  const newTitle = stripAddEventScaffolding(newPhrase);
+  const newTitle = stripAddEventScaffolding(splitTitleFromTrailingTimeClause(newPhrase));
   if(!newTitle && !newTime && !newDate){
     return `I couldn't tell what to change "${target.ev.title}" to — try "rename it to Firestone, noon".`;
   }
@@ -9744,55 +9769,60 @@ function tryLocalCommand(text){
     const addReply = tryAddCalendarEvent(addRest, t);
     if(addReply) results.push(addReply);
   }
-  /* "rename/relabel/retitle my X to Y" — changes an existing event's title (and/or its time/date
-     if the new phrase names one), same write path as add/reschedule above. Checked before
-     reschedule below since "rename" is specific enough to never collide with "move/change ... to"
-     phrasing. */
+  /* "rename/relabel/retitle my X to Y", or "change the name/title of X to Y" — changes an existing
+     event's title (and/or its time/date if the new phrase names one). Mutually exclusive with
+     reschedule below (an if/else, not two independent ifs) rather than just "checked first":
+     "change" is a trigger word for BOTH this and parseRescheduleCommand, and running both against
+     the same message meant "change the name of my appointment to Firestone" ALSO matched
+     reschedule's generic "change ... to ..." pattern, misreading "name of my appointment" as a
+     literal title to search for (see tryRenameCalendarEvent above for the full story) instead of
+     ever reaching the rename handling meant to catch it. */
   const renameCmd = parseRenameCommand(text);
   if(renameCmd){
     const renameReply = tryRenameCalendarEvent(renameCmd.namePhrase, renameCmd.newPhrase, t);
     if(renameReply) results.push(renameReply);
-  }
-  /* "move/reschedule/change my X to <date/time>" — actually writes to calendarData instead of
-     just reading it back (see tryRescheduleCalendarEvent above). Checked early since it's a very
-     specific, low-collision phrasing and should win over any later, more general handling. */
-  const resched = parseRescheduleCommand(t);
-  if(resched){
-    const reschedReply = tryRescheduleCalendarEvent(resched.namePhrase, resched.fromPhrase, resched.targetPhrase, t);
-    if(reschedReply) results.push(reschedReply);
   } else {
-    /* No "to"/"for" clause at all ("move the appointment", "reschedule my dentist thing") — a
-       real intent, just missing the when. Resolves WHICH event is meant right now (by name, or
-       lastRescheduleTarget for a bare "move it") and asks for the missing date/time instead of
-       silently doing nothing or falling through to the LLM (which has no calendar access and
-       would either refuse or, worse, guess). The actual move happens on the NEXT message, once
-       tryRescheduleCalendarEvent's lastRescheduleTarget fallback (above) picks this back up. */
-    const bareMatch = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)[?.!\s]*$/);
-    if(bareMatch){
-      const bareName = bareMatch[1].trim();
-      const bareCore = extractCalendarSearchCore(bareName);
-      const mentionsCalendar = /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/.test(t);
-      let bareTarget = null, bareReply = null;
-      if(bareCore){
-        const matches = findCalendarEventsByName(bareName);
-        if(matches.length){
-          const todayKey = calendarDateKey(new Date());
-          bareTarget = matches.find(mt=>mt.key>=todayKey) || matches[0];
-        } else {
-          bareReply = `I don't see anything called "${bareName}" on your calendar.`;
+    /* "move/reschedule/change my X to <date/time>" — actually writes to calendarData instead of
+       just reading it back (see tryRescheduleCalendarEvent above). Checked early since it's a very
+       specific, low-collision phrasing and should win over any later, more general handling. */
+    const resched = parseRescheduleCommand(t);
+    if(resched){
+      const reschedReply = tryRescheduleCalendarEvent(resched.namePhrase, resched.fromPhrase, resched.targetPhrase, t);
+      if(reschedReply) results.push(reschedReply);
+    } else {
+      /* No "to"/"for" clause at all ("move the appointment", "reschedule my dentist thing") — a
+         real intent, just missing the when. Resolves WHICH event is meant right now (by name, or
+         lastRescheduleTarget for a bare "move it") and asks for the missing date/time instead of
+         silently doing nothing or falling through to the LLM (which has no calendar access and
+         would either refuse or, worse, guess). The actual move happens on the NEXT message, once
+         tryRescheduleCalendarEvent's lastRescheduleTarget fallback (above) picks this back up. */
+      const bareMatch = t.match(/\b(?:move|reschedule|change|push|shift|bump)\s+(?:my |the )?(.+?)[?.!\s]*$/);
+      if(bareMatch){
+        const bareName = bareMatch[1].trim();
+        const bareCore = extractCalendarSearchCore(bareName);
+        const mentionsCalendar = /\b(appointment|appointments|event|events|meeting|meetings|checkup|check-up|exam|visit|calendar)\b/.test(t);
+        let bareTarget = null, bareReply = null;
+        if(bareCore){
+          const matches = findCalendarEventsByName(bareName);
+          if(matches.length){
+            const todayKey = calendarDateKey(new Date());
+            bareTarget = matches.find(mt=>mt.key>=todayKey) || matches[0];
+          } else {
+            bareReply = `I don't see anything called "${bareName}" on your calendar.`;
+          }
+        } else if(lastRescheduleTarget){
+          bareTarget = lastRescheduleTarget;
+        } else if(soleUpcomingCalendarEvent()){
+          bareTarget = soleUpcomingCalendarEvent();
+        } else if(mentionsCalendar){
+          bareReply = `Which one did you mean? Try naming it, e.g. "move my dentist appointment".`;
         }
-      } else if(lastRescheduleTarget){
-        bareTarget = lastRescheduleTarget;
-      } else if(soleUpcomingCalendarEvent()){
-        bareTarget = soleUpcomingCalendarEvent();
-      } else if(mentionsCalendar){
-        bareReply = `Which one did you mean? Try naming it, e.g. "move my dentist appointment".`;
+        if(bareTarget){
+          lastRescheduleTarget = bareTarget;
+          bareReply = `Sure — what day or time would you like to move "${bareTarget.ev.title}" to?`;
+        }
+        if(bareReply) results.push(bareReply);
       }
-      if(bareTarget){
-        lastRescheduleTarget = bareTarget;
-        bareReply = `Sure — what day or time would you like to move "${bareTarget.ev.title}" to?`;
-      }
-      if(bareReply) results.push(bareReply);
     }
   }
   /* "do you have a face"/"what do you look like" answered deterministically, in character —
