@@ -1479,14 +1479,18 @@
   /* main grid */
   .db-main{
     min-height:0;overflow:auto;padding:30px 22px 26px 18px;
-    display:grid;gap:18px;align-content:start;
-    grid-template-columns:minmax(300px,385px) minmax(420px,1fr) minmax(330px,495px);
-    grid-template-areas:
-      "id    bal   right"
-      "mkt   apps  right"
-      "chat  chat  right";
+    display:grid;gap:16px;align-content:start;position:relative;
     scrollbar-width:thin;scrollbar-color:var(--line) transparent;
   }
+  /* free-arrangement grid (wide screens): 12 columns, 8px row units; each panel's x/y/w/h is set
+     inline by applyDbLayout() from the saved layout */
+  .db-main.grid-mode{grid-template-columns:repeat(12, minmax(0,1fr));grid-auto-rows:8px;}
+  .db-main.grid-mode > .db-panel{overflow:hidden;min-width:0;}
+  /* stacked fallback (narrower screens): same panels, saved order, natural heights */
+  .db-main.flow-mode{grid-template-columns:repeat(2, minmax(0,1fr));}
+  .db-main.flow-mode{align-items:start;}
+  .db-main.flow-mode > .db-panel{min-width:0;}
+  .db-panel{container-type:inline-size;}
   .db-panel{
     position:relative;border-radius:16px;background:var(--db-panel);border:1px solid var(--db-edge);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 16px 40px -20px rgba(0,0,0,.7), 0 0 30px -18px var(--accent);
@@ -1500,7 +1504,7 @@
   .db-dim{color:var(--text-dim);}
 
   /* identity card */
-  .db-id{grid-area:id;display:flex;gap:26px;padding:20px 16px 20px 22px;}
+  .db-id{display:flex;gap:26px;padding:20px 16px 20px 22px;}
   .db-portrait{position:relative;width:170px;flex:none;aspect-ratio:170/205;border-radius:6px;overflow:hidden;background:#06101e;}
   .db-portrait .holo-portrait{position:absolute;inset:0;height:100%;}
   .db-portrait::before, .db-portrait::after{content:"";position:absolute;z-index:3;width:16px;height:16px;border:2px solid var(--accent);pointer-events:none;}
@@ -1523,7 +1527,8 @@
   .db-status-dot.off::before{background:#5f7695;box-shadow:none;}
 
   /* balance */
-  .db-bal{grid-area:bal;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 26px;padding:26px 24px 24px 30px;}
+  .db-bal{display:flex;flex-direction:column;justify-content:center;padding:26px 24px 24px 30px;}
+  .db-bal-body{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 26px;}
   .db-bal-head{display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:17px;letter-spacing:.08em;color:#cfe0f5;}
   .db-bal-head button{background:none;border:none;color:#cfe0f5;cursor:pointer;padding:2px;display:flex;}
   .db-bal-head svg{width:22px;height:22px;}
@@ -1546,7 +1551,7 @@
   .db-ranges button.active{color:#fff;background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 75%, #0b3b8f), color-mix(in srgb, var(--accent) 45%, #0a1f45));box-shadow:0 4px 14px -6px var(--accent);}
 
   /* market */
-  .db-mkt{grid-area:mkt;padding:20px 14px 14px;display:flex;flex-direction:column;gap:12px;}
+  .db-mkt{padding:20px 14px 14px;display:flex;flex-direction:column;gap:12px;}
   .db-mkt .db-title{padding:0 10px 4px;}
   .db-mkt-row{display:grid;grid-template-columns:40px minmax(56px,1fr) auto auto 50px;align-items:center;gap:10px;padding:13px 12px;border-radius:12px;border:1px solid rgba(130,153,184,.12);background:rgba(9,20,38,.55);}
   .db-coin{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;background:#13306a;border:1px solid rgba(130,170,255,.35);}
@@ -1563,7 +1568,7 @@
   .db-spark svg{width:100% !important;height:28px !important;}
 
   /* app tiles */
-  .db-apps{grid-area:apps;padding:16px;display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:14px;align-content:start;}
+  .db-apps{padding:16px;display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:14px;align-content:start;}
   .db-tile{
     display:flex;align-items:center;gap:11px;height:54px;padding:0 9px 0 12px;border-radius:10px;
     background:rgba(9,20,38,.6);border:1px solid rgba(130,153,184,.18);color:var(--text-primary);font:inherit;font-size:14px;cursor:pointer;text-align:left;
@@ -1575,16 +1580,14 @@
   .db-tile:hover{border-color:var(--db-edge-strong);background:rgba(20,44,80,.6);box-shadow:0 0 18px -8px var(--accent);}
 
   /* chat slot — the real #ai-dock is moved in here while the dashboard shows */
-  .db-chat{grid-area:chat;padding:10px 12px;border-color:var(--db-edge-strong);}
+  .db-chat{padding:10px 12px;border-color:var(--db-edge-strong);}
   .db-chat #ai-dock{position:static;height:auto;min-height:0;padding:0;background:none;border:none;box-shadow:none;gap:4px;}
   .db-chat #ai-form{max-width:none;}
   .db-chat #ai-log{max-width:none;height:auto;min-height:0;text-align:left;padding-left:70px;}
   .db-chat #ai-log:empty{display:none;}
 
   /* right column */
-  .db-right{grid-area:right;display:flex;flex-direction:column;gap:16px;min-width:0;}
-  .db-status-line{display:flex;justify-content:flex-end;align-items:center;gap:26px;font-family:var(--font-mono);font-size:12.5px;color:#a9bcd6;margin:-22px 6px -4px 0;}
-  .db-row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .db-status-line{display:flex;align-items:center;gap:20px;font-family:var(--font-mono);font-size:12.5px;color:#a9bcd6;white-space:nowrap;}
   .db-weather{min-height:150px;overflow:hidden;padding:0;}
   .db-weather .weather-scene{position:absolute;inset:0;border-radius:16px;overflow:hidden;}
   .db-weather-info{position:relative;z-index:2;padding:16px 18px;text-shadow:0 1px 8px rgba(0,0,0,.6);}
@@ -1619,8 +1622,8 @@
   .db-fc-day span{display:block;font-size:12px;color:var(--text-dim);}
   .db-fc-day b{display:block;font-family:var(--font-mono);font-size:16px;font-weight:600;margin-top:6px;}
   .db-fc-day small{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
-  .db-world{padding:16px 18px 14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 10px;align-items:center;}
-  .db-world .db-title{grid-column:1/-1;}
+  .db-world{padding:16px 18px 14px;display:flex;flex-direction:column;gap:6px;}
+  .db-world-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 10px;align-items:center;}
   .db-globe{position:relative;width:100%;max-width:210px;aspect-ratio:1;justify-self:center;}
   .db-globe canvas{width:100%;height:100%;display:block;}
   .db-tz{display:flex;flex-direction:column;}
@@ -1632,16 +1635,97 @@
   .db-tz .t small{font-size:10px;margin-left:2px;}
   .db-tz .d{grid-column:2;font-size:10.5px;color:var(--text-dim);}
 
-  /* responsive: right column drops below on mid widths, single column on phones */
-  @media (max-width:1380px){
-    .db-main{grid-template-columns:minmax(280px,360px) minmax(0,1fr);grid-template-areas:"id bal" "mkt apps" "chat chat" "right right";}
-    .db-right{display:grid;grid-template-columns:1fr 1fr;}
-    .db-status-line{grid-column:1/-1;margin:0;}
+  /* ---- panels adapt to whatever size they're given (grid mode sets a fixed height) ---- */
+  .grid-mode .db-id{align-items:stretch;}
+  .grid-mode .db-portrait{width:auto;height:100%;max-width:46%;aspect-ratio:170/205;}
+  .grid-mode .db-mkt #db-mkt-rows{flex:1;min-height:0;overflow:auto;scrollbar-width:none;}
+  .grid-mode .db-apps{overflow:auto;scrollbar-width:none;}
+  .db-apps{grid-template-columns:repeat(auto-fill, minmax(150px,1fr));}
+  .grid-mode .db-clock, .grid-mode .db-cal, .grid-mode .db-fc{overflow:hidden;}
+    .grid-mode .db-globe{max-height:100%;width:auto;height:100%;}
+  .grid-mode .db-chat{display:flex;flex-direction:column;justify-content:center;}
+    @container (max-width:540px){
+    .db-bal-body{gap:10px 18px;}
+    .db-bal-amt{font-size:34px;}
+    .db-bal-amt .big{font-size:58px;}
+    .db-bal-split{margin-top:18px;}
+    .db-bal-split > div{padding-right:16px;}
+    .db-bal-split > div + div{padding-left:16px;}
+    .db-bal-split .val{font-size:18px;}
+    .db-bal-empty{display:none;}
+    .db-ranges button{font-size:11.5px;}
   }
-  @media (max-width:980px){
-    .db-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"id" "bal" "chat" "apps" "mkt" "right";padding:16px;}
-    .db-bal{grid-template-columns:1fr;}
+  @container (max-width:380px){
+    .db-bal-body{grid-template-columns:1fr;}
     .db-bal-chart{grid-row:auto;grid-column:auto;}
+    .db-bal-chart svg{height:56px;}
+  }
+  @container (max-width:300px){
+    .db-bal-amt .big{font-size:52px !important;}
+    .db-bal-split > div{padding-right:14px;}
+    .db-bal-split > div + div{padding-left:14px;}
+  }
+  @container (max-width:380px){
+    .db-world-body{grid-template-columns:1fr;}
+    .db-world .db-globe{display:none;}
+    .db-mkt-row .db-spark{display:none;}
+    .db-mkt-row{grid-template-columns:36px minmax(0,1fr) auto auto;}
+  }
+  @container (max-width:300px){
+    .db-id-info{padding-top:6px;}
+    .db-linked{padding:10px;gap:8px;}
+    .db-linked > svg{display:none;}
+    .db-mkt-row{grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;row-gap:2px;padding:10px;}
+    .db-mkt-row .db-coin{grid-row:1/3;width:36px;height:36px;}
+    .db-mkt-row .db-mkt-name{grid-row:1/3;}
+    .db-mkt-row .db-mkt-px{grid-column:3;grid-row:1;}
+    .db-mkt-row .db-mkt-chg{grid-column:3;grid-row:2;}
+    .db-mkt-row .db-spark{display:none;}
+    .db-mkt-row .db-mkt-err{grid-column:3;grid-row:1/3;}
+  }
+  @container (max-width:250px){
+    .db-cal-day{padding-right:14px;}
+    .db-cal-body{gap:14px;}
+    .db-fc-days{grid-template-columns:repeat(3,1fr);}
+    .db-fc-day:nth-child(n+4){display:none;}
+  }
+
+  /* ---- layout editing ---- */
+  .db-edit-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--db-edge);background:rgba(12,26,48,.6);color:#c3d4ea;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .db-edit-btn svg{width:18px;height:18px;}
+  .db-edit-btn:hover{color:#fff;border-color:var(--accent);}
+  .db-main.flow-mode ~ * .db-edit-btn, body:not(.db-can-edit) .db-edit-btn{display:none;}
+  .db-edit-ui{display:none;}
+  .db-editing .db-edit-ui{
+    display:block;position:absolute;inset:0;z-index:20;border-radius:inherit;cursor:grab;touch-action:none;
+    background:rgba(40,110,230,.06);outline:2px dashed color-mix(in srgb, var(--accent) 55%, transparent);outline-offset:-2px;
+  }
+  .db-editing .db-edit-ui:hover{background:rgba(40,110,230,.12);}
+  .db-edit-ui .lbl{position:absolute;left:12px;bottom:10px;padding:3px 9px;border-radius:7px;font-size:12px;font-weight:600;color:#fff;background:color-mix(in srgb, var(--accent) 70%, #0a1f45);pointer-events:none;}
+  .db-edit-ui .x{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(9,20,38,.9);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;}
+  .db-edit-ui .x:hover{background:var(--bad);border-color:var(--bad);}
+  .db-edit-ui .rz{position:absolute;right:0;bottom:0;width:26px;height:26px;cursor:nwse-resize;touch-action:none;}
+  .db-edit-ui .rz::after{content:"";position:absolute;right:6px;bottom:6px;width:11px;height:11px;border-right:3px solid #fff;border-bottom:3px solid #fff;border-radius:0 0 4px 0;opacity:.85;}
+  .db-panel.db-dragging{z-index:50;box-shadow:0 30px 60px rgba(0,0,0,.6), 0 0 40px -10px var(--accent);opacity:.92;pointer-events:none;}
+  .db-panel.db-dragging .db-edit-ui{cursor:grabbing;}
+  .db-placeholder{border-radius:16px;border:2px dashed var(--accent);background:rgba(40,110,230,.12);pointer-events:none;}
+  .db-editbar{
+    display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;
+    align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px);
+    padding:10px 12px;border-radius:16px;background:rgba(9,20,38,.96);border:1px solid var(--db-edge-strong);box-shadow:0 20px 50px rgba(0,0,0,.6), 0 0 40px -16px var(--accent);
+  }
+  .db-editing .db-editbar{display:flex;}
+  .db-editing .db-main{padding-bottom:110px;}
+  .db-editbar .hint{font-size:13px;color:var(--text-dim);margin-right:4px;}
+  .db-editbar button{height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--db-edge);background:rgba(12,26,48,.8);color:#c9d7ea;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .db-editbar button:hover{border-color:var(--accent);color:#fff;}
+  .db-editbar button.done{color:#fff;border-color:transparent;background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 85%, #fff 0%), color-mix(in srgb, var(--accent) 60%, #0a2a66));}
+  .db-editbar .add{color:var(--good);}
+
+  /* responsive: right column drops below on mid widths, single column on phones */
+  @media (max-width:1300px){ .db-status-line{display:none;} .db-search{margin-left:24px;} }
+  @media (max-width:980px){
+    .db-main{padding:16px;}
     .db-search{margin-left:0;}
   }
   @media (max-width:760px){
@@ -1662,7 +1746,7 @@
     .db-side-foot{margin:0 0 0 6px;padding:0;display:flex;align-items:center;}
     .db-tagline, .db-side-foot i{display:none;}
     .db-view-switch{margin:0;white-space:nowrap;height:40px;}
-    .db-right{display:flex;}
+    .db-main.flow-mode{grid-template-columns:minmax(0,1fr);}
     .db-id{gap:16px;padding:16px;}
     .db-portrait{width:120px;}
     .db-bal{padding:20px;}
@@ -13841,6 +13925,8 @@ function buildDashboard(){
       <div class="db-search-results" id="db-search-results" role="listbox"></div>
     </div>
     <div class="db-header-right">
+      <div class="db-status-line"><span id="db-status-time"></span><span class="db-status-dot" id="db-status-net">System Online</span></div>
+      <button class="db-edit-btn" id="db-edit-btn" type="button" title="Move, resize, hide or add dashboard panels">${dbIcon("grid")}<span>Edit layout</span></button>
       <button class="db-profile" id="db-profile" type="button" title="Account">
         <span class="db-avatar" id="db-avatar"></span>
         <span id="db-profile-name">Guest</span>
@@ -13861,7 +13947,7 @@ function buildDashboard(){
   </aside>
 
   <main class="db-main" id="db-main">
-    <section class="db-panel db-id">
+    <section class="db-panel db-id" data-panel="id">
       <div class="db-portrait" id="db-portrait-card">
         <div class="holo-portrait">
           <div class="holo-portrait__stage">
@@ -13886,7 +13972,7 @@ function buildDashboard(){
       </div>
     </section>
 
-    <section class="db-panel db-bal">
+    <section class="db-panel db-bal" data-panel="balance"><div class="db-bal-body">
       <div>
         <div class="db-bal-head">TOTAL BALANCE <button type="button" id="db-bal-eye" title="Hide/show amounts"></button></div>
         <div class="db-bal-amt" id="db-bal-amt"></div>
@@ -13899,33 +13985,29 @@ function buildDashboard(){
         <div id="db-bal-chart"></div>
         <div class="db-ranges" id="db-ranges">${["1M","3M","YTD","ALL"].map(r=>`<button type="button" data-range="${r}">${r}</button>`).join("")}</div>
       </div>
-    </section>
+    </div></section>
 
-    <section class="db-panel db-mkt clickable" id="db-mkt" title="Open Market">
+    <section class="db-panel db-mkt clickable" id="db-mkt" data-panel="market" title="Open Market">
       <div class="db-title">${dbIcon("market")}Market<small>Live</small></div>
       <div id="db-mkt-rows" style="display:flex;flex-direction:column;gap:12px;"></div>
     </section>
 
-    <section class="db-panel db-apps" id="db-apps">
+    <section class="db-panel db-apps" id="db-apps" data-panel="apps">
       ${tileDefs.map(d=>`<button type="button" class="db-tile" data-open="${d.id}" title="${dbEsc(d.title)}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${dbIcon("chev",'class="chev"')}</button>`).join("")}
     </section>
 
-    <section class="db-panel db-chat" id="db-chat-slot"></section>
+    <section class="db-panel db-chat" id="db-chat-slot" data-panel="chat"></section>
 
-    <div class="db-right">
-      <div class="db-status-line"><span id="db-status-time"></span><span class="db-status-dot" id="db-status-net">System Online</span></div>
-      <div class="db-row2">
-        <section class="db-panel db-weather clickable" id="db-weather" title="Open Weather">
+        <section class="db-panel db-weather clickable" id="db-weather" data-panel="weather" title="Open Weather">
           <div class="weather-scene" id="db-weather-scene"></div>
           <div class="db-weather-info" id="db-weather-info"><div class="db-weather-temp">--°F</div><div class="db-weather-city">Loading weather…</div></div>
         </section>
-        <section class="db-panel db-clock clickable" id="db-clock" title="Open Chrono">
+        <section class="db-panel db-clock clickable" id="db-clock" data-panel="clock" title="Open Chrono">
           <div class="db-clock-top"><div class="db-clock-time" id="db-clock-time"></div>${dbIcon("calendar")}</div>
           <div class="db-clock-date" id="db-clock-date"></div>
           <div class="db-focus">${dbIcon("focus")}<div><small>Focused today:</small><b id="db-focus-min">0m</b></div></div>
         </section>
-      </div>
-      <section class="db-panel db-cal clickable" id="db-cal" title="Open Calendar">
+      <section class="db-panel db-cal clickable" id="db-cal" data-panel="calendar" title="Open Calendar">
         <div class="db-title">${dbIcon("calendar")}Calendar</div>
         <div class="db-cal-body">
           <div class="db-cal-day"><span id="db-cal-weekday"></span><b id="db-cal-daynum"></b></div>
@@ -13933,17 +14015,19 @@ function buildDashboard(){
           ${dbIcon("chev")}
         </div>
       </section>
-      <section class="db-panel db-fc clickable" id="db-fc" title="Open Weather">
+      <section class="db-panel db-fc clickable" id="db-fc" data-panel="forecast" title="Open Weather">
         <div class="db-title">${dbIcon("weather")}Forecast<small id="db-fc-city"></small></div>
         <div class="db-fc-days" id="db-fc-days"></div>
       </section>
-      <section class="db-panel db-world">
+      <section class="db-panel db-world" data-panel="world">
         <div class="db-title">${dbIcon("globe")}World Clock</div>
-        <div class="db-globe"><canvas id="db-globe-canvas" width="420" height="420"></canvas></div>
-        <div class="db-tz" id="db-tz"></div>
+        <div class="db-world-body">
+          <div class="db-globe"><canvas id="db-globe-canvas" width="420" height="420"></canvas></div>
+          <div class="db-tz" id="db-tz"></div>
+        </div>
       </section>
-    </div>
-  </main>`;
+  </main>
+  <div class="db-editbar" id="db-editbar"></div>`;
 
   /* ---- wiring ---- */
   root.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>dbOpenWidget(b.dataset.open)));
@@ -13964,6 +14048,7 @@ function buildDashboard(){
   $("#db-search-kbd").textContent = /Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent) ? "⌘ K" : "Ctrl K";
   wireDbBalance();
   wireDbSearch();
+  wireDbLayout();
 }
 
 function dbSetNavActive(key){
@@ -14341,12 +14426,231 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && docum
 
 function refreshDashboard(){
   if(!document.body.classList.contains("dash-mode")) return;
+  applyDbLayout();
   renderDbIdentity();
   renderDbBalance();
   renderDbCalendar();
   renderDbWeather();
   renderDbMarket();
   tickDashboard();
+}
+
+/* ---- free-arrangement layout ----
+   On wide screens the dashboard is a 12-column grid with 8px row units (16px gaps), and every
+   panel has a saved {x, y, w, h} in those units. "Edit layout" puts a handle over each panel:
+   drag to move, drag the corner to resize, × to hide, and the bottom bar adds hidden panels back
+   or resets. Other panels make room live while you drag (pushed out of the way, then everything
+   floats up to close gaps), so the grid never ends up with overlaps or holes.
+   Narrower screens fall back to a stacked layout in the same saved order (editing is off there). */
+const DB_COLS = 12, DB_ROW = 8, DB_GAP = 16, DB_GRID_MIN_WIDTH = 1360;
+const DB_PANELS = {
+  id:       {label:"Identity",      x:0,  y:0,  w:3, h:11, minW:3, minH:8},
+  balance:  {label:"Total Balance", x:3,  y:0,  w:5, h:11, minW:3, minH:8},
+  weather:  {label:"Weather",       x:8,  y:0,  w:2, h:7,  minW:2, minH:5},
+  clock:    {label:"Clock",         x:10, y:0,  w:2, h:7,  minW:2, minH:5},
+  calendar: {label:"Calendar",      x:8,  y:7,  w:4, h:6,  minW:2, minH:5},
+  market:   {label:"Market",        x:0,  y:11, w:3, h:17, minW:3, minH:8},
+  apps:     {label:"Apps",          x:3,  y:11, w:5, h:17, minW:2, minH:4},
+  forecast: {label:"Forecast",      x:8,  y:13, w:4, h:7,  minW:2, minH:6},
+  world:    {label:"World Clock",   x:8,  y:20, w:4, h:11, minW:2, minH:7},
+  chat:     {label:"Chat",          x:0,  y:28, w:8, h:4,  minW:3, minH:4, maxH:6, fixed:true}, /* holds the chat box, so it can't be hidden */
+};
+function dbDefaultLayout(){
+  const items = {};
+  for(const [id,p] of Object.entries(DB_PANELS)) items[id] = {x:p.x, y:p.y, w:p.w, h:p.h};
+  return {items, hidden:[]};
+}
+const dbCollide = (a,b)=>a!==b && a.x < b.x+b.w && b.x < a.x+a.w && a.y < b.y+b.h && b.y < a.y+a.h;
+function dbClampItem(id, it){
+  const p = DB_PANELS[id];
+  it.w = Math.max(p.minW, Math.min(DB_COLS, Math.round(it.w)||p.w));
+  it.h = Math.max(p.minH, Math.min(p.maxH||60, Math.round(it.h)||p.h));
+  it.x = Math.max(0, Math.min(DB_COLS-it.w, Math.round(it.x)||0));
+  it.y = Math.max(0, Math.round(it.y)||0);
+}
+function dbLoadLayout(){
+  const saved = loadJSON(NS+"dashLayout", null);
+  const L = dbDefaultLayout();
+  if(saved && saved.items){
+    for(const id of Object.keys(DB_PANELS)) if(saved.items[id]) Object.assign(L.items[id], saved.items[id]);
+    L.hidden = (saved.hidden||[]).filter(id=>DB_PANELS[id] && !DB_PANELS[id].fixed);
+  }
+  for(const [id,it] of Object.entries(L.items)) dbClampItem(id, it);
+  dbCompact(dbVisibleItems(L));
+  return L;
+}
+function dbSaveLayout(){
+  const items = {};
+  for(const [id,it] of Object.entries(dbLayout.items)) items[id] = {x:it.x, y:it.y, w:it.w, h:it.h};
+  saveJSON(NS+"dashLayout", {items, hidden:dbLayout.hidden});
+}
+function dbVisibleItems(L){
+  return Object.entries(L.items).filter(([id])=>!L.hidden.includes(id)).map(([id,it])=>{ it.id = id; return it; });
+}
+/* gravity: every panel floats up to the first free spot in its own columns, top-to-bottom order
+   preserved; `pinned` (the panel being dragged/resized) is placed first and never moves */
+function dbCompact(items, pinned){
+  const placed = pinned ? [pinned] : [];
+  const rest = items.filter(i=>i!==pinned).sort((a,b)=>a.y-b.y || a.x-b.x);
+  for(const it of rest){
+    it.y = 0;
+    while(placed.some(p=>dbCollide(p,it))) it.y++;
+    placed.push(it);
+  }
+}
+let dbLayout = null;
+function dbLayoutMode(){ return window.innerWidth >= DB_GRID_MIN_WIDTH ? "grid" : "flow"; }
+function applyDbLayout(){
+  const main = document.getElementById("db-main");
+  if(!main || !dbLayout) return;
+  const mode = dbLayoutMode();
+  main.classList.toggle("grid-mode", mode==="grid");
+  main.classList.toggle("flow-mode", mode==="flow");
+  document.body.classList.toggle("db-can-edit", mode==="grid");
+  if(mode!=="grid") setDbEditing(false);
+  const order = dbVisibleItems(dbLayout).sort((a,b)=>a.y-b.y || a.x-b.x).map(i=>i.id);
+  main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(el=>{
+    const id = el.dataset.panel, it = dbLayout.items[id];
+    if(!it || dbLayout.hidden.includes(id)){ el.style.display = "none"; return; }
+    el.style.display = "";
+    if(el.classList.contains("db-dragging")) return;
+    if(mode==="grid"){
+      el.style.gridColumn = `${it.x+1} / span ${it.w}`;
+      el.style.gridRow = `${it.y+1} / span ${it.h}`;
+      el.style.order = "";
+    } else {
+      el.style.gridColumn = (it.w >= 6 || id==="chat") ? "1 / -1" : "auto";
+      el.style.gridRow = "auto";
+      el.style.order = String(order.indexOf(id));
+    }
+  });
+}
+function setDbEditing(on){
+  const root = document.getElementById("dashboard");
+  if(!root) return;
+  root.classList.toggle("db-editing", !!on);
+  const btn = document.getElementById("db-edit-btn");
+  if(btn) btn.querySelector("span").textContent = on ? "Done" : "Edit layout";
+  if(on) renderDbEditbar();
+}
+function renderDbEditbar(){
+  const bar = document.getElementById("db-editbar");
+  if(!bar) return;
+  bar.innerHTML = `<span class="hint">Drag panels to move · drag a corner to resize</span>`
+    + dbLayout.hidden.map(id=>`<button type="button" class="add" data-add="${id}">+ ${DB_PANELS[id].label}</button>`).join("")
+    + `<button type="button" data-act="reset">Reset layout</button><button type="button" class="done" data-act="done">Done</button>`;
+  bar.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.add, p = DB_PANELS[id], it = dbLayout.items[id];
+    dbLayout.hidden = dbLayout.hidden.filter(h=>h!==id);
+    Object.assign(it, {w:p.w, h:p.h, x:0, y:Math.max(0, ...dbVisibleItems(dbLayout).filter(i=>i!==it).map(i=>i.y+i.h))});
+    dbClampItem(id, it);
+    dbCompact(dbVisibleItems(dbLayout));
+    dbSaveLayout(); applyDbLayout(); renderDbEditbar();
+    if(id==="world") startDbGlobe();
+  }));
+  bar.querySelector('[data-act="reset"]').addEventListener("click", ()=>{
+    dbLayout = dbDefaultLayout(); dbSaveLayout(); applyDbLayout(); renderDbEditbar(); startDbGlobe();
+  });
+  bar.querySelector('[data-act="done"]').addEventListener("click", ()=>setDbEditing(false));
+}
+function wireDbLayout(){
+  dbLayout = dbLoadLayout();
+  const main = document.getElementById("db-main");
+  main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(el=>{
+    const id = el.dataset.panel;
+    const ui = document.createElement("div");
+    ui.className = "db-edit-ui";
+    ui.innerHTML = `<span class="lbl">${DB_PANELS[id].label}</span>${DB_PANELS[id].fixed ? "" : `<button type="button" class="x" title="Hide this panel">×</button>`}<span class="rz" title="Drag to resize"></span>`;
+    el.appendChild(ui);
+    ui.addEventListener("pointerdown", e=>{
+      if(e.button!==0 || e.target.closest(".x")) return;
+      startDbDrag(e, el, e.target.closest(".rz") ? "resize" : "move");
+    });
+    const x = ui.querySelector(".x");
+    if(x) x.addEventListener("click", e=>{
+      e.stopPropagation();
+      dbLayout.hidden.push(id);
+      dbCompact(dbVisibleItems(dbLayout));
+      dbSaveLayout(); applyDbLayout(); renderDbEditbar();
+    });
+    /* in edit mode a click anywhere on a panel is a drag, never "open this widget" */
+    ui.addEventListener("click", e=>e.stopPropagation());
+  });
+  $("#db-edit-btn").addEventListener("click", ()=>setDbEditing(!document.getElementById("dashboard").classList.contains("db-editing")));
+  window.addEventListener("keydown", e=>{
+    if(e.key==="Escape" && document.getElementById("dashboard").classList.contains("db-editing")) setDbEditing(false);
+  });
+  window.addEventListener("resize", applyDbLayout);
+  applyDbLayout();
+}
+function startDbDrag(e, panel, kind){
+  e.preventDefault();
+  const main = document.getElementById("db-main");
+  const id = panel.dataset.panel, p = DB_PANELS[id];
+  const items = dbVisibleItems(dbLayout);
+  const it = dbLayout.items[id];
+  const start = new Map(items.map(i=>[i, {x:i.x, y:i.y, w:i.w, h:i.h}]));
+  const cs = getComputedStyle(main);
+  const padL = parseFloat(cs.paddingLeft), padR = parseFloat(cs.paddingRight), padT = parseFloat(cs.paddingTop);
+  const colW = (main.clientWidth - padL - padR - (DB_COLS-1)*DB_GAP) / DB_COLS;
+  const cellX = colW + DB_GAP, cellY = DB_ROW + DB_GAP;
+  const rect = panel.getBoundingClientRect();
+  const sx = e.clientX, sy = e.clientY, scroll0 = main.scrollTop;
+  let ph = null;
+  if(kind==="move"){
+    ph = document.createElement("div");
+    ph.className = "db-placeholder";
+    main.appendChild(ph);
+    panel.classList.add("db-dragging");
+    Object.assign(panel.style, {position:"fixed", left:rect.left+"px", top:rect.top+"px", width:rect.width+"px", height:rect.height+"px", margin:"0"});
+  }
+  let last = "";
+  const place = ()=>{
+    if(ph){ ph.style.gridColumn = `${it.x+1} / span ${it.w}`; ph.style.gridRow = `${it.y+1} / span ${it.h}`; }
+    applyDbLayout();
+  };
+  place();
+  const onMove = ev=>{
+    /* auto-scroll when dragging near the bottom/top edge of the panel area */
+    const mr = main.getBoundingClientRect();
+    if(ev.clientY > mr.bottom-50) main.scrollTop += 14;
+    else if(ev.clientY < mr.top+40) main.scrollTop -= 14;
+    const dx = ev.clientX - sx, dy = ev.clientY - sy + (main.scrollTop - scroll0);
+    let nx = it.x, ny = it.y, nw = it.w, nh = it.h;
+    if(kind==="move"){
+      panel.style.left = (rect.left + ev.clientX - sx) + "px";
+      panel.style.top = (rect.top + ev.clientY - sy) + "px";
+      const s0 = start.get(it);
+      nx = Math.max(0, Math.min(DB_COLS-it.w, Math.round(s0.x + dx/cellX)));
+      ny = Math.max(0, Math.round(s0.y + dy/cellY));
+    } else {
+      const s0 = start.get(it);
+      nw = Math.max(p.minW, Math.min(DB_COLS - s0.x, Math.round(s0.w + dx/cellX)));
+      nh = Math.max(p.minH, Math.min(p.maxH||60, Math.round(s0.h + dy/cellY)));
+    }
+    const key = `${nx},${ny},${nw},${nh}`;
+    if(key===last) return;
+    last = key;
+    /* everyone else starts back where they were when the drag began, then makes room */
+    for(const i of items){ if(i!==it) Object.assign(i, start.get(i)); }
+    Object.assign(it, {x:nx, y:ny, w:nw, h:nh});
+    dbCompact(items, it);
+    place();
+  };
+  const onUp = ()=>{
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    if(ph) ph.remove();
+    panel.classList.remove("db-dragging");
+    ["position","left","top","width","height","margin"].forEach(k=>panel.style[k]="");
+    dbCompact(items);
+    dbSaveLayout();
+    applyDbLayout();
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
 }
 
 /* ---- view switching ---- */
