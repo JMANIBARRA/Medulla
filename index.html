@@ -3251,7 +3251,7 @@ let groqApiKey = loadJSON(NS+"groqApiKey", "");
    key server-side, so nobody using Medulla has to paste a key of their own. The key never appears
    in this file (which is public on GitHub Pages). Leave this blank to turn the proxy off.
    A personal key in Settings still wins when set (your own quota, no shared rate limit). */
-const MEDULLA_AI_PROXY_URL = "";
+const MEDULLA_AI_PROXY_URL = "https://medulla-ai.jjuanibarra.workers.dev";
 function cloudAiAvailable(){ return !!(groqApiKey || MEDULLA_AI_PROXY_URL); }
 /* every Groq chat request goes through here: straight to Groq with a personal key, otherwise via
    the proxy (same OpenAI-compatible request/response shape either way) */
