@@ -1907,7 +1907,7 @@
       <!-- popover for the Groq key, opened by clicking #ai-send — anchored to #ai-form (see CSS)
            so it lines up with the button regardless of the dock's own width. -->
       <div id="ai-groq-key-popover">
-        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Groq powers Medulla's free-form chat — without a key, only recognized commands work.</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;">Optional: your own free Groq key. Medulla's chat already works without one; a personal key just gives you your own usage limit.</div>
         <div id="ai-groq-key-row"></div>
       </div>
       <button id="ai-submit" type="submit" title="Send" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
@@ -3247,6 +3247,31 @@ let capsuleSizePreset = loadJSON(NS+"capsuleSize", "M");
    confirmed by testing, not a key/config issue. Groq does send Access-Control-Allow-Origin: *,
    so it actually works from a plain, server-less HTML file like this one. */
 let groqApiKey = loadJSON(NS+"groqApiKey", "");
+/* Shared AI proxy (see the proxy/ folder in the repo): a tiny Cloudflare Worker that holds ONE Groq
+   key server-side, so nobody using Medulla has to paste a key of their own. The key never appears
+   in this file (which is public on GitHub Pages). Leave this blank to turn the proxy off.
+   A personal key in Settings still wins when set (your own quota, no shared rate limit). */
+const MEDULLA_AI_PROXY_URL = "";
+function cloudAiAvailable(){ return !!(groqApiKey || MEDULLA_AI_PROXY_URL); }
+/* every Groq chat request goes through here: straight to Groq with a personal key, otherwise via
+   the proxy (same OpenAI-compatible request/response shape either way) */
+function groqChatRequest(payload){
+  if(groqApiKey){
+    return fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
+      body: JSON.stringify(payload)
+    });
+  }
+  if(MEDULLA_AI_PROXY_URL){
+    return fetch(MEDULLA_AI_PROXY_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+  }
+  return Promise.reject(new Error("no cloud AI configured"));
+}
 /* the access token itself is intentionally NOT persisted to localStorage — it's short-lived
    (~1hr) and re-requesting it each session via Google's own silent-refresh UX is simpler and
    safer than trying to manage refresh tokens client-side (which OAuth's implicit-style token
@@ -8257,11 +8282,10 @@ function renderApiKeysModal(){
       Every one of these is optional and free. Each also has its own shortcut right inside the
       widget that uses it, if you'd rather set it up from there instead.
     </p>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Medulla AI chat (Groq)</h3>
+    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Medulla AI chat (Groq) — optional</h3>
     <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      Free API key from <span style="color:var(--text-primary);">console.groq.com</span> — no credit card, no per-message
-      cost. Powers Medulla's free-form chat (open-weight Llama 3.3 70B) on any device, no local software needed.
-      Without a key, only the built-in recognized commands (e.g. "zoom out") still work.
+      Medulla's chat works out of the box. If you'd like your own usage limit instead of the shared one, add a free key
+      from <span style="color:var(--text-primary);">console.groq.com</span> (no credit card) — it's used instead of the shared service whenever it's set.
     </p>
     <div id="akr-groq" style="margin-bottom:18px;"></div>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">YouTube Data API key</h3>
@@ -8776,7 +8800,7 @@ function hideAuthGate(){
      startup script immediately after it — including initFirebaseSync() on the very next line —
      which is exactly why cloud sign-in silently never worked at all on a fresh return visit, with
      no connection to Firebase, networking, or hosting whatsoever. */
-  if(!groqApiKey){
+  if(!cloudAiAvailable()){
     try{ ensureLocalLLMEngine().catch(()=>{}); }
     catch(e){ console.warn("local LLM preload failed to start (webllm not ready yet?)", e); }
   }
@@ -10558,18 +10582,14 @@ function getLocalLLMSystemPrompt(){
    does send Access-Control-Allow-Origin: *, so it's the one that actually works here. Same
    system prompt/personality/history handling as before. */
 async function tryGroq(text){
-  if(!groqApiKey) return null;
+  if(!cloudAiAvailable()) return null;
   try{
     const messages = [
       {role:"system", content: getAiSystemPrompt()},
       ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
       {role:"user", content: text}
     ];
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
-      body: JSON.stringify({ model:"llama-3.3-70b-versatile", messages })
-    });
+    const res = await groqChatRequest({ model:"llama-3.3-70b-versatile", messages });
     if(!res.ok) throw new Error("groq request failed");
     const data = await res.json();
     const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -10814,12 +10834,14 @@ aiForm.addEventListener("submit", async (e)=>{
   logAI("Thinking…");
   /* Groq if a key's configured (bigger, smarter, cloud-hosted); otherwise fall back to the
      built-in in-browser model automatically — no dead end just because Groq isn't set up. */
-  const remote = groqApiKey ? await tryGroq(text) : await tryLocalLLM(text);
+  const remote = cloudAiAvailable() ? await tryGroq(text) : await tryLocalLLM(text);
   if(remote){ presentAiReply(remote); }
   else{
     presentAiReply(groqApiKey
       ? "No local command matched, and the Groq request failed — check your API key in Settings or try again in a moment."
-      : "No local command matched, and the built-in local model couldn't respond either.");
+      : MEDULLA_AI_PROXY_URL
+        ? "I couldn't reach my thinking service just now — give it a moment and try again."
+        : "No local command matched, and the built-in local model couldn't respond either.");
   }
 });
 
@@ -12869,19 +12891,15 @@ Rules:
 - No extra keys, no explanation text, response under 900 characters.`;
 }
 async function generateAiWorkoutPlan(text){
-  if(!groqApiKey) return null;
+  if(!cloudAiAvailable()) return null;
   try{
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
-      body: JSON.stringify({
+    const res = await groqChatRequest({
         model:"llama-3.3-70b-versatile",
         messages:[
           {role:"system", content: fitPlanSystemPrompt()},
           {role:"user", content: text}
         ],
         temperature: 0.4,
-      })
     });
     if(!res.ok) return null;
     const data = await res.json();
@@ -12920,19 +12938,15 @@ function fitDayEditSystemPrompt(){
   return `You edit a single day's workout note in place. You'll be given the CURRENT note text and an instruction describing a change to make to it. Return ONLY the updated note text — comma-separated exercises, each formatted as "Name SETSxREPS" (e.g. "Bench Press 4x8"), matching the same style as the current text — no commentary, no markdown, no quotes around it, no explanation. Apply ONLY what the instruction asks; leave every other exercise exactly as it was. If the current text is empty, build a short reasonable list from the instruction alone. Keep the response under 400 characters.`;
 }
 async function editWorkoutDayNotes(currentNotes, instruction){
-  if(!groqApiKey) return null;
+  if(!cloudAiAvailable()) return null;
   try{
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
-      body: JSON.stringify({
+    const res = await groqChatRequest({
         model:"llama-3.3-70b-versatile",
         messages:[
           {role:"system", content: fitDayEditSystemPrompt()},
           {role:"user", content: `Current: ${currentNotes || "(empty)"}\nInstruction: ${instruction}`}
         ],
         temperature: 0.3,
-      })
     });
     if(!res.ok) return null;
     const data = await res.json();
@@ -13047,7 +13061,7 @@ async function tryHandleAsExerciseEdit(scope, text){
   let anyChanged = false;
   for(const d of editDays){
     const current = fitnessData.plan.notes[d] || "";
-    const edited = groqApiKey ? await editWorkoutDayNotes(current, text) : localEditWorkoutDayNotes(current, text);
+    const edited = cloudAiAvailable() ? await editWorkoutDayNotes(current, text) : localEditWorkoutDayNotes(current, text);
     if(edited!==null){ fitnessData.plan.notes[d] = formatExerciseListForDisplay(edited); anyChanged = true; }
   }
   if(anyChanged){
@@ -13646,7 +13660,7 @@ function hydrateFitnessFull(scope){
     // comment for the exact bug this prevents (a targeted edit getting treated as a whole new
     // plan description and wiping days that weren't part of whatever came back).
     if(await tryHandleAsExerciseEdit(scope, text)) return;
-    if(groqApiKey){
+    if(cloudAiAvailable()){
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
       planSubmit.disabled = true;
       const originalLabel = planSubmit.textContent;
@@ -13715,7 +13729,7 @@ function hydrateFitnessFull(scope){
       renderFitnessPlanSection(scope);
     } else {
       const suggestBox = scope.querySelector("#fit-plan-suggestion-full");
-      const hint = groqApiKey
+      const hint = cloudAiAvailable()
         ? `Try "upper lower", "push pull legs", "full body", or "bro split".`
         : `Try "upper lower", "push pull legs", "full body", "bro split", or ask for help.`;
       suggestBox.innerHTML = `<div style="color:var(--accent-rust);font-size:12px;">${hint}</div>`;

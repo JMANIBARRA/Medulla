@@ -1,0 +1,17 @@
+name = "medulla-ai"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Sites allowed to use the proxy (comma-separated, exact origins, no trailing slash).
+# localhost is always allowed for local testing.
+ALLOWED_ORIGINS = "https://jmanibarra.github.io"
+
+# Per-visitor limit: 20 chat requests per 60 seconds.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60
