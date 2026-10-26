@@ -1121,6 +1121,161 @@
   /* Quick Launch tiles inside the Banking widget's own full-view modal (see renderBankQuickGrid/
      hydrateBankingFull) — a plain in-modal grid, not a separate floating popover, so it opens as
      the same centered modal every other widget's "enlarged view" already uses. */
+  /* ---------- Garage full view (redesign): showroom carousel ---------- */
+  #modal-panel.modal-custom.modal-garage{width:min(1120px,95vw);max-height:94vh;overflow:hidden;}
+  #modal-panel.modal-custom.modal-garage #modal-body{padding:0;}
+  .gar-root{position:relative;height:min(700px,calc(94vh - 2px));min-height:560px;overflow:hidden;border-radius:20px;color:var(--text-primary);
+    background:radial-gradient(ellipse 70% 55% at 50% 62%, rgba(40,110,230,.28), transparent 70%), radial-gradient(ellipse 90% 60% at 50% 0%, rgba(30,80,170,.25), transparent 70%), linear-gradient(180deg,#071226,#040b18);}
+  .gar-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .gar-floorgrid{position:absolute;left:-20%;right:-20%;bottom:-6%;height:46%;transform:perspective(500px) rotateX(62deg);transform-origin:50% 100%;
+    background:repeating-linear-gradient(90deg, rgba(90,169,255,.12) 0 1px, transparent 1px 70px), repeating-linear-gradient(0deg, rgba(90,169,255,.1) 0 1px, transparent 1px 70px);
+    -webkit-mask-image:linear-gradient(0deg, #000 30%, transparent 95%);mask-image:linear-gradient(0deg, #000 30%, transparent 95%);}
+  .gar-streak{position:absolute;height:2px;width:34%;background:linear-gradient(90deg,transparent,rgba(120,190,255,.7),transparent);filter:blur(1px);opacity:.6;}
+  .gar-streak.a{top:17%;right:-4%;transform:rotate(-12deg);}
+  .gar-streak.b{top:23%;left:-6%;transform:rotate(10deg);opacity:.35;}
+  .gar-head{position:absolute;top:22px;left:30px;z-index:3;display:flex;align-items:center;gap:14px;padding-right:60px;}
+  .gar-head::after{content:"";position:absolute;left:100%;bottom:-14px;width:min(560px,48vw);height:1px;background:linear-gradient(90deg, rgba(90,169,255,.55), transparent);}
+  .gar-head-icon{width:44px;height:44px;color:var(--accent);filter:drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 70%, transparent));}
+  .gar-head-icon svg{width:100%;height:100%;}
+  .gar-head h2{margin:0;font-size:24px;font-weight:800;letter-spacing:.16em;color:#fff;}
+  .gar-head p{margin:2px 0 0;font-size:13px;color:#a9bcd6;}
+  .gar-close{position:absolute;top:22px;right:24px;z-index:4;}
+  .gar-title{position:relative;z-index:3;display:flex;align-items:center;justify-content:center;gap:clamp(20px,9vw,120px);padding-top:104px;}
+  .gar-title-text{text-align:center;min-width:0;max-width:52vw;}
+  .gar-title h3{margin:0;font-size:clamp(24px,3vw,34px);font-weight:700;letter-spacing:.04em;color:#fff;text-shadow:0 0 22px rgba(90,169,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gar-specs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:15px;color:#b9cbe6;}
+  .gar-specs span + span::before{content:"·";margin-right:14px;color:#6d84a3;}
+  .gar-specs .dim{color:#6d84a3;font-size:13.5px;}
+  .gar-arrow{width:52px;height:52px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;
+    background:radial-gradient(circle at 50% 35%, rgba(40,90,170,.55), rgba(8,20,42,.9));border:1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);box-shadow:0 0 18px -4px var(--accent);transition:transform .15s, box-shadow .15s;}
+  .gar-arrow:hover{transform:scale(1.06);box-shadow:0 0 26px -2px var(--accent);}
+  .gar-arrow svg{width:22px;height:22px;}
+  .gar-root.is-empty .gar-arrow, .gar-root.single .gar-arrow, .gar-root.is-empty .gar-browse, .gar-root.single .gar-browse{visibility:hidden;}
+  .gar-stage{position:relative;z-index:2;height:clamp(250px,44vh,330px);margin-top:4px;perspective:1100px;touch-action:pan-y;}
+  .gar-platform{position:absolute;left:50%;bottom:6%;width:min(640px,64%);aspect-ratio:640/150;transform:translateX(-50%);}
+  .gar-ring{position:absolute;inset:14% 6%;border-radius:50%;border:4px solid #3fb4ff;box-shadow:0 0 16px 3px rgba(63,180,255,.85), inset 0 0 18px 2px rgba(63,180,255,.6);}
+  .gar-ring.outer{inset:0;border:2px solid rgba(90,169,255,.25);background:radial-gradient(ellipse at 50% 50%, rgba(20,50,100,.85), rgba(8,18,40,.95) 70%);box-shadow:0 18px 40px rgba(0,0,0,.6), 0 0 40px -10px rgba(63,180,255,.6);}
+  .gar-ring.inner{inset:30% 22%;border:1px solid rgba(120,200,255,.35);box-shadow:none;}
+  .gar-beam{position:absolute;left:12%;right:12%;bottom:50%;height:180%;background:radial-gradient(ellipse 50% 100% at 50% 100%, rgba(63,180,255,.22), transparent 70%);pointer-events:none;}
+  .gar-car{position:absolute;left:50%;bottom:44%;transform:translateX(-50%);width:74%;height:175%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;}
+  .gar-car-visual{max-width:100%;max-height:100%;}
+  .gar-car.enter-right .gar-car-visual{animation:garInRight .38s cubic-bezier(.2,.8,.2,1);}
+  .gar-car.enter-left .gar-car-visual{animation:garInLeft .38s cubic-bezier(.2,.8,.2,1);}
+  @keyframes garInRight{from{opacity:0;transform:translateX(60px) scale(.94);}to{opacity:1;transform:none;}}
+  @keyframes garInLeft{from{opacity:0;transform:translateX(-60px) scale(.94);}to{opacity:1;transform:none;}}
+  /* hologram = the body-style silhouette used as a mask over a lit gradient with scanlines */
+  .gar-holo{width:100%;aspect-ratio:3.25/1;-webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.14) 0 1px, transparent 1px 3px), linear-gradient(180deg,#f2f8ff 0%,#9fd0ff 45%,#3d8bff 100%);}
+  .gar-car .gar-holo{filter:drop-shadow(0 0 14px rgba(90,170,255,.8));width:100%;}
+  .gar-photo{display:block;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);}
+  .gar-car .gar-photo{max-height:100%;max-width:100%;filter:drop-shadow(0 18px 18px rgba(0,0,0,.55));}
+  /* side glass panels */
+  .gar-side{position:absolute;inset:0;transform-style:preserve-3d;}
+  .gar-panel{position:absolute;top:10%;height:58%;padding:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;
+    background:linear-gradient(180deg, rgba(30,70,140,.28), rgba(8,20,45,.55));border:1.5px solid rgba(90,169,255,.55);box-shadow:0 0 22px -6px rgba(63,150,255,.7), inset 0 0 30px rgba(63,150,255,.12);
+    transition:transform .3s, border-color .15s, opacity .3s;}
+  .gar-panel:hover{border-color:#7cc4ff;}
+  .gar-panel.r1{left:68%;width:19%;transform:rotateY(-24deg);}
+  .gar-panel.l1{right:68%;width:19%;transform:rotateY(24deg);}
+  .gar-panel.r2{left:88.5%;width:14%;height:50%;top:14%;transform:rotateY(-36deg);opacity:.8;}
+  .gar-panel.l2{right:88.5%;width:14%;height:50%;top:14%;transform:rotateY(36deg);opacity:.8;}
+  .gar-panel-visual{max-width:100%;max-height:100%;}
+  .gar-panel .gar-holo{width:100%;}
+  .gar-browse{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px;font-size:14px;color:#a9c8f0;}
+  .gar-browse::before, .gar-browse::after{content:"";width:80px;height:1px;background:linear-gradient(90deg, transparent, rgba(90,169,255,.6), transparent);}
+  .gar-dots{position:relative;z-index:2;display:flex;justify-content:center;gap:10px;min-height:10px;margin-top:10px;}
+  .gar-dots button{width:8px;height:8px;padding:0;border-radius:50%;border:none;cursor:pointer;background:rgba(130,153,184,.35);}
+  .gar-dots button.on{background:#3fb4ff;box-shadow:0 0 8px #3fb4ff;}
+  .gar-actions{position:relative;z-index:2;display:flex;justify-content:center;gap:16px;width:max-content;max-width:calc(100% - 32px);margin:18px auto 0;padding:14px 18px;border-radius:999px;background:rgba(8,18,38,.6);border:1px solid rgba(90,169,255,.18);}
+  .gar-btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;height:46px;padding:0 26px;min-width:170px;border-radius:999px;cursor:pointer;font:inherit;font-size:15px;font-weight:600;color:#e3eefb;
+    background:rgba(12,28,56,.85);border:1.5px solid rgba(90,169,255,.35);transition:border-color .15s, box-shadow .15s, background .15s;}
+  .gar-btn svg{width:22px;height:22px;color:#7cc4ff;flex:none;}
+  .gar-btn:hover{border-color:#7cc4ff;box-shadow:0 0 18px -6px #3fb4ff;}
+  .gar-btn.primary{border-color:#3fb4ff;box-shadow:0 0 18px -4px #3fb4ff, inset 0 0 14px rgba(63,180,255,.18);}
+  .gar-btn.small{height:38px;min-width:0;padding:0 16px;font-size:13.5px;gap:8px;}
+  .gar-btn.small svg{width:17px;height:17px;}
+  .gar-btn.small.primary{background:linear-gradient(180deg,#2f8bff,#1462e0);border-color:transparent;color:#fff;}
+  .gar-btn.small.primary svg{color:#fff;}
+  .gar-btn.ghost{background:transparent;}
+  .gar-btn.danger{border-color:rgba(255,84,112,.45);color:#ffc2cc;}
+  .gar-btn.danger svg{color:#ff8a9c;}
+  .gar-btn.danger.armed, .gar-icon-btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#fff;}
+  .gar-btn.danger.armed svg{color:#fff;}
+  /* sheets (customize / add / manage) */
+  .gar-sheet-backdrop{position:absolute;inset:0;z-index:6;background:rgba(2,6,16,.55);backdrop-filter:blur(3px);opacity:0;transition:opacity .2s;}
+  .gar-sheet-backdrop.open{opacity:1;}
+  .gar-sheet{position:absolute;left:50%;bottom:0;z-index:7;width:min(620px,100%);max-height:88%;display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .22s cubic-bezier(.2,.8,.2,1);
+    border-radius:20px 20px 0 0;background:linear-gradient(180deg,#0f2141,#0a1730);border:1px solid rgba(90,169,255,.3);border-bottom:none;box-shadow:0 -20px 50px rgba(0,0,0,.5);}
+  .gar-sheet.open{transform:translate(-50%,0);}
+  .gar-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;}
+  .gar-sheet-head h4{margin:0;font-size:17px;font-weight:600;}
+  .gar-sheet-x{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#c9d7ea;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.25);}
+  .gar-sheet-x svg{width:16px;height:16px;}
+  .gar-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:4px 20px 6px;overflow:auto;}
+  .gar-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#a9bcd6;min-width:0;}
+  .gar-field.wide{grid-column:1/-1;}
+  .gar-field input, .gar-field select{height:40px;padding:0 12px;border-radius:10px;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.25);color:var(--text-primary);font:inherit;font-size:14px;}
+  .gar-field select option, .gar-field select optgroup{background:#0b1830;}
+  .gar-photo-pick{grid-column:1/-1;display:flex;gap:16px;align-items:center;padding:12px;border-radius:14px;background:rgba(6,14,28,.55);border:1px solid rgba(130,153,184,.14);}
+  .gar-photo-preview{width:190px;height:96px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:10px;background:radial-gradient(ellipse at 50% 70%, rgba(40,110,230,.3), transparent 70%);}
+  .gar-photo-preview .gar-photo{max-width:100%;max-height:100%;}
+  .gar-photo-preview .gar-holo{width:100%;filter:drop-shadow(0 0 8px rgba(90,170,255,.7));}
+  .gar-photo-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .gar-photo-btns label{cursor:pointer;}
+  .gar-hint{width:100%;margin:2px 0 0;font-size:11.5px;color:var(--text-dim);}
+  .gar-form-status{grid-column:1/-1;min-height:16px;font-size:12.5px;color:#ffb4c0;}
+  .gar-sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px 18px;border-top:1px solid rgba(130,153,184,.12);}
+  .gar-sheet-foot-r{display:flex;gap:8px;}
+  .gar-sheet-foot .gar-hint{width:auto;margin:0;}
+  .gar-manage{overflow:auto;padding:4px 14px 10px;display:flex;flex-direction:column;gap:8px;}
+  .gar-mrow{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:12px;background:rgba(6,14,28,.55);border:1px solid rgba(130,153,184,.12);}
+  .gar-mrow.current{border-color:rgba(90,169,255,.5);}
+  .gar-mthumb{width:88px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;padding:0;border:none;background:none;cursor:pointer;}
+  .gar-mthumb-visual{max-width:100%;max-height:100%;}
+  .gar-mthumb .gar-holo{width:100%;}
+  .gar-mtext{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;padding:0;border:none;background:none;cursor:pointer;color:inherit;font:inherit;text-align:left;}
+  .gar-mtext b{font-weight:600;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gar-mtext span{font-size:12px;color:var(--text-dim);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gar-mbtns{display:flex;gap:6px;}
+  .gar-icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;cursor:pointer;color:#c9d7ea;background:rgba(12,26,48,.85);border:1px solid rgba(130,153,184,.22);}
+  .gar-icon-btn svg{width:16px;height:16px;}
+  .gar-icon-btn:hover:not(:disabled){border-color:var(--accent);color:#fff;}
+  .gar-icon-btn:disabled{opacity:.35;cursor:default;}
+  .gar-icon-btn.danger:hover{border-color:var(--bad);color:#ff8a9c;}
+  .gar-empty-note{padding:24px;text-align:center;color:var(--text-dim);}
+  /* the door covers the whole showroom on open */
+  .gar-root > .garage-door-scene{z-index:20;border-radius:20px;}
+  .gar-root .garage-door{background:linear-gradient(180deg,#0d1d38,#0a1730);}
+  @media (prefers-reduced-motion: reduce){
+    .gar-car.enter-right .gar-car-visual, .gar-car.enter-left .gar-car-visual{animation:none;}
+    .gar-sheet, .gar-sheet-backdrop{transition:none;}
+  }
+  @media (max-width:700px){
+    .gar-root{height:calc(94vh - 2px);min-height:0;}
+    .gar-head{top:16px;left:16px;gap:10px;}
+    .gar-head::after{display:none;}
+    .gar-head-icon{width:34px;height:34px;}
+    .gar-head h2{font-size:18px;}
+    .gar-head p{font-size:11.5px;}
+    .gar-close{top:14px;right:14px;}
+    .gar-title{padding-top:84px;gap:10px;padding-left:12px;padding-right:12px;}
+    .gar-title-text{max-width:none;flex:1;}
+    .gar-arrow{width:40px;height:40px;}
+    .gar-specs{font-size:13px;gap:2px 10px;}
+    .gar-specs span + span::before{margin-right:10px;}
+    .gar-platform{width:88%;}
+    .gar-panel.r2, .gar-panel.l2{display:none;}
+    .gar-panel.r1{left:84%;width:24%;}
+    .gar-panel.l1{right:84%;width:24%;}
+    .gar-actions{gap:8px;padding:8px;flex-wrap:nowrap;}
+    .gar-btn{min-width:0;padding:0 12px;height:42px;font-size:13px;gap:6px;white-space:nowrap;}
+    .gar-actions .gar-btn:not(.primary) span{display:none;}
+    .gar-actions .gar-btn:not(.primary){width:42px;padding:0;}
+    .gar-btn svg{width:18px;height:18px;}
+    .gar-form{grid-template-columns:1fr;}
+    .gar-photo-pick{flex-direction:column;align-items:stretch;}
+    .gar-photo-preview{width:100%;}
+  }
   /* ---------- Market full view (redesign) ---------- */
   #modal-panel.modal-custom.modal-market{width:min(1200px,95vw);max-height:92vh;}
   .mkt-head{display:flex;align-items:center;gap:16px;margin:-4px 0 22px;padding:0 0 0 6px;}
@@ -3337,7 +3492,9 @@ function dumpLocalState(){
    instead of re-entering them per device. Left empty (not deleted) so excluding something
    specific later is still a one-line change, not a re-architecture. googleClientId was never
    excluded either way — it's a public OAuth client ID, not a secret, per Google's own docs. */
-const CLOUD_SYNC_EXCLUDED_KEYS = [].map(k=>NS+k);
+/* vehicle photos stay on the device they were added on: the synced record has a ~1MB cap that a
+   few photos would exceed, which would stop everything else from syncing */
+const CLOUD_SYNC_EXCLUDED_KEYS = ["garagePhotos"].map(k=>NS+k);
 function dumpLocalStateForCloud(){
   const dump = dumpLocalState();
   CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
@@ -5643,7 +5800,8 @@ window.addEventListener("keydown",(e)=>{
 function openModal(def){
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage");
+  document.getElementById("modal-panel").classList.toggle("modal-garage", def.id==="garage");
   document.getElementById("modal-panel").classList.toggle("modal-market", def.id==="market");
   document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
   modalCloseCleanup = null;
@@ -6027,35 +6185,7 @@ function renderFull(id){
       <div id="ytg-full-suggestions" class="yt-suggestions"></div>
     </div>`;
   }
-  if(id==="garage"){
-    return `
-    <div class="garage-scene">
-      <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">My Vehicles</h3>
-      <div id="garage-pc-box-container"></div>
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;position:relative;">
-        <button type="button" class="btn" id="garage-type-btn" data-type="" title="Vehicle type" style="display:flex;align-items:center;gap:6px;flex:none;">
-          <span class="garage-icon" id="garage-type-btn-icon" style="width:20px;height:9px;"></span>
-          <span id="garage-type-btn-label">Type ▾</span>
-        </button>
-        <input id="garage-add-input" type="text" placeholder="e.g. Honda Civic" style="flex:2;min-width:140px;"/>
-        <input id="garage-year-input" type="text" placeholder="Year" style="flex:1;min-width:70px;"/>
-        <input id="garage-mileage-input" type="text" placeholder="Mileage" style="flex:1;min-width:90px;"/>
-        <div class="garage-type-grid" id="garage-type-grid" style="display:none;"></div>
-      </div>
-      <div class="garage-floor"></div>
-      <div class="garage-door-scene" id="garage-door-scene">
-        <div class="garage-door-glow"></div>
-        <div class="garage-door" id="garage-door">
-          <div class="garage-door-panel"></div>
-          <div class="garage-door-panel"></div>
-          <div class="garage-door-panel"></div>
-          <div class="garage-door-panel">
-            <div class="garage-door-windows"><span></span><span></span><span></span><span></span></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }
+  if(id==="garage") return garageFullHTML();
   if(id==="phone"){
     return `
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Saved Contacts</h3>
@@ -7700,25 +7830,404 @@ function beginGarageAddFlow(scope){
   if(typeBtn && typeBtn.dataset.type) addGarageVehicle(scope);
   else if(grid) grid.style.display = "flex";
 }
-function hydrateGarageFull(scope){
-  renderGarageBox(scope.querySelector("#garage-pc-box-container"));
-  applyLiveTitleCase(scope.querySelector("#garage-add-input"));
-  ["#garage-add-input","#garage-year-input","#garage-mileage-input"].forEach(sel=>{
-    scope.querySelector(sel).addEventListener("keydown", e=>{ if(e.key==="Enter") beginGarageAddFlow(scope); });
-  });
-  const removeTypePickerListener = setupGarageTypePicker(scope);
-  /* the door overlay is purely a one-shot reveal — once it's finished lifting out of view,
-     drop it from the DOM entirely rather than leaving a fully-transparent element sitting on
-     top of the real content indefinitely (harmless since it's pointer-events:none, but there's
-     no reason to keep it around either). Under prefers-reduced-motion the CSS just display:none's
-     it outright and no animationend ever fires, which is fine — there's nothing to clean up. */
-  const door = scope.querySelector("#garage-door");
-  const doorScene = scope.querySelector("#garage-door-scene");
-  if(door && doorScene){
-    door.addEventListener("animationend", ()=>{ doorScene.remove(); }, {once:true});
-  }
-  return removeTypePickerListener;
+/* ================= GARAGE FULL VIEW (redesign) =================
+   Showroom carousel: the selected vehicle sits on a glowing platform, neighbours sit on angled
+   glass panels either side. Browse with the arrows, the dots, a side panel, mouse wheel /
+   trackpad, swipe, or ←/→. Customize edits the current vehicle (incl. a photo), Manage lists them
+   all (reorder/remove), Add Vehicle opens the same form empty. The garage-door intro still plays
+   over everything on open.
+   Photos are stored per device under NS+"garagePhotos" (keyed by vehicle.photoId) and are
+   excluded from cloud sync, since the synced record has a ~1MB cap that a few photos would blow. */
+let garagePhotos = loadJSON(NS+"garagePhotos", {});
+function saveGaragePhotos(){ try{ saveJSON(NS+"garagePhotos", garagePhotos); return true; }catch(e){ return false; } }
+const GAR_ICONS = {
+  garage:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 13 16 5l13 8v14H3z"/><path d="M8 27V15h16v12M8 19h16M8 23h16"/></svg>',
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>',
+  wrench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+};
+const GAR_DRIVES = ["", "2WD", "4WD", "AWD", "FWD", "RWD"];
+
+/* "275000" / "275,000" / "275k" -> "275k mi"; anything non-numeric is shown as typed */
+function garMileageLabel(m){
+  const raw = String(m||"").trim();
+  if(!raw) return "";
+  const k = raw.match(/^([\d.,]+)\s*k$/i);
+  if(k) return `${k[1]}k mi`;
+  const n = Number(raw.replace(/[,\s]|mi(les)?$/gi, ""));
+  if(!isFinite(n) || !raw.match(/\d/)) return raw;
+  if(n >= 10000) return `${Math.round(n/1000)}k mi`;
+  return `${n.toLocaleString("en-US")} mi`;
 }
+function garSpecs(v){ return [v.year, v.drive, v.engine, garMileageLabel(v.mileage)].filter(Boolean); }
+/* the vehicle's picture: its photo if it has one on this device, else the body-style silhouette
+   rendered as a glowing hologram (the silhouette is used as a mask over a gradient) */
+function garIconSrc(type){
+  if(VEHICLE_TYPE_ICONS[type]) return VEHICLE_TYPE_ICONS[type];
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent((VEHICLE_ICONS[type] || VEHICLE_ICONS.moto).replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" '));
+}
+/* the silhouettes are small (80px tall), so scaled up as a mask they show stair-stepped edges;
+   each one is redrawn once at 4x with smoothing + a slight blur and that version is used instead */
+const garSmoothCache = {};
+function garSmoothSrc(type){
+  if(garSmoothCache[type]) return garSmoothCache[type] === "pending" ? garIconSrc(type) : garSmoothCache[type];
+  garSmoothCache[type] = "pending";
+  const img = new Image();
+  img.onload = ()=>{
+    try{
+      const S = 4, pad = 8, c = document.createElement("canvas");
+      const w = img.naturalWidth || 260, h = img.naturalHeight || 80;
+      c.width = w*S + pad*2; c.height = h*S + pad*2;
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+      ctx.filter = "blur(4.5px)";
+      ctx.drawImage(img, pad, pad, w*S, h*S);
+      garSmoothCache[type] = c.toDataURL("image/png");
+      document.querySelectorAll(`.gar-holo[data-holo="${type}"]`).forEach(el=>el.style.setProperty("--src", `url('${garSmoothCache[type]}')`));
+    }catch(e){ garSmoothCache[type] = garIconSrc(type); }
+  };
+  img.onerror = ()=>{ garSmoothCache[type] = garIconSrc(type); };
+  img.src = garIconSrc(type);
+  return garIconSrc(type);
+}
+function garVisualHTML(v, cls){
+  const photo = v.photoId && garagePhotos[v.photoId];
+  if(photo) return `<img class="${cls} gar-photo" src="${photo}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  const type = resolveVehicleType(v);
+  return `<div class="${cls} gar-holo" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)}" style="--src:url('${garSmoothSrc(type)}')"></div>`;
+}
+/* shrink an uploaded photo to at most 900px wide; keeps transparency (webp) where the browser
+   can encode it, else JPEG */
+function garCompressPhoto(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const scale = Math.min(1, 900 / img.naturalWidth, 600 / img.naturalHeight);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth*scale); c.height = Math.round(img.naturalHeight*scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      let out = c.toDataURL("image/webp", 0.82);
+      if(!out.startsWith("data:image/webp")) out = c.toDataURL("image/jpeg", 0.84);
+      resolve(out);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("That file couldn't be read as an image.")); };
+    img.src = url;
+  });
+}
+
+function garageFullHTML(){
+  return `
+  <div class="gar-root" id="gar-root">
+    <div class="gar-bg" aria-hidden="true"><div class="gar-floorgrid"></div><div class="gar-streak a"></div><div class="gar-streak b"></div></div>
+    <div class="gar-head">
+      <span class="gar-head-icon">${GAR_ICONS.garage}</span>
+      <div><h2>GARAGE</h2><p>Your vehicles and garage inventory</p></div>
+    </div>
+    <button type="button" class="fin-close gar-close" id="gar-close-btn" title="Close" aria-label="Close">${GAR_ICONS.close}</button>
+    <div class="gar-title">
+      <button type="button" class="gar-arrow" id="gar-prev" aria-label="Previous vehicle">${GAR_ICONS.left}</button>
+      <div class="gar-title-text"><h3 id="gar-name"></h3><div class="gar-specs" id="gar-specs"></div></div>
+      <button type="button" class="gar-arrow" id="gar-next" aria-label="Next vehicle">${GAR_ICONS.right}</button>
+    </div>
+    <div class="gar-stage" id="gar-stage">
+      <div class="gar-side" id="gar-side"></div>
+      <div class="gar-platform"><div class="gar-ring outer" aria-hidden="true"></div><div class="gar-ring" aria-hidden="true"></div><div class="gar-ring inner" aria-hidden="true"></div><div class="gar-beam" aria-hidden="true"></div>
+        <div class="gar-car" id="gar-car"></div></div>
+    </div>
+    <div class="gar-browse" id="gar-browse"><span>Scroll to browse vehicles</span></div>
+    <div class="gar-dots" id="gar-dots"></div>
+    <div class="gar-actions">
+      <button type="button" class="gar-btn" id="gar-customize">${GAR_ICONS.wrench}<span>Customize</span></button>
+      <button type="button" class="gar-btn" id="gar-manage">${GAR_ICONS.gear}<span>Manage</span></button>
+      <button type="button" class="gar-btn primary" id="gar-add">${GAR_ICONS.plus}<span>Add Vehicle</span></button>
+    </div>
+    <div class="gar-sheet-backdrop" id="gar-sheet-backdrop" hidden></div>
+    <div class="gar-sheet" id="gar-sheet" hidden role="dialog" aria-modal="true"></div>
+    <div class="garage-door-scene" id="garage-door-scene">
+      <div class="garage-door-glow"></div>
+      <div class="garage-door" id="garage-door">
+        <div class="garage-door-panel"></div>
+        <div class="garage-door-panel"></div>
+        <div class="garage-door-panel"></div>
+        <div class="garage-door-panel"><div class="garage-door-windows"><span></span><span></span><span></span><span></span></div></div>
+        <div class="garage-door-panel"></div>
+        <div class="garage-door-panel"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function hydrateGarageFull(scope){
+  const $g = sel=>scope.querySelector(sel);
+  const root = $g("#gar-root");
+  let alive = true;
+  const vehicles = ()=>garageData.vehicles;
+  const save = ()=>{ saveJSON(NS+"garage", garageData); renderWidgets(); };
+
+  /* ---------- showroom ---------- */
+  let lastDir = 0;
+  function render(){
+    const list = vehicles(), n = list.length;
+    if(garageSelectedIndex >= n) garageSelectedIndex = Math.max(0, n-1);
+    root.classList.toggle("is-empty", !n);
+    root.classList.toggle("single", n === 1);
+    const car = $g("#gar-car"), side = $g("#gar-side");
+    if(!n){
+      $g("#gar-name").textContent = "Your garage is empty";
+      $g("#gar-specs").innerHTML = `<span>Add your first vehicle to park it here</span>`;
+      car.innerHTML = ""; side.innerHTML = ""; $g("#gar-dots").innerHTML = "";
+      return;
+    }
+    const v = list[garageSelectedIndex];
+    $g("#gar-name").textContent = v.vehicle;
+    $g("#gar-specs").innerHTML = garSpecs(v).map(s=>`<span>${escapeHtml(s)}</span>`).join("") || `<span class="dim">Add details with Customize</span>`;
+    car.innerHTML = garVisualHTML(v, "gar-car-visual");
+    car.classList.remove("enter-left","enter-right"); void car.offsetWidth;
+    if(lastDir) car.classList.add(lastDir > 0 ? "enter-right" : "enter-left");
+    /* neighbours on the glass panels: next on the right, previous on the left, then one further each way */
+    const used = new Set([garageSelectedIndex]), slots = [];
+    [["r1",1],["l1",-1],["r2",2],["l2",-2]].forEach(([slot, off])=>{
+      if(n < 2) return;
+      const i = ((garageSelectedIndex + off) % n + n) % n;
+      if(used.has(i)) return;
+      used.add(i); slots.push({slot, i});
+    });
+    side.innerHTML = slots.map(({slot,i})=>`<button type="button" class="gar-panel ${slot}" data-i="${i}" title="${escapeHtml(list[i].vehicle)}" aria-label="Show ${escapeHtml(list[i].vehicle)}">${garVisualHTML(list[i], "gar-panel-visual")}</button>`).join("");
+    side.querySelectorAll("[data-i]").forEach(b=>b.addEventListener("click", ()=>select(Number(b.dataset.i))));
+    $g("#gar-dots").innerHTML = n > 1 ? list.map((_,i)=>`<button type="button" class="${i===garageSelectedIndex?"on":""}" data-dot="${i}" aria-label="Vehicle ${i+1}"></button>`).join("") : "";
+    $g("#gar-dots").querySelectorAll("[data-dot]").forEach(b=>b.addEventListener("click", ()=>select(Number(b.dataset.dot))));
+  }
+  function select(i){
+    const n = vehicles().length;
+    if(!n) return;
+    const target = ((i % n) + n) % n;
+    if(target === garageSelectedIndex) return;
+    /* direction for the slide-in: shortest way round */
+    const fwd = (target - garageSelectedIndex + n) % n;
+    lastDir = fwd <= n/2 ? 1 : -1;
+    garageSelectedIndex = target;
+    render();
+  }
+  const step = d=>select(garageSelectedIndex + d);
+  $g("#gar-prev").addEventListener("click", ()=>step(-1));
+  $g("#gar-next").addEventListener("click", ()=>step(1));
+  $g("#gar-close-btn").addEventListener("click", ()=>closeModal());
+
+  /* wheel / trackpad: one vehicle per deliberate scroll, not one per wheel tick */
+  let wheelAcc = 0, wheelLock = 0;
+  root.addEventListener("wheel", e=>{
+    if(!$g("#gar-sheet").hidden) return;
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if(!d) return;
+    e.preventDefault();
+    if(Date.now() < wheelLock) return;
+    wheelAcc += d;
+    if(Math.abs(wheelAcc) > 60){ step(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; wheelLock = Date.now() + 380; }
+  }, {passive:false});
+  /* swipe */
+  let touchX = null;
+  $g("#gar-stage").addEventListener("touchstart", e=>{ touchX = e.touches[0].clientX; }, {passive:true});
+  $g("#gar-stage").addEventListener("touchend", e=>{
+    if(touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX; touchX = null;
+    if(Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
+  });
+  function onKey(e){
+    if(isTypingTarget(e) || !modalOverlay.classList.contains("open")) return;
+    if(!$g("#gar-sheet").hidden){ if(e.key==="Escape"){ e.stopImmediatePropagation(); closeSheet(); } return; }
+    if(e.key==="ArrowLeft"){ e.preventDefault(); step(-1); }
+    else if(e.key==="ArrowRight"){ e.preventDefault(); step(1); }
+  }
+  window.addEventListener("keydown", onKey, true);
+
+  /* ---------- sheets: vehicle form + manage list ---------- */
+  const sheet = $g("#gar-sheet"), backdrop = $g("#gar-sheet-backdrop");
+  function openSheet(html){
+    sheet.innerHTML = html;
+    sheet.hidden = false; backdrop.hidden = false;
+    requestAnimationFrame(()=>{ sheet.classList.add("open"); backdrop.classList.add("open"); });
+  }
+  function closeSheet(){
+    sheet.classList.remove("open"); backdrop.classList.remove("open");
+    setTimeout(()=>{ if(!sheet.classList.contains("open")){ sheet.hidden = true; backdrop.hidden = true; sheet.innerHTML = ""; } }, 200);
+  }
+  backdrop.addEventListener("click", closeSheet);
+
+  function typeOptions(selected){
+    const opt = k=>`<option value="${k}"${k===selected?" selected":""}>${escapeHtml(VEHICLE_TYPE_LABELS[k] || k)}</option>`;
+    return `<option value=""${!selected?" selected":""}>Auto-detect from name</option>
+      <optgroup label="Car">${VEHICLE_TYPE_ORDER.map(opt).join("")}</optgroup>
+      <optgroup label="Motorcycle">${GARAGE_MOTO_TYPES.map(opt).join("")}</optgroup>`;
+  }
+  function openForm(index){
+    const editing = index != null;
+    const v = editing ? vehicles()[index] : {vehicle:"", year:"", drive:"", engine:"", mileage:"", type:""};
+    let pendingPhoto = editing && v.photoId ? (garagePhotos[v.photoId] || null) : null;
+    openSheet(`
+      <div class="gar-sheet-head"><h4>${editing ? "Customize vehicle" : "Add a vehicle"}</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
+      <div class="gar-form">
+        <div class="gar-photo-pick">
+          <div class="gar-photo-preview" id="gar-photo-preview"></div>
+          <div class="gar-photo-btns">
+            <label class="gar-btn small">${GAR_ICONS.camera}<span id="gar-photo-label">${pendingPhoto ? "Change photo" : "Add photo"}</span><input type="file" accept="image/*" id="gar-photo-input" hidden></label>
+            <button type="button" class="gar-btn small ghost" id="gar-photo-remove"${pendingPhoto ? "" : " hidden"}>Remove photo</button>
+            <p class="gar-hint">A side-on photo with a plain background looks best. Photos stay on this device.</p>
+          </div>
+        </div>
+        <label class="gar-field wide"><span>Vehicle</span><input type="text" id="gar-f-name" placeholder="e.g. Ford Ranger" value="${escapeHtml(v.vehicle)}"></label>
+        <label class="gar-field"><span>Year</span><input type="text" id="gar-f-year" inputmode="numeric" placeholder="2000" value="${escapeHtml(v.year||"")}"></label>
+        <label class="gar-field"><span>Drive</span><select id="gar-f-drive">${GAR_DRIVES.map(d=>`<option value="${d}"${(v.drive||"")===d?" selected":""}>${d || "—"}</option>`).join("")}</select></label>
+        <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" placeholder="3.0L V6" value="${escapeHtml(v.engine||"")}"></label>
+        <label class="gar-field"><span>Mileage</span><input type="text" id="gar-f-miles" inputmode="numeric" placeholder="275,000" value="${escapeHtml(v.mileage||"")}"></label>
+        <label class="gar-field wide"><span>Body style</span><select id="gar-f-type">${typeOptions(v.type||"")}</select></label>
+        <div class="gar-form-status" id="gar-form-status"></div>
+      </div>
+      <div class="gar-sheet-foot">
+        ${editing ? `<button type="button" class="gar-btn small danger" id="gar-f-delete">${GAR_ICONS.trash}<span>Remove vehicle</span></button>` : "<span></span>"}
+        <div class="gar-sheet-foot-r"><button type="button" class="gar-btn small ghost" data-close>Cancel</button><button type="button" class="gar-btn small primary" id="gar-f-save">${editing ? "Save" : "Add to garage"}</button></div>
+      </div>`);
+    const nameInp = sheet.querySelector("#gar-f-name");
+    applyLiveTitleCase(nameInp);
+    const preview = sheet.querySelector("#gar-photo-preview");
+    const typeSel = sheet.querySelector("#gar-f-type");
+    function drawPreview(){
+      const fake = {vehicle: nameInp.value || "Vehicle", type: typeSel.value};
+      preview.innerHTML = pendingPhoto ? `<img class="gar-photo" src="${pendingPhoto}" alt="">` : garVisualHTML(fake, "gar-preview-holo");
+    }
+    drawPreview();
+    typeSel.addEventListener("change", drawPreview);
+    nameInp.addEventListener("input", ()=>{ if(!typeSel.value && !pendingPhoto) drawPreview(); });
+    sheet.querySelector("#gar-photo-input").addEventListener("change", async e=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      const status = sheet.querySelector("#gar-form-status");
+      status.textContent = "Preparing photo…";
+      try{
+        pendingPhoto = await garCompressPhoto(file);
+        status.textContent = "";
+        sheet.querySelector("#gar-photo-label").textContent = "Change photo";
+        sheet.querySelector("#gar-photo-remove").hidden = false;
+        drawPreview();
+      }catch(err){ status.textContent = err.message; }
+    });
+    sheet.querySelector("#gar-photo-remove").addEventListener("click", ()=>{
+      pendingPhoto = null;
+      sheet.querySelector("#gar-photo-label").textContent = "Add photo";
+      sheet.querySelector("#gar-photo-remove").hidden = true;
+      drawPreview();
+    });
+    sheet.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", closeSheet));
+    const del = sheet.querySelector("#gar-f-delete");
+    if(del) del.addEventListener("click", ()=>{
+      if(!confirmRemove(del)) return;
+      removeVehicle(index); closeSheet();
+    });
+    function submit(){
+      const name = nameInp.value.trim();
+      const status = sheet.querySelector("#gar-form-status");
+      if(!name){ status.textContent = "Give the vehicle a name first."; nameInp.focus(); return; }
+      const entry = editing ? vehicles()[index] : {};
+      entry.vehicle = name;
+      entry.year = sheet.querySelector("#gar-f-year").value.trim();
+      entry.drive = sheet.querySelector("#gar-f-drive").value;
+      entry.engine = sheet.querySelector("#gar-f-engine").value.trim();
+      entry.mileage = sheet.querySelector("#gar-f-miles").value.trim();
+      if(typeSel.value) entry.type = typeSel.value; else delete entry.type;
+      const oldPhotoId = entry.photoId;
+      if(pendingPhoto){
+        if(!entry.photoId || garagePhotos[entry.photoId] !== pendingPhoto){
+          entry.photoId = entry.photoId || ("p" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+          garagePhotos[entry.photoId] = pendingPhoto;
+          if(!saveGaragePhotos()){
+            delete garagePhotos[entry.photoId]; if(!oldPhotoId) delete entry.photoId;
+            status.textContent = "This browser is out of storage space for photos — try a smaller image, or remove another vehicle's photo.";
+            return;
+          }
+        }
+      } else if(oldPhotoId){
+        delete garagePhotos[oldPhotoId]; delete entry.photoId; saveGaragePhotos();
+      }
+      if(!editing){ garageData.vehicles.push(entry); garageSelectedIndex = garageData.vehicles.length - 1; lastDir = 1; }
+      save(); render(); closeSheet();
+    }
+    sheet.querySelector("#gar-f-save").addEventListener("click", submit);
+    sheet.querySelectorAll(".gar-form input[type=text]").forEach(inp=>inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); submit(); } }));
+    setTimeout(()=>{ if(!editing) nameInp.focus(); }, 60);
+  }
+  /* two-step remove: first click arms the button, second click confirms (no browser dialogs) */
+  function confirmRemove(btn){
+    if(btn.dataset.armed){ return true; }
+    btn.dataset.armed = "1";
+    const label = btn.querySelector("span");
+    const old = label ? label.textContent : "";
+    if(label) label.textContent = "Click again to remove";
+    btn.classList.add("armed");
+    setTimeout(()=>{ if(btn.isConnected){ delete btn.dataset.armed; btn.classList.remove("armed"); if(label) label.textContent = old; } }, 2500);
+    return false;
+  }
+  function removeVehicle(index){
+    const v = vehicles()[index];
+    if(!v) return;
+    if(v.photoId){ delete garagePhotos[v.photoId]; saveGaragePhotos(); }
+    garageData.vehicles.splice(index, 1);
+    if(garageSelectedIndex > index || garageSelectedIndex >= garageData.vehicles.length) garageSelectedIndex = Math.max(0, garageSelectedIndex - 1);
+    lastDir = 0;
+    save(); render();
+  }
+  function openManage(){
+    const list = vehicles();
+    openSheet(`
+      <div class="gar-sheet-head"><h4>Manage vehicles</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
+      <div class="gar-manage">${list.length ? list.map((v,i)=>`
+        <div class="gar-mrow${i===garageSelectedIndex?" current":""}">
+          <button type="button" class="gar-mthumb" data-show="${i}" title="Show on the platform">${garVisualHTML(v, "gar-mthumb-visual")}</button>
+          <button type="button" class="gar-mtext" data-show="${i}"><b>${escapeHtml(v.vehicle)}</b><span>${escapeHtml(garSpecs(v).join(" · ") || "No details yet")}</span></button>
+          <div class="gar-mbtns">
+            <button type="button" class="gar-icon-btn" data-move="${i}" data-dir="-1" title="Move up" aria-label="Move up"${i===0?" disabled":""}>${GAR_ICONS.up}</button>
+            <button type="button" class="gar-icon-btn" data-move="${i}" data-dir="1" title="Move down" aria-label="Move down"${i===list.length-1?" disabled":""}>${GAR_ICONS.down}</button>
+            <button type="button" class="gar-icon-btn" data-edit="${i}" title="Customize" aria-label="Customize">${GAR_ICONS.wrench}</button>
+            <button type="button" class="gar-icon-btn danger" data-del="${i}" title="Remove" aria-label="Remove">${GAR_ICONS.trash}</button>
+          </div>
+        </div>`).join("") : `<div class="gar-empty-note">No vehicles yet.</div>`}
+      </div>
+      <div class="gar-sheet-foot"><span class="gar-hint">${list.length} vehicle${list.length===1?"":"s"}</span><button type="button" class="gar-btn small primary" id="gar-m-add">${GAR_ICONS.plus}<span>Add Vehicle</span></button></div>`);
+    sheet.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", closeSheet));
+    sheet.querySelector("#gar-m-add").addEventListener("click", ()=>openForm(null));
+    sheet.querySelectorAll("[data-show]").forEach(b=>b.addEventListener("click", ()=>{ select(Number(b.dataset.show)); closeSheet(); }));
+    sheet.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>{ garageSelectedIndex = Number(b.dataset.edit); render(); openForm(garageSelectedIndex); }));
+    sheet.querySelectorAll("[data-move]").forEach(b=>b.addEventListener("click", ()=>{
+      const i = Number(b.dataset.move), j = i + Number(b.dataset.dir), arr = garageData.vehicles;
+      if(j < 0 || j >= arr.length) return;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      if(garageSelectedIndex === i) garageSelectedIndex = j; else if(garageSelectedIndex === j) garageSelectedIndex = i;
+      lastDir = 0; save(); render(); openManage();
+    }));
+    sheet.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
+      if(!confirmRemove(b)) return;
+      removeVehicle(Number(b.dataset.del)); openManage();
+    }));
+  }
+  $g("#gar-customize").addEventListener("click", ()=>{ if(vehicles().length) openForm(garageSelectedIndex); else openForm(null); });
+  $g("#gar-manage").addEventListener("click", openManage);
+  $g("#gar-add").addEventListener("click", ()=>openForm(null));
+
+  /* ---------- the door: one-shot reveal, removed once it has lifted out of view ---------- */
+  const door = $g("#garage-door"), doorScene = $g("#garage-door-scene");
+  if(door && doorScene) door.addEventListener("animationend", ()=>doorScene.remove(), {once:true});
+
+  render();
+  return function cleanup(){ alive = false; window.removeEventListener("keydown", onKey, true); };
+}
+
 function refreshGarageMiniList(scope){
   const el = scope.querySelector("#garage-mini-list");
   el.innerHTML = garageData.vehicles.length
