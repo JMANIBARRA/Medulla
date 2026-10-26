@@ -1307,8 +1307,11 @@
   .gar-sf-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.9;transition:opacity .7s ease;pointer-events:none;}
   .gar-show.kind-sketch.loaded .gar-sf-thumb{opacity:0;}
   .gar-show.kind-sketch .gar-contact{left:16%;right:16%;opacity:.55;}
-  .gar-model-3d img.gar-mv-wait{position:absolute;left:0;right:0;bottom:-10%;width:100%;height:120%;object-fit:contain;transition:opacity .5s;
-    -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);}
+  .gar-model-3d img.gar-mv-wait{position:absolute;left:6%;right:6%;bottom:0;width:88%;height:100%;object-fit:contain;object-position:center bottom;transition:opacity .5s;}
+  .gar-sf-wait{position:absolute;left:8%;right:8%;bottom:0;transition:opacity .6s;}
+  img.gar-sf-wait{width:84%;height:100%;object-fit:contain;object-position:center bottom;}
+  .gar-show.kind-sketch.loaded .gar-sf-wait{opacity:0;}
+  .gar-cut{filter:drop-shadow(0 10px 14px rgba(0,0,0,.45));}
   .gar-thumbimg{display:block;object-fit:cover;border-radius:10px;
     -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);}
   .gar-panel .gar-thumbimg, .gar-mthumb .gar-thumbimg, .gar-photo-preview .gar-thumbimg{width:100%;height:100%;}
@@ -8131,7 +8134,7 @@ const VEHICLE_MODELS = [
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
 const GAR_SF_STORE = NS + "garageModels";
-const GAR_SF_VERSION = 2;           /* bump to re-pick every vehicle's model after changing the scoring */
+const GAR_SF_VERSION = 3;           /* bump to re-pick every vehicle's model after changing the scoring */
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
@@ -8196,7 +8199,7 @@ function garAutoWaiting(v){
 
 /* ---- automatic model search ---- */
 const GAR_MAKES = new Set(("ford chevrolet chevy toyota honda nissan dodge ram jeep gmc bmw mercedes benz mercedes-benz audi volkswagen vw subaru mazda hyundai kia tesla lexus acura infiniti porsche ferrari lamborghini cadillac buick lincoln chrysler mitsubishi volvo jaguar land rover mini fiat alfa romeo pontiac oldsmobile saturn scion genesis rivian lucid polestar maserati bentley rolls royce mclaren aston martin bugatti lotus suzuki harley davidson yamaha kawasaki ducati triumph ktm indian aprilia").split(" "));
-const GAR_BAD_WORDS = /\b(low[\s-]?poly|lowpoly|toy|lego|minecraft|roblox|cartoon|chibi|voxel|papercraft|paper|rc|hot ?wheels|matchbox|keychain|wheel|wheels|rim|rims|tire|tyre|tires|engine|motor block|interior|cockpit|dashboard|seat|steering|headlight|taillight|bumper|door|hood|crash(ed)?|wreck(ed)?|destroyed|burn(ed|t)|abandoned|rust(y|ed)?|derelict|junk|scrap|stance|drift|monster truck|lifted|kit|sketch|wip|test|scan|photogrammetry|diorama|scene|garage|parking|street|city|game ?ready ?pack|pack|collection|set)\b/;
+const GAR_BAD_WORDS = /\b(low[\s-]?poly|lowpoly|toy|lego|minecraft|roblox|cartoon|chibi|voxel|papercraft|paper|rc|hot ?wheels|matchbox|keychain|wheel|wheels|rim|rims|tire|tyre|tires|engine|motor block|interior|cockpit|dashboard|seat|steering|headlight|taillight|bumper|door|hood|plate|license|frame|bracket|mount|holder|bar|bars|exhaust|muffler|helmet|part|parts|accessory|accessories|rack|grille|grill|mirror|spoiler|light|lights|lamp|logo|emblem|badge|sticker|decal|key|keys|fender|swingarm|fork|tank|chassis|skeleton|blueprint|crash(ed)?|wreck(ed)?|destroyed|burn(ed|t)|abandoned|rust(y|ed)?|derelict|junk|scrap|stance|drift|monster truck|lifted|kit|sketch|wip|test|scan|photogrammetry|diorama|scene|garage|parking|street|city|game ?ready ?pack|pack|collection|set)\b/;
 function garTokens(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter(t=>t && !/^(19|20)\d\d$/.test(t)); }
 function garYearsIn(name){
   const s = String(name||"");
@@ -8260,35 +8263,71 @@ async function garSearchModels(q){
   const d = await res.json();
   return (d.results||[]).filter(r=>r && r.uid).map(garSfNormalize);
 }
+/* what kind of vehicle this is, for the stand-in search: "boat", "moto", "car", or "" (unknown) */
+const GAR_BOAT_RE = /\b(boat|jon ?boat|jonboat|john ?boat|kayak|canoe|yacht|pontoon|skiff|dinghy|jet ?ski|sea-?doo|waverunner|catamaran|sailboat)\b/i;
+function garVehicleClass(v){
+  const name = String(v.vehicle||"");
+  if(GAR_BOAT_RE.test(name)) return "boat";
+  const type = resolveVehicleType(v);
+  if(GARAGE_MOTO_TYPES.includes(type)) return "moto";
+  if(v.type || type !== "sedan" || /\b(sedan|car)\b/i.test(name)) return "car";
+  const toks = garTokens(name);
+  return toks.some(t=>GAR_MAKES.has(t)) ? "car" : "";
+}
+const GAR_CLASS_WORDS = {
+  boat: /\b(boat|jon|skiff|kayak|canoe|yacht|pontoon|dinghy|jet ?ski|catamaran|vessel)\b/,
+  moto: /\b(motorcycle|motorbike|bike|moto|scooter|dirt ?bike|supermoto|naked|cruiser|ninja|kawasaki|yamaha|honda|suzuki|ducati|ktm|harley|triumph|bmw)\b/,
+  car:  /\b(car|cars|truck|pickup|sedan|coupe|suv|van|vehicle|automobile|auto|wagon|hatchback|convertible|roadster|crossover|jeep|bus)\b/,
+};
+function garStandInQueries(v, cls){
+  const toks = garTokens(v.vehicle), make = toks.find(t=>GAR_MAKES.has(t));
+  if(cls === "boat") return [toks.filter(t=>t !== "boat").concat("boat").join(" "), "boat"];
+  if(cls === "moto"){
+    const label = {sport:"sport bike", cruiser:"cruiser motorcycle", naked:"naked motorcycle"}[resolveVehicleType(v)] || "motorcycle";
+    return [make ? `${make} ${label}` : null, label].filter(Boolean);
+  }
+  const type = resolveVehicleType(v);
+  const label = ({pickup:"pickup truck", suv:"suv", musclecar:"muscle car", sportscar:"sports car", supercar:"supercar"})[type] || String(VEHICLE_TYPE_LABELS[type] || "car").toLowerCase();
+  return [make ? `${make} ${label}` : null, label].filter(Boolean);
+}
 async function garFindModel(v){
   const year = garYear(v);
   const tokens = garTokens(v.vehicle);
   const base = tokens.join(" ");
   const want = {tokens, year};
-  const pick = (lists, opts)=>{
+  const cls = garVehicleClass(v);
+  let reached = false, glbMode = false;
+  const search = qs=>Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ reached = true; if(r.some(x=>x && x.glb)) glbMode = true; return r; }).catch(()=>[])));
+  const rank = (lists, opts={})=>{
     const seen = new Set(), all = [];
     lists.flat().forEach(r=>{ if(r && r.uid && !seen.has(r.uid)){ seen.add(r.uid); all.push(r); } });
-    const ranked = all.map(r=>({r, s:garScoreModel(r, want, opts)})).filter(x=>x.s > (opts && opts.standIn ? 2 : 3)).sort((a,b)=>b.s-a.s);
-    return ranked.length ? ranked[0].r : null;
+    return all.map(r=>{
+      let sc = garScoreModel(r, want, opts);
+      const hay = (String(r.name||"") + " " + (r.tags||[]).join(" ")).toLowerCase().replace(/-/g, " ");
+      if(opts.standIn && cls && !GAR_CLASS_WORDS[cls].test(hay)) sc = -Infinity;   /* a stand-in must be the same kind of vehicle */
+      if(!opts.standIn && cls === "boat" && !GAR_CLASS_WORDS.boat.test(hay)) sc -= 6;
+      return {r, s:sc};
+    }).filter(x=>x.s > (opts.standIn ? 2 : 3)).sort((a,b)=>b.s-a.s).map(x=>x.r);
   };
-  let best = null, ok = false;
+  let exact = [];
   if(base){
     const qs = year ? [`${base} ${year}`, base] : [base];
-    const lists = await Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ ok = true; return r; }).catch(()=>[])));
-    best = pick(lists);
+    if(cls === "boat" && !tokens.includes("boat")) qs.push(`${base} boat`);
+    exact = rank(await search(qs));
   }
-  let standIn = false;
-  if(!best){
-    /* nothing that is this vehicle: a realistic one of the same body style */
-    const type = resolveVehicleType(v);
-    const label = String(VEHICLE_TYPE_LABELS[type] || type || "car").toLowerCase().replace(/[^a-z ]/g, " ").trim();
-    const make = tokens.find(t=>GAR_MAKES.has(t));
-    const qs = [make ? `${make} ${label}` : null, label].filter(Boolean);
-    const lists = await Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ ok = true; return r; }).catch(()=>[])));
-    best = pick(lists, {standIn:true});
-    standIn = !!best;
+  /* 1. the actual vehicle, as a file Medulla can render cleanly on the pedestal */
+  let best = exact.find(r=>r.glb), standIn = false;
+  /* 2. a realistic one of the same kind (only when we know the kind), also as a clean file */
+  let stand = [];
+  if(!best && cls){
+    stand = rank(await search(garStandInQueries(v, cls)), {standIn:true});
+    const s = stand.find(r=>r.glb);
+    if(s && (!exact.length || glbMode)){ best = s; standIn = true; }
   }
-  if(!ok) throw new Error("offline");
+  /* 3. the actual vehicle in Sketchfab's embedded viewer; 4. a stand-in there */
+  if(!best && exact.length) best = exact[0];
+  if(!best && stand.length){ best = stand[0]; standIn = true; }
+  if(!reached) throw new Error("offline");
   if(!best) return {none:true, ts:Date.now()};
   return {uid:best.uid, name:best.name, author:best.author, license:best.license, thumb:best.thumb, glb:best.glb || null, standIn, ts:Date.now()};
 }
@@ -8316,6 +8355,78 @@ function garSfEmbedUrl(uid){
     "&ui_hint=0&ui_infos=0&ui_controls=0&ui_stop=0&ui_inspector=0&ui_settings=0&ui_help=0&ui_vr=0&ui_ar=0&ui_fullscreen=0&ui_annotations=0&ui_watermark=0&ui_watermark_link=0&ui_loading=0";
   return `https://sketchfab.com/models/${uid}/embed?${p}`;
 }
+/* Sketchfab thumbnails come on their model's own backdrop (often white). Cut the car out: flood
+   fill the backdrop in from the image edges, then trim. Anything that doesn't separate cleanly
+   isn't shown (the loading silhouette stays instead), so a white box never lands on the stage. */
+const garThumbClean = {};   /* thumb url -> data URL | false */
+const garThumbPending = {};
+function garCleanThumb(url){
+  if(url in garThumbClean) return Promise.resolve(garThumbClean[url]);
+  if(garThumbPending[url]) return garThumbPending[url];
+  garThumbPending[url] = new Promise(resolve=>{
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = ()=>{
+      let out = false;
+      try{ out = garCutBackdrop(im); }catch(e){ out = false; }
+      garThumbClean[url] = out || false; resolve(garThumbClean[url]);
+    };
+    im.onerror = ()=>{ garThumbClean[url] = false; resolve(false); };
+    im.src = url;
+  }).finally(()=>{ delete garThumbPending[url]; });
+  return garThumbPending[url];
+}
+function garCutBackdrop(im){
+  const W = 480, H = Math.max(1, Math.round(W * im.naturalHeight / im.naturalWidth));
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", {willReadFrequently:true});
+  ctx.drawImage(im, 0, 0, W, H);
+  const img = ctx.getImageData(0, 0, W, H), d = img.data, n = W*H;
+  const bg = new Uint8Array(n), stack = [];
+  const dist = (i, j)=>Math.abs(d[i*4]-d[j*4]) + Math.abs(d[i*4+1]-d[j*4+1]) + Math.abs(d[i*4+2]-d[j*4+2]);
+  const seedOf = new Int32Array(n);
+  const push = (i, seed)=>{ if(!bg[i]){ bg[i] = 1; seedOf[i] = seed; stack.push(i); } };
+  for(let x = 0; x < W; x++){ push(x, x); push((H-1)*W + x, (H-1)*W + x); }
+  for(let y = 0; y < H; y++){ push(y*W, y*W); push(y*W + W-1, y*W + W-1); }
+  while(stack.length){
+    const i = stack.pop(), x = i % W, y = (i / W) | 0, seed = seedOf[i];
+    const nb = [x > 0 ? i-1 : -1, x < W-1 ? i+1 : -1, y > 0 ? i-W : -1, y < H-1 ? i+W : -1];
+    for(const j of nb){
+      if(j < 0 || bg[j]) continue;
+      /* smooth gradients are backdrop; a jump in colour is the car's edge */
+      if(dist(i, j) < 18 && dist(seed, j) < 90){ bg[j] = 1; seedOf[j] = seed; stack.push(j); }
+    }
+  }
+  let fg = 0, x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for(let i = 0; i < n; i++){
+    if(bg[i]){ d[i*4+3] = 0; continue; }
+    fg++;
+    const x = i % W, y = (i / W) | 0;
+    if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y;
+  }
+  /* the cut-out must be a sensible share of the picture and not touch the frame everywhere */
+  if(fg < n*0.04 || fg > n*0.7 || x1 < 0) return null;
+  if((x1-x0) > W*0.98 && (y1-y0) > H*0.98) return null;
+  /* soften the cut edge a little */
+  for(let y = 1; y < H-1; y++) for(let x = 1; x < W-1; x++){
+    const i = y*W + x;
+    if(bg[i]) continue;
+    const edge = bg[i-1] + bg[i+1] + bg[i-W] + bg[i+W];
+    if(edge) d[i*4+3] = 255 - edge*45;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = document.createElement("canvas"); t.width = x1-x0+1; t.height = y1-y0+1;
+  t.getContext("2d").drawImage(c, x0, y0, t.width, t.height, 0, 0, t.width, t.height);
+  let url = t.toDataURL("image/webp", 0.9);
+  if(!url.startsWith("data:image/webp")) url = t.toDataURL("image/png");
+  return url;
+}
+/* a cut-out thumbnail if it's ready, otherwise the loading silhouette (swapped in place once ready) */
+function garThumbHTML(v, cls, thumb){
+  if(thumb && garThumbClean[thumb]) return `<img class="${cls} gar-render gar-cut" src="${garThumbClean[thumb]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  const g = garGhostHTML(v, cls);
+  return thumb && garThumbClean[thumb] !== false ? g.replace('class="', `data-clean-thumb="${escapeHtml(thumb)}" class="`) : g;
+}
 function garSilSrc(v){ return garSmoothSrc(resolveVehicleType(v)); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
@@ -8330,7 +8441,7 @@ function garVisualHTML(v, cls, opts){
   const a = garAssetFor(v, opts);
   if(a && a.kind === "render") return `<img class="${cls} gar-render" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.kind === "model" && garSnapshots[a.url]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
-  if(a && a.thumb) return `<img class="${cls} gar-thumbimg" src="${escapeHtml(a.thumb)}" alt="${escapeHtml(v.vehicle)}" draggable="false" referrerpolicy="no-referrer">`;
+  if(a && a.thumb) return garThumbHTML(v, cls, a.thumb);
   if(a || garAutoWaiting(v)) return garGhostHTML(v, cls);
   return garWireHTML(v, cls);
 }
@@ -8341,7 +8452,7 @@ function garShowcaseHTML(v, opts){
     return `<div class="gar-show kind-model">
       <div class="gar-contact" aria-hidden="true"></div>
       <div class="gar-model gar-model-3d">
-        ${a.thumb ? `<img class="gar-mv-wait gar-thumbimg" src="${escapeHtml(a.thumb)}" alt="" draggable="false" referrerpolicy="no-referrer">` : garGhostHTML(v, "gar-mv-wait")}
+        ${garThumbHTML(v, "gar-mv-wait", a.thumb)}
         <model-viewer class="gar-mv" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="3D model of ${escapeHtml(v.vehicle)}"
           camera-orbit="${escapeHtml(a.orbit || "-35deg 76deg auto")}" camera-controls disable-zoom disable-pan interaction-prompt="none"
           auto-rotate auto-rotate-delay="0" rotation-per-second="14deg" environment-image="neutral" tone-mapping="aces" exposure="1.05"
@@ -8353,8 +8464,8 @@ function garShowcaseHTML(v, opts){
     return `<div class="gar-show kind-sketch">
       <div class="gar-contact" aria-hidden="true"></div>
       <div class="gar-model gar-model-sf">
+        ${garThumbHTML(v, "gar-sf-wait", a.thumb)}
         <div class="gar-sf-frame">
-          ${a.thumb ? `<img class="gar-sf-thumb" src="${escapeHtml(a.thumb)}" alt="" draggable="false" referrerpolicy="no-referrer">` : ""}
           <iframe class="gar-sf" data-sf="${escapeHtml(a.uid)}" title="3D model of ${escapeHtml(v.vehicle)}" src="${garSfEmbedUrl(a.uid)}"
             allow="autoplay; fullscreen; xr-spatial-tracking" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
@@ -8390,8 +8501,15 @@ function wireGarAssets(container, onFail){
   container.querySelectorAll("img.gar-render[data-asset]").forEach(img=>{
     img.addEventListener("error", ()=>fail(img.dataset.asset), {once:true});
   });
-  container.querySelectorAll("img.gar-thumbimg").forEach(img=>{
-    img.addEventListener("error", ()=>{ img.hidden = true; }, {once:true});
+  container.querySelectorAll("[data-clean-thumb]").forEach(el=>{
+    const url = el.dataset.cleanThumb;
+    garCleanThumb(url).then(clean=>{
+      if(!clean || !el.isConnected) return;
+      const img = document.createElement("img");
+      img.className = el.className.replace(/\bgar-ghost\b/, "").trim() + " gar-render gar-cut";
+      img.src = clean; img.alt = ""; img.draggable = false;
+      el.replaceWith(img);
+    });
   });
   container.querySelectorAll("model-viewer.gar-mv").forEach(mv=>{
     const url = mv.dataset.asset;
