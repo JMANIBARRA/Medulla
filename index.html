@@ -445,6 +445,8 @@
     transition:opacity .18s ease;
   }
   #holo-speech-bubble.visible{opacity:1;pointer-events:auto;}
+  /* an open full-view window covers the portrait, so its bubble steps out of the way too */
+  body:has(#modal-overlay.open) #holo-speech-bubble{opacity:0;pointer-events:none;}
   .holo-speech-bubble__tail{
     position:absolute;width:10px;height:10px;margin-left:-5px;
     background:rgba(4,10,12,.9);
@@ -1119,22 +1121,72 @@
   /* Quick Launch tiles inside the Banking widget's own full-view modal (see renderBankQuickGrid/
      hydrateBankingFull) — a plain in-modal grid, not a separate floating popover, so it opens as
      the same centered modal every other widget's "enlarged view" already uses. */
-  .bank-quick-launch-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  /* Finance full view (redesign): own header with search + close, grid of app tiles, manage list */
+  #modal-panel.modal-custom{width:min(1050px,94vw);}
+  #modal-panel.modal-custom #modal-head{display:none;}
+  #modal-panel.modal-custom #modal-body{padding:26px 22px 14px;}
+  .fin-head{display:flex;align-items:center;gap:18px;margin:0 0 30px;padding:0 4px 0 16px;}
+  .fin-head-icon{width:40px;height:40px;flex:none;color:var(--accent);filter:drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 55%, transparent));}
+  .fin-head-icon svg{width:100%;height:100%;}
+  .fin-head-text{flex:1;min-width:0;}
+  .fin-head-text h2{margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em;color:var(--text-primary);}
+  .fin-head-text p{margin:4px 0 0;font-size:14px;color:#a9bcd6;}
+  .fin-search{display:flex;align-items:center;gap:10px;width:min(290px,40%);height:46px;padding:0 14px;border-radius:12px;background:rgba(9,20,38,.7);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);transition:border-color .15s, box-shadow .15s;}
+  .fin-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);}
+  .fin-search svg{width:18px;height:18px;flex:none;color:#9fb4d0;}
+  .fin-search input, .fin-search input:focus{flex:1;min-width:0;background:none !important;border:none !important;box-shadow:none !important;padding:0 !important;font:inherit;font-size:14px;color:var(--text-primary);outline:none;}
+  .fin-close{width:46px;height:46px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#dbe8f7;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.3);transition:background .15s, border-color .15s;}
+  .fin-close:hover{background:rgba(255,84,112,.18);border-color:var(--bad);color:#fff;}
+  .fin-close svg{width:20px;height:20px;}
+  .bank-quick-launch-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(116px,1fr));gap:18px 16px;padding:0 0 0 16px;}
   .bank-quick-tile{
-    display:flex;flex-direction:column;align-items:center;gap:6px;
-    width:76px;padding:10px 6px;
-    background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:10px;
-    color:var(--text-primary);cursor:pointer;
-    transition:border-color .12s ease, box-shadow .12s ease;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:12px;min-height:116px;padding:22px 10px 16px;
+    border-radius:16px;cursor:pointer;color:var(--text-primary);font:inherit;
+    background:linear-gradient(180deg, rgba(17,34,60,.85), rgba(10,21,40,.85));
+    border:1px solid rgba(130,153,184,.16);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px -14px rgba(0,0,0,.8);
+    transition:border-color .15s, box-shadow .15s, transform .15s, background .15s;
   }
-  .bank-quick-tile:hover{border-color:var(--accent-teal);box-shadow:0 0 10px -2px var(--accent-teal);}
+  .bank-quick-tile:hover, .bank-quick-tile:focus-visible{outline:none;transform:translateY(-2px);border-color:color-mix(in srgb, var(--accent) 60%, transparent);background:linear-gradient(180deg, rgba(22,46,82,.9), rgba(12,26,48,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 14px 30px -14px rgba(0,0,0,.8), 0 0 22px -8px var(--accent);}
   .bank-quick-tile-icon{
-    width:34px;height:34px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--bg-deep);border:1px solid var(--accent-teal);color:var(--accent-teal);
-    font-family:var(--font-display);font-weight:700;font-size:15px;flex:none;
+    width:46px;height:46px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-body);font-weight:800;font-size:17px;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 2px rgba(0,0,0,.35);
+    box-shadow:0 0 0 2px rgba(255,255,255,.12), 0 6px 16px -4px rgba(0,0,0,.6);
   }
-  .bank-quick-tile-label{font-size:11px;text-align:center;line-height:1.25;}
+  .bank-quick-tile-label{font-size:14px;font-weight:500;text-align:center;line-height:1.25;}
+  .fin-empty{grid-column:1/-1;padding:28px 0;text-align:center;color:var(--text-dim);font-size:14px;}
+  .fin-foot{margin:26px 0 0;padding:14px 0 0 16px;border-top:1px solid rgba(130,153,184,.14);}
+  .fin-manage-toggle{display:inline-flex;align-items:center;gap:12px;padding:6px 8px 6px 4px;border:none;background:none;color:var(--text-primary);font:inherit;font-size:15px;font-weight:500;cursor:pointer;border-radius:8px;}
+  .fin-manage-toggle:hover{color:#fff;background:rgba(90,169,255,.08);}
+  .fin-manage-toggle svg{width:20px;height:20px;color:#a9bcd6;}
+  .fin-manage-toggle .chev{width:15px;height:15px;transition:transform .15s;}
+  .fin-manage-toggle.open .chev{transform:rotate(90deg);}
+  .fin-manage{margin:12px 0 6px 16px;}
+  .fin-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:8px;background:rgba(9,20,38,.55);border:1px solid rgba(130,153,184,.12);}
+  .fin-row.is-hidden{opacity:.55;}
+  .fin-row-badge{width:32px;height:32px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;}
+  .fin-row-text{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .fin-row-text b{font-weight:500;font-size:14px;}
+  .fin-row-text a{font-size:12px;color:var(--text-dim);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fin-row-text a:hover{color:var(--accent);}
+  .fin-row-btn{height:32px;min-width:32px;padding:0 12px;border-radius:9px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;color:#c9d7ea;background:rgba(12,26,48,.8);border:1px solid rgba(130,153,184,.2);}
+  .fin-row-btn:hover{color:#fff;border-color:var(--accent);}
+  .fin-row-btn.danger{padding:0;}
+  .fin-row-btn.danger:hover{border-color:var(--bad);background:rgba(255,84,112,.18);}
+  .fin-add{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .fin-add input{flex:1;min-width:160px;height:40px;}
+  .fin-add .btn{height:40px;padding:0 18px;}
+  .fin-note{font-size:12px;color:var(--text-dim);margin:10px 0 0;}
+  @media (max-width:640px){
+    .fin-head{flex-wrap:wrap;padding:0;gap:12px;margin-bottom:20px;}
+    .fin-head-text{flex:1 1 calc(100% - 120px);}
+    .fin-search{order:3;width:100%;}
+    .bank-quick-launch-grid{padding:0;grid-template-columns:repeat(auto-fill, minmax(92px,1fr));gap:10px;}
+    .bank-quick-tile{min-height:100px;padding:16px 6px 12px;gap:9px;}
+    .bank-quick-tile-icon{width:40px;height:40px;font-size:15px;}
+    .bank-quick-tile-label{font-size:12.5px;}
+    .fin-foot, .fin-manage{padding-left:0;margin-left:0;}
+  }
 
   /* ---------- auth gate (first thing shown on a fresh device; Guest/login is remembered after that) ---------- */
   #auth-gate{
@@ -5414,6 +5466,8 @@ window.addEventListener("keydown",(e)=>{
 
 function openModal(def){
   modalTitle.textContent = def.title;
+  /* views that draw their own header (title, search, close) hide the generic one */
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking");
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
@@ -5971,16 +6025,24 @@ function renderFull(id){
   }
   if(id==="banking"){
     return `
-    <div id="bank-quick-grid" class="bank-quick-launch-grid" style="justify-content:flex-start;margin-bottom:14px;"></div>
-    <a href="#" id="bank-manage-toggle" style="font-size:11px;color:var(--accent-teal);">Manage list</a>
-    <div id="bank-manage-section" style="display:none;margin-top:12px;">
-      <div id="bank-full-list" style="margin:10px 0;"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <input id="bank-label-input" type="text" placeholder="Label e.g. Fidelity" style="flex:1;min-width:140px;"/>
-        <input id="bank-url-input" type="text" placeholder="https://www.fidelity.com" style="flex:2;min-width:180px;"/>
+    <div class="fin-head">
+      <span class="fin-head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg></span>
+      <div class="fin-head-text"><h2>Finance</h2><p>Banking, payments and financial services</p></div>
+      <label class="fin-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="bank-search-input" type="text" placeholder="Search apps..." autocomplete="off" aria-label="Search finance apps"></label>
+      <button type="button" class="fin-close" id="fin-close-btn" title="Close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div id="bank-quick-grid" class="bank-quick-launch-grid"></div>
+    <div class="fin-foot">
+      <button type="button" id="bank-manage-toggle" class="fin-manage-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Manage list</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+    </div>
+    <div id="bank-manage-section" class="fin-manage" style="display:none;">
+      <div id="bank-full-list"></div>
+      <div class="fin-add">
+        <input id="bank-label-input" type="text" placeholder="Name, e.g. Ally Bank"/>
+        <input id="bank-url-input" type="text" placeholder="ally.com"/>
         <button class="btn primary" id="bank-add-btn">Add</button>
       </div>
-      <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Opens the official site in a new tab.</p>
+      <p class="fin-note">Each tile opens the official site in a new tab (or the app, on a phone that has it).</p>
     </div>`;
   }
   if(id==="claudeprojects"){
@@ -12564,28 +12626,62 @@ function hydrateBankingMini(scope){
     if(def) openModal(def);
   });
 }
-function renderBankQuickGrid(container){
+/* letter badge color per entry: a stable hue from the name, so each tile keeps its own color
+   without trying to copy any company's actual logo */
+const BANK_BADGE_COLORS = [
+  ["#5aa9ff","#1f5fc4"], ["#ff6b81","#b8233f"], ["#3fd08f","#11865a"], ["#a78bfa","#6a3fd6"],
+  ["#ffb454","#c76a12"], ["#38c6e0","#127f99"], ["#f472b6","#b0287a"], ["#7c8cff","#3a46c9"],
+  ["#4fd1c5","#1a8a80"], ["#ff8a5c","#c2471c"],
+];
+function bankBadgeStyle(label){
+  let h = 0;
+  for(const ch of String(label||"").toLowerCase()) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+  const [hi, lo] = BANK_BADGE_COLORS[h % BANK_BADGE_COLORS.length];
+  return `background:radial-gradient(circle at 35% 30%, ${hi}, ${lo} 75%);`;
+}
+function bankInitials(label){
+  const words = String(label||"?").trim().split(/\s+/).filter(w=>/[a-z0-9$]/i.test(w));
+  if(words.length >= 2 && words[0].length <= 5 && words.length <= 3 && !/^(bank|the)$/i.test(words[0])) return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0] || "?")[0].toUpperCase();
+}
+function normalizeBankUrl(url){
+  url = String(url||"").trim();
+  if(!url) return "";
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = "https://" + url;
+  return url;
+}
+function renderBankQuickGrid(container, query){
+  if(!container) return;
+  const q = String(query||"").trim().toLowerCase();
   const visible = bankData.filter(b=>!b.hidden);
-  container.innerHTML = visible.length ? visible.map((b,i)=>`<button type="button" class="bank-quick-tile" data-i="${i}">
-      <span class="bank-quick-tile-icon">${escapeHtml((b.label||"?").trim()[0]||"?").toUpperCase()}</span>
+  const shown = q ? visible.filter(b=>String(b.label).toLowerCase().includes(q)) : visible;
+  if(!visible.length){
+    container.innerHTML = `<div class="fin-empty">Nothing to launch yet — open Manage list to add one.</div>`;
+    return;
+  }
+  if(!shown.length){
+    container.innerHTML = `<div class="fin-empty">No apps match “${escapeHtml(query.trim())}”.</div>`;
+    return;
+  }
+  container.innerHTML = shown.map(b=>`<button type="button" class="bank-quick-tile" data-i="${bankData.indexOf(b)}" title="Open ${escapeHtml(b.label)}">
+      <span class="bank-quick-tile-icon" style="${bankBadgeStyle(b.label)}">${escapeHtml(bankInitials(b.label))}</span>
       <span class="bank-quick-tile-label">${escapeHtml(b.label)}</span>
-    </button>`).join("") : `<div style="color:var(--text-dim);font-size:12px;">Nothing to launch yet — add one below.</div>`;
+    </button>`).join("");
   container.querySelectorAll(".bank-quick-tile").forEach(tile=>{
     tile.addEventListener("click", ()=>{
-      const b = visible[Number(tile.dataset.i)];
-      if(b) window.open(b.url, "_blank", "noopener,noreferrer");
+      const b = bankData[Number(tile.dataset.i)];
+      if(b) window.open(normalizeBankUrl(b.url), "_blank", "noopener,noreferrer");
     });
   });
 }
 function renderBankFullList(container, scope){
   container.innerHTML = bankData.length ? bankData.map((b,i)=>`
-    <div class="list-row">
-      <span>${b.hidden?'<span style="color:var(--text-dim);">(hidden) </span>':''}${b.label} — <a class="linkcard" href="${b.url}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-teal);">${b.url}</a></span>
-      <span style="display:flex;gap:4px;">
-        <button class="hbtn" style="width:auto;padding:0 6px;" data-act="toggle" data-i="${i}">${b.hidden?'show':'hide'}</button>
-        <button class="hbtn" data-act="del" data-i="${i}">✕</button>
-      </span>
-    </div>`).join("") : `<div style="color:var(--text-dim);">No banks yet.</div>`;
+    <div class="fin-row${b.hidden ? " is-hidden" : ""}">
+      <span class="fin-row-badge" style="${bankBadgeStyle(b.label)}">${escapeHtml(bankInitials(b.label))}</span>
+      <span class="fin-row-text"><b>${escapeHtml(b.label)}</b><a href="${escapeHtml(normalizeBankUrl(b.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(b.url)}</a></span>
+      <button type="button" class="fin-row-btn" data-act="toggle" data-i="${i}">${b.hidden ? "Show" : "Hide"}</button>
+      <button type="button" class="fin-row-btn danger" data-act="del" data-i="${i}" title="Remove ${escapeHtml(b.label)}" aria-label="Remove">✕</button>
+    </div>`).join("") : `<div class="fin-empty">No apps in the list yet.</div>`;
   container.querySelectorAll("[data-act]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       const i = Number(btn.dataset.i);
@@ -12593,29 +12689,44 @@ function renderBankFullList(container, scope){
       else bankData[i].hidden = !bankData[i].hidden;
       saveJSON(NS+"banklinks", bankData);
       renderBankFullList(container, scope);
-      renderBankQuickGrid(scope.querySelector("#bank-quick-grid")); // Quick Launch reflects hide/delete immediately, same modal, no reopen needed
+      renderBankQuickGrid(scope.querySelector("#bank-quick-grid"), scope.querySelector("#bank-search-input").value);
     });
   });
 }
 function hydrateBankingFull(scope){
-  renderBankQuickGrid(scope.querySelector("#bank-quick-grid"));
+  const search = scope.querySelector("#bank-search-input");
+  const grid = scope.querySelector("#bank-quick-grid");
+  renderBankQuickGrid(grid);
   renderBankFullList(scope.querySelector("#bank-full-list"), scope);
-  scope.querySelector("#bank-manage-toggle").addEventListener("click", (e)=>{
-    e.preventDefault();
-    const section = scope.querySelector("#bank-manage-section");
-    section.style.display = section.style.display==="none" ? "block" : "none";
+  search.addEventListener("input", ()=>renderBankQuickGrid(grid, search.value));
+  /* Enter opens the first match — type "rob", press Enter, Robinhood opens */
+  search.addEventListener("keydown", e=>{
+    if(e.key==="Enter"){ e.preventDefault(); const first = grid.querySelector(".bank-quick-tile"); if(first) first.click(); }
   });
-  scope.querySelector("#bank-add-btn").addEventListener("click",()=>{
+  scope.querySelector("#fin-close-btn").addEventListener("click", ()=>closeModal());
+  const toggle = scope.querySelector("#bank-manage-toggle");
+  toggle.addEventListener("click", ()=>{
+    const section = scope.querySelector("#bank-manage-section");
+    const open = section.style.display==="none";
+    section.style.display = open ? "block" : "none";
+    toggle.classList.toggle("open", open);
+    if(open) scope.querySelector("#bank-label-input").focus();
+  });
+  const add = ()=>{
     const labelInput = scope.querySelector("#bank-label-input");
     const urlInput = scope.querySelector("#bank-url-input");
-    const label = labelInput.value.trim(), url = urlInput.value.trim();
-    if(!label || !url) return;
+    const label = labelInput.value.trim(), url = normalizeBankUrl(urlInput.value);
+    if(!label || !url){ (label ? urlInput : labelInput).focus(); return; }
     bankData.push({label, url, hidden:false});
     saveJSON(NS+"banklinks", bankData);
     labelInput.value=""; urlInput.value="";
+    labelInput.focus();
     renderBankFullList(scope.querySelector("#bank-full-list"), scope);
-    renderBankQuickGrid(scope.querySelector("#bank-quick-grid"));
-  });
+    renderBankQuickGrid(grid, search.value);
+  };
+  scope.querySelector("#bank-add-btn").addEventListener("click", add);
+  scope.querySelectorAll("#bank-label-input, #bank-url-input").forEach(inp=>inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); add(); } }));
+  setTimeout(()=>{ if(window.matchMedia("(pointer:fine)").matches) search.focus(); }, 50);
 }
 
 /* ================= CLAUDE PROJECTS WIDGET ================= */
