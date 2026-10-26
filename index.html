@@ -1154,6 +1154,12 @@
     box-shadow:0 0 0 2px rgba(255,255,255,.12), 0 6px 16px -4px rgba(0,0,0,.6);
   }
   .bank-quick-tile-label{font-size:14px;font-weight:500;text-align:center;line-height:1.25;}
+  /* favicon badges: the site's icon on a light disc; letters stay underneath until it loads */
+  .bank-quick-tile-icon, .fin-row-badge{position:relative;overflow:hidden;}
+  .badge-icon{position:absolute;inset:0;margin:auto;width:66%;height:66%;object-fit:contain;border-radius:22%;opacity:0;transition:opacity .2s;}
+  .has-icon{background:radial-gradient(circle at 35% 30%, #ffffff, #dfe7f2 80%) !important;}
+  .has-icon .badge-icon{opacity:1;}
+  .has-icon .badge-letters{visibility:hidden;}
   .fin-empty{grid-column:1/-1;padding:28px 0;text-align:center;color:var(--text-dim);font-size:14px;}
   .fin-foot{margin:26px 0 0;padding:14px 0 0 16px;border-top:1px solid rgba(130,153,184,.14);}
   .fin-manage-toggle{display:inline-flex;align-items:center;gap:12px;padding:6px 8px 6px 4px;border:none;background:none;color:var(--text-primary);font:inherit;font-size:15px;font-weight:500;cursor:pointer;border-radius:8px;}
@@ -12644,6 +12650,40 @@ function bankInitials(label){
   if(words.length >= 2 && words[0].length <= 5 && words.length <= 3 && !/^(bank|the)$/i.test(words[0])) return (words[0][0] + words[1][0]).toUpperCase();
   return (words[0] || "?")[0].toUpperCase();
 }
+/* site icon for a tile: the site's own favicon, fetched through Google's public favicon service
+   (sites block direct cross-origin favicon requests inconsistently; this one always answers).
+   Unknown sites get a tiny 16px default globe back, so anything under 32px is treated as "no
+   icon" and the letter badge stays. Results are remembered for the session so tiles don't flicker
+   on every re-render. */
+const bankIconState = {}; /* domain -> "ok" | "none" */
+function bankIconDomain(url){
+  let host = "";
+  try{ host = new URL(normalizeBankUrl(url)).hostname.toLowerCase(); }catch(e){ return ""; }
+  if(!host || !host.includes(".")) return "";
+  const parts = host.split(".");
+  /* keep the registrable part: secure.bankofamerica.com -> bankofamerica.com, x.co.uk -> x.co.uk */
+  const keep = (parts.length > 2 && parts[parts.length-1].length === 2 && /^(co|com|org|net|gov|ac)$/.test(parts[parts.length-2])) ? 3 : 2;
+  return parts.slice(-keep).join(".");
+}
+function bankBadgeHTML(b, cls){
+  const domain = bankIconDomain(b.url);
+  const letters = escapeHtml(bankInitials(b.label));
+  const useIcon = domain && bankIconState[domain] !== "none";
+  return `<span class="${cls}${useIcon && bankIconState[domain]==="ok" ? " has-icon" : ""}" style="${bankBadgeStyle(b.label)}" data-domain="${escapeHtml(domain)}"><span class="badge-letters">${letters}</span>${useIcon ? `<img class="badge-icon" alt="" loading="lazy" referrerpolicy="no-referrer" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128">` : ""}</span>`;
+}
+function wireBankIcons(container){
+  container.querySelectorAll("img.badge-icon").forEach(img=>{
+    const badge = img.parentElement, domain = badge.dataset.domain;
+    const done = ()=>{
+      const ok = img.naturalWidth >= 32;
+      bankIconState[domain] = ok ? "ok" : "none";
+      if(ok) badge.classList.add("has-icon"); else img.remove();
+    };
+    const fail = ()=>{ bankIconState[domain] = "none"; img.remove(); };
+    if(img.complete && img.naturalWidth) done();
+    else { img.addEventListener("load", done, {once:true}); img.addEventListener("error", fail, {once:true}); }
+  });
+}
 function normalizeBankUrl(url){
   url = String(url||"").trim();
   if(!url) return "";
@@ -12664,9 +12704,10 @@ function renderBankQuickGrid(container, query){
     return;
   }
   container.innerHTML = shown.map(b=>`<button type="button" class="bank-quick-tile" data-i="${bankData.indexOf(b)}" title="Open ${escapeHtml(b.label)}">
-      <span class="bank-quick-tile-icon" style="${bankBadgeStyle(b.label)}">${escapeHtml(bankInitials(b.label))}</span>
+      ${bankBadgeHTML(b, "bank-quick-tile-icon")}
       <span class="bank-quick-tile-label">${escapeHtml(b.label)}</span>
     </button>`).join("");
+  wireBankIcons(container);
   container.querySelectorAll(".bank-quick-tile").forEach(tile=>{
     tile.addEventListener("click", ()=>{
       const b = bankData[Number(tile.dataset.i)];
@@ -12677,11 +12718,12 @@ function renderBankQuickGrid(container, query){
 function renderBankFullList(container, scope){
   container.innerHTML = bankData.length ? bankData.map((b,i)=>`
     <div class="fin-row${b.hidden ? " is-hidden" : ""}">
-      <span class="fin-row-badge" style="${bankBadgeStyle(b.label)}">${escapeHtml(bankInitials(b.label))}</span>
+      ${bankBadgeHTML(b, "fin-row-badge")}
       <span class="fin-row-text"><b>${escapeHtml(b.label)}</b><a href="${escapeHtml(normalizeBankUrl(b.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(b.url)}</a></span>
       <button type="button" class="fin-row-btn" data-act="toggle" data-i="${i}">${b.hidden ? "Show" : "Hide"}</button>
       <button type="button" class="fin-row-btn danger" data-act="del" data-i="${i}" title="Remove ${escapeHtml(b.label)}" aria-label="Remove">✕</button>
     </div>`).join("") : `<div class="fin-empty">No apps in the list yet.</div>`;
+  wireBankIcons(container);
   container.querySelectorAll("[data-act]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       const i = Number(btn.dataset.i);
