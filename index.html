@@ -1203,23 +1203,71 @@
   .gar-arrow svg{width:22px;height:22px;}
   .gar-root.is-empty .gar-arrow, .gar-root.single .gar-arrow, .gar-root.is-empty .gar-browse, .gar-root.single .gar-browse{visibility:hidden;}
   .gar-stage{position:relative;z-index:2;height:clamp(250px,44vh,330px);margin-top:4px;perspective:1100px;touch-action:pan-y;}
-  .gar-platform{position:absolute;left:50%;bottom:6%;width:min(640px,64%);aspect-ratio:640/150;transform:translateX(-50%);}
-  .gar-ring{position:absolute;inset:14% 6%;border-radius:50%;border:4px solid #3fb4ff;box-shadow:0 0 16px 3px rgba(63,180,255,.85), inset 0 0 18px 2px rgba(63,180,255,.6);}
-  .gar-ring.outer{inset:0;border:2px solid rgba(90,169,255,.25);background:radial-gradient(ellipse at 50% 50%, rgba(20,50,100,.85), rgba(8,18,40,.95) 70%);box-shadow:0 18px 40px rgba(0,0,0,.6), 0 0 40px -10px rgba(63,180,255,.6);}
-  .gar-ring.inner{inset:30% 22%;border:1px solid rgba(120,200,255,.35);box-shadow:none;}
-  .gar-beam{position:absolute;left:12%;right:12%;bottom:50%;height:180%;background:radial-gradient(ellipse 50% 100% at 50% 100%, rgba(63,180,255,.22), transparent 70%);pointer-events:none;}
-  .gar-car{position:absolute;left:50%;bottom:44%;transform:translateX(-50%);width:74%;height:175%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;}
-  .gar-car-visual{max-width:100%;max-height:100%;}
-  .gar-car.enter-right .gar-car-visual{animation:garInRight .38s cubic-bezier(.2,.8,.2,1);}
-  .gar-car.enter-left .gar-car-visual{animation:garInLeft .38s cubic-bezier(.2,.8,.2,1);}
-  @keyframes garInRight{from{opacity:0;transform:translateX(60px) scale(.94);}to{opacity:1;transform:none;}}
-  @keyframes garInLeft{from{opacity:0;transform:translateX(-60px) scale(.94);}to{opacity:1;transform:none;}}
-  /* hologram = the body-style silhouette used as a mask over a lit gradient with scanlines */
-  .gar-holo{width:100%;aspect-ratio:3.25/1;-webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;
-    background:repeating-linear-gradient(0deg, rgba(255,255,255,.14) 0 1px, transparent 1px 3px), linear-gradient(180deg,#f2f8ff 0%,#9fd0ff 45%,#3d8bff 100%);}
-  .gar-car .gar-holo{filter:drop-shadow(0 0 14px rgba(90,170,255,.8));width:100%;}
-  .gar-photo{display:block;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);}
-  .gar-car .gar-photo{max-height:100%;max-width:100%;filter:drop-shadow(0 18px 18px rgba(0,0,0,.55));}
+  /* ---- showroom stage: studio spotlight + metallic pedestal with a glowing rim ---- */
+  @property --gar-sweep{syntax:"<angle>";inherits:false;initial-value:0deg;}
+  .gar-spot{position:absolute;left:50%;top:-14%;width:min(720px,72%);height:110%;transform:translateX(-50%);pointer-events:none;
+    background:conic-gradient(from 180deg at 50% 0%, transparent 152deg, rgba(150,200,255,.10) 168deg, rgba(190,225,255,.16) 180deg, rgba(150,200,255,.10) 192deg, transparent 208deg);
+    -webkit-mask-image:linear-gradient(180deg, #000 30%, transparent 92%);mask-image:linear-gradient(180deg, #000 30%, transparent 92%);filter:blur(6px);}
+  .gar-platform{position:absolute;left:50%;bottom:7%;width:min(660px,66%);aspect-ratio:660/140;transform:translateX(-50%);}
+  .gar-ped-spill{position:absolute;left:-22%;right:-22%;top:20%;height:150%;border-radius:50%;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 40%, rgba(40,150,255,.30), rgba(30,110,230,.12) 45%, transparent 70%);filter:blur(6px);}
+  .gar-ped-side{position:absolute;left:1.5%;right:1.5%;top:14%;bottom:-12%;border-radius:50%;
+    background:linear-gradient(180deg,#14284a 0%,#0a1426 55%,#050a15 100%);
+    box-shadow:0 22px 40px rgba(0,0,0,.65), inset 0 -3px 0 rgba(63,180,255,.55), 0 4px 18px -4px rgba(63,180,255,.6);}
+  .gar-ped-top{position:absolute;inset:0 0 10% 0;border-radius:50%;
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(160,205,255,.20), transparent 55%),
+      repeating-radial-gradient(ellipse at 50% 50%, rgba(120,180,255,.05) 0 2px, transparent 2px 9px),
+      radial-gradient(ellipse at 50% 50%, #1f3a66 0%, #12274a 48%, #0b1a33 74%, #08142a 100%);
+    box-shadow:inset 0 2px 0 rgba(200,230,255,.18), inset 0 -10px 24px rgba(0,0,0,.45);}
+  .gar-ped-ring{position:absolute;inset:0 0 10% 0;border-radius:50%;
+    background:conic-gradient(from var(--gar-sweep), #2a9cff, #d6f1ff 7%, #3fb4ff 16%, #2a9cff 50%, #d6f1ff 57%, #3fb4ff 66%, #2a9cff);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    filter:drop-shadow(0 0 6px #3fb4ff) drop-shadow(0 0 14px rgba(63,180,255,.7));animation:gar-sweep 7s linear infinite;}
+  @keyframes gar-sweep{to{--gar-sweep:360deg;}}
+  .gar-ped-inner{position:absolute;inset:22% 20% 30% 20%;border-radius:50%;border:1px dashed rgba(140,200,255,.28);}
+  /* ---- the car: grounded with a contact shadow, a floor reflection and a slow light sweep ---- */
+  .gar-car{position:absolute;left:50%;bottom:46%;transform:translateX(-50%);width:62%;height:165%;pointer-events:none;}
+  .gar-show{position:absolute;inset:0;}
+  .gar-model{position:absolute;left:0;right:0;bottom:0;top:0;display:flex;align-items:flex-end;justify-content:center;}
+  .gar-model .gar-img, .gar-model .gar-sil{position:relative;display:block;max-width:100%;max-height:100%;}
+  .gar-model .gar-img{object-fit:contain;object-position:center bottom;
+    filter:drop-shadow(0 1px 0 rgba(170,215,255,.35)) drop-shadow(0 10px 14px rgba(0,0,0,.45));}
+  .gar-show.kind-photo .gar-model{left:8%;right:8%;}
+  .gar-show.kind-photo .gar-model .gar-img{border-radius:10px;filter:brightness(.92) saturate(1.05);
+    -webkit-mask-image:radial-gradient(ellipse 68% 74% at 50% 56%, #000 42%, transparent 100%);mask-image:radial-gradient(ellipse 68% 74% at 50% 56%, #000 42%, transparent 100%);}
+  .gar-contact{position:absolute;left:8%;right:8%;bottom:-5%;height:12%;border-radius:50%;
+    background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.85) 0%, rgba(0,0,0,.55) 40%, transparent 72%);filter:blur(4px);}
+  .gar-show.kind-photo .gar-contact{left:16%;right:16%;}
+  .gar-reflect{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;transform-origin:50% 100%;transform:scaleY(-1);
+    opacity:.3;filter:blur(1px);-webkit-mask-image:linear-gradient(to top, #000 0%, rgba(0,0,0,.3) 12%, transparent 24%);mask-image:linear-gradient(to top, #000 0%, rgba(0,0,0,.3) 12%, transparent 24%);}
+  .gar-reflect .gar-img, .gar-reflect .gar-sil{display:block;max-width:100%;max-height:100%;}
+  .gar-reflect .gar-img{object-fit:contain;object-position:center bottom;}
+  .gar-reflect .gar-sil{width:100%;}
+  .gar-show.kind-photo .gar-reflect{opacity:.14;}
+  /* specular sweep: a light band masked to the car's own shape */
+  .gar-sheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;
+    -webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;
+    background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.0) 42%, rgba(220,240,255,.45) 50%, rgba(255,255,255,0) 58%, transparent 62%) no-repeat;
+    background-size:250% 100%;background-position:150% 0;animation:gar-sheen 7s ease-in-out infinite;}
+  @keyframes gar-sheen{0%,55%{background-position:150% 0;}85%,100%{background-position:-60% 0;}}
+  .gar-show.kind-silhouette .gar-sheen{animation-duration:6s;}
+  /* silhouette fallback: a dark studio "car cover" shape with a blue rim light */
+  .gar-sil{width:100%;aspect-ratio:3.25/1;-webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;
+    background:linear-gradient(180deg,#b9d7ff 0%,#6c95d4 22%,#34588f 52%,#1a2f52 80%,#0f1d36 100%);}
+  .gar-model .gar-sil{width:100%;}
+  /* the glow must sit outside the mask, so it goes on the wrapper */
+  .gar-show.kind-silhouette .gar-model{filter:drop-shadow(0 0 1px rgba(170,215,255,.95)) drop-shadow(0 0 12px rgba(63,150,255,.55));}
+  /* entrance: slide in from the side, overshoot slightly, settle */
+  .gar-car.enter-right .gar-show{animation:garInRight .55s cubic-bezier(.2,.9,.25,1.12);}
+  .gar-car.enter-left .gar-show{animation:garInLeft .55s cubic-bezier(.2,.9,.25,1.12);}
+  @keyframes garInRight{0%{opacity:0;transform:translateX(90px);filter:blur(3px);}60%{opacity:1;filter:blur(0);}100%{transform:none;}}
+  @keyframes garInLeft{0%{opacity:0;transform:translateX(-90px);filter:blur(3px);}60%{opacity:1;filter:blur(0);}100%{transform:none;}}
+  /* small visuals (side panels, manage list, form preview) */
+  .gar-img{display:block;object-fit:contain;}
+  .gar-img.kind-photo{-webkit-mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 72% 78% at 50% 50%, #000 62%, transparent 100%);}
+  .gar-panel .gar-img, .gar-mthumb .gar-img, .gar-photo-preview .gar-img{max-width:100%;max-height:100%;filter:drop-shadow(0 6px 8px rgba(0,0,0,.5));}
+  .gar-panel .gar-sil, .gar-mthumb .gar-sil, .gar-photo-preview .gar-sil{width:100%;}
   /* side glass panels */
   .gar-side{position:absolute;inset:0;transform-style:preserve-3d;}
   .gar-panel{position:absolute;top:10%;height:58%;padding:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;
@@ -1231,7 +1279,6 @@
   .gar-panel.r2{left:88.5%;width:14%;height:50%;top:14%;transform:rotateY(-36deg);opacity:.8;}
   .gar-panel.l2{right:88.5%;width:14%;height:50%;top:14%;transform:rotateY(36deg);opacity:.8;}
   .gar-panel-visual{max-width:100%;max-height:100%;}
-  .gar-panel .gar-holo{width:100%;}
   .gar-browse{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px;font-size:14px;color:#a9c8f0;}
   .gar-browse::before, .gar-browse::after{content:"";width:80px;height:1px;background:linear-gradient(90deg, transparent, rgba(90,169,255,.6), transparent);}
   .gar-dots{position:relative;z-index:2;display:flex;justify-content:center;gap:10px;min-height:10px;margin-top:10px;}
@@ -1269,10 +1316,9 @@
   .gar-field select option, .gar-field select optgroup{background:#0b1830;}
   .gar-photo-pick{grid-column:1/-1;display:flex;gap:16px;align-items:center;padding:12px;border-radius:14px;background:rgba(6,14,28,.55);border:1px solid rgba(130,153,184,.14);}
   .gar-photo-preview{width:190px;height:96px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:10px;background:radial-gradient(ellipse at 50% 70%, rgba(40,110,230,.3), transparent 70%);}
-  .gar-photo-preview .gar-photo{max-width:100%;max-height:100%;}
-  .gar-photo-preview .gar-holo{width:100%;filter:drop-shadow(0 0 8px rgba(90,170,255,.7));}
   .gar-photo-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
   .gar-photo-btns label{cursor:pointer;}
+  .gar-photo-btns .gar-url{flex:1 1 100%;margin-top:4px;}
   .gar-hint{width:100%;margin:2px 0 0;font-size:11.5px;color:var(--text-dim);}
   .gar-form-status{grid-column:1/-1;min-height:16px;font-size:12.5px;color:#ffb4c0;}
   .gar-sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px 18px;border-top:1px solid rgba(130,153,184,.12);}
@@ -1283,7 +1329,6 @@
   .gar-mrow.current{border-color:rgba(90,169,255,.5);}
   .gar-mthumb{width:88px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;padding:0;border:none;background:none;cursor:pointer;}
   .gar-mthumb-visual{max-width:100%;max-height:100%;}
-  .gar-mthumb .gar-holo{width:100%;}
   .gar-mtext{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;padding:0;border:none;background:none;cursor:pointer;color:inherit;font:inherit;text-align:left;}
   .gar-mtext b{font-weight:600;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gar-mtext span{font-size:12px;color:var(--text-dim);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1298,7 +1343,7 @@
   .gar-root > .garage-door-scene{z-index:20;border-radius:20px;}
   .gar-root .garage-door{background:linear-gradient(180deg,#0d1d38,#0a1730);}
   @media (prefers-reduced-motion: reduce){
-    .gar-car.enter-right .gar-car-visual, .gar-car.enter-left .gar-car-visual{animation:none;}
+    .gar-car.enter-right .gar-show, .gar-car.enter-left .gar-show, .gar-sheen, .gar-ped-ring{animation:none;}
     .gar-sheet, .gar-sheet-backdrop{transition:none;}
   }
   @media (max-width:700px){
@@ -1315,6 +1360,7 @@
     .gar-specs{font-size:13px;gap:2px 10px;}
     .gar-specs span + span::before{margin-right:10px;}
     .gar-platform{width:88%;}
+    .gar-spot{width:100%;}
     .gar-panel.r2, .gar-panel.l2{display:none;}
     .gar-panel.r1{left:84%;width:24%;}
     .gar-panel.l1{right:84%;width:24%;}
@@ -7963,37 +8009,136 @@ function garSmoothSrc(type){
       c.width = w*S + pad*2; c.height = h*S + pad*2;
       const ctx = c.getContext("2d");
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-      ctx.filter = "blur(4.5px)";
+      ctx.filter = "blur(3px)";
       ctx.drawImage(img, pad, pad, w*S, h*S);
       garSmoothCache[type] = c.toDataURL("image/png");
-      document.querySelectorAll(`.gar-holo[data-holo="${type}"]`).forEach(el=>el.style.setProperty("--src", `url('${garSmoothCache[type]}')`));
+      document.querySelectorAll(`[data-holo="${type}"]`).forEach(el=>el.style.setProperty("--src", `url('${garSmoothCache[type]}')`));
     }catch(e){ garSmoothCache[type] = garIconSrc(type); }
   };
   img.onerror = ()=>{ garSmoothCache[type] = garIconSrc(type); };
   img.src = garIconSrc(type);
   return garIconSrc(type);
 }
-function garVisualHTML(v, cls){
-  const photo = v.photoId && garagePhotos[v.photoId];
-  if(photo) return `<img class="${cls} gar-photo" src="${photo}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
-  const type = resolveVehicleType(v);
-  return `<div class="${cls} gar-holo" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)}" style="--src:url('${garSmoothSrc(type)}')"></div>`;
+/* ---- vehicle imagery: uploaded image > image link > body-style silhouette ----
+   Uploaded images live on this device (garagePhotos); v.photoCutout records whether the upload
+   had transparency. v.imageUrl is a link to a (normally transparent PNG) cutout and syncs with the
+   rest of the vehicle. Anything that fails to load falls back to the silhouette. */
+const garImgFailed = {};   /* src -> true once it has failed to load (skip straight to silhouette) */
+const garTrimCache = {};   /* image link -> trimmed data URL, when the host allows reading pixels */
+function garImageSource(v, opts={}){
+  if(opts.forceSilhouette) return null;
+  const up = v.photoId && garagePhotos[v.photoId];
+  if(up && !garImgFailed[up]) return {src: up, kind: v.photoCutout ? "cutout" : "photo"};
+  const link = (v.imageUrl||"").trim();
+  if(link && !garImgFailed[link]) return {src: garTrimCache[link] || link, orig: link, kind:"cutout"};
+  return null;
 }
-/* shrink an uploaded photo to at most 900px wide; keeps transparency (webp) where the browser
-   can encode it, else JPEG */
+function garSilSrc(v){ return garSmoothSrc(resolveVehicleType(v)); }
+/* small visual (side panels, manage list, form preview) */
+function garVisualHTML(v, cls, opts){
+  const img = garImageSource(v, opts);
+  if(img) return `<img class="${cls} gar-img kind-${img.kind}" src="${escapeHtml(img.src)}" data-orig="${escapeHtml(img.orig||img.src)}" alt="${escapeHtml(v.vehicle)}" draggable="false" referrerpolicy="no-referrer">`;
+  const type = resolveVehicleType(v);
+  return `<div class="${cls} gar-sil" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)}" style="--src:url('${garSilSrc(v)}')"></div>`;
+}
+/* the main stage: contact shadow + the car + a light sweep across it + a reflection on the floor */
+function garShowcaseHTML(v, opts){
+  const img = garImageSource(v, opts);
+  const kind = img ? img.kind : "silhouette";
+  const maskSrc = img ? img.src : garSilSrc(v);
+  const body = img
+    ? `<img class="gar-img" src="${escapeHtml(img.src)}" data-orig="${escapeHtml(img.orig||img.src)}" alt="${escapeHtml(v.vehicle)}" draggable="false" referrerpolicy="no-referrer">`
+    : `<div class="gar-sil" data-holo="${escapeHtml(resolveVehicleType(v))}" role="img" aria-label="${escapeHtml(v.vehicle)}" style="--src:url('${maskSrc}')"></div>`;
+  const reflect = img
+    ? `<img class="gar-img" src="${escapeHtml(img.src)}" alt="" aria-hidden="true" draggable="false" referrerpolicy="no-referrer">`
+    : `<div class="gar-sil" data-holo="${escapeHtml(resolveVehicleType(v))}" style="--src:url('${maskSrc}')"></div>`;
+  return `<div class="gar-show kind-${kind}">
+    <div class="gar-contact" aria-hidden="true"></div>
+    <div class="gar-model">${body}${kind==="photo" ? "" : `<div class="gar-sheen" aria-hidden="true" style="--src:url('${escapeHtml(maskSrc)}')"></div>`}</div>
+    <div class="gar-reflect" aria-hidden="true">${reflect}</div>
+  </div>`;
+}
+/* hook up load-failure fallback (and auto-trim for image links) for every image in a container;
+   onFail re-renders whatever that container shows */
+function wireGarImages(container, onFail){
+  container.querySelectorAll("img.gar-img").forEach(img=>{
+    const orig = img.dataset.orig || img.getAttribute("src");
+    img.addEventListener("error", ()=>{
+      if(garImgFailed[orig]) return;
+      garImgFailed[orig] = true; garImgFailed[img.getAttribute("src")] = true;
+      if(onFail) onFail();
+    }, {once:true});
+    if(orig && !orig.startsWith("data:") && !garTrimCache[orig] && !garTrimCache["pending:"+orig]){
+      garTrimCache["pending:"+orig] = true;
+      garTrimImage(orig).then(trimmed=>{
+        if(!trimmed) return;
+        garTrimCache[orig] = trimmed;
+        document.querySelectorAll(`img.gar-img[data-orig="${CSS.escape(orig)}"]`).forEach(el=>{ el.src = trimmed; });
+        document.querySelectorAll(".gar-show").forEach(show=>{
+          const main = show.querySelector(`img.gar-img[data-orig="${CSS.escape(orig)}"]`);
+          if(!main) return;
+          show.querySelectorAll(".gar-reflect img").forEach(r=>{ r.src = trimmed; });
+          const sheen = show.querySelector(".gar-sheen"); if(sheen) sheen.style.setProperty("--src", `url('${trimmed}')`);
+        });
+      });
+    }
+  });
+}
+/* crop away transparent margins so the wheels sit on the stage; needs the image host to allow
+   cross-origin reads (most CDNs do) — otherwise the original link is used as-is */
+function garTrimImage(src){
+  return new Promise(resolve=>{
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.referrerPolicy = "no-referrer";
+    im.onload = ()=>{
+      try{ resolve(garTrimCanvas(im).dataUrl); }catch(e){ resolve(null); }
+    };
+    im.onerror = ()=>resolve(null);
+    im.src = src;
+  });
+}
+/* draw an image, detect whether it has real transparency, and crop to the visible pixels */
+function garTrimCanvas(im, maxW=1000, maxH=640){
+  const scale = Math.min(1, maxW / im.naturalWidth, maxH / im.naturalHeight);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(im.naturalWidth*scale)); c.height = Math.max(1, Math.round(im.naturalHeight*scale));
+  const ctx = c.getContext("2d");
+  ctx.drawImage(im, 0, 0, c.width, c.height);
+  const {data} = ctx.getImageData(0, 0, c.width, c.height);
+  let transparent = 0, x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for(let y = 0; y < c.height; y++){
+    for(let x = 0; x < c.width; x++){
+      const a = data[(y*c.width + x)*4 + 3];
+      if(a < 250) transparent++;
+      if(a > 24){ if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
+    }
+  }
+  const cutout = transparent > c.width*c.height*0.03 && x1 >= 0;
+  if(!cutout) return {canvas:c, cutout:false, dataUrl:null};
+  const pad = 2;
+  x0 = Math.max(0, x0-pad); y0 = Math.max(0, y0-pad); x1 = Math.min(c.width-1, x1+pad); y1 = Math.min(c.height-1, y1+pad);
+  const t = document.createElement("canvas");
+  t.width = x1-x0+1; t.height = y1-y0+1;
+  t.getContext("2d").drawImage(c, x0, y0, t.width, t.height, 0, 0, t.width, t.height);
+  let out = t.toDataURL("image/webp", 0.86);
+  if(!out.startsWith("data:image/webp")) out = t.toDataURL("image/png");
+  return {canvas:t, cutout:true, dataUrl:out};
+}
+/* uploads: shrink, and if the image is a transparent cutout keep the transparency and trim it */
 function garCompressPhoto(file){
   return new Promise((resolve, reject)=>{
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = ()=>{
-      const scale = Math.min(1, 900 / img.naturalWidth, 600 / img.naturalHeight);
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.naturalWidth*scale); c.height = Math.round(img.naturalHeight*scale);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      let out = c.toDataURL("image/webp", 0.82);
-      if(!out.startsWith("data:image/webp")) out = c.toDataURL("image/jpeg", 0.84);
-      resolve(out);
+      try{
+        const r = garTrimCanvas(img, 1000, 640);
+        if(r.cutout) return resolve({dataUrl:r.dataUrl, cutout:true});
+        let out = r.canvas.toDataURL("image/webp", 0.82);
+        if(!out.startsWith("data:image/webp")) out = r.canvas.toDataURL("image/jpeg", 0.84);
+        resolve({dataUrl:out, cutout:false});
+      }catch(e){ reject(new Error("That image couldn't be processed.")); }
     };
     img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("That file couldn't be read as an image.")); };
     img.src = url;
@@ -8016,8 +8161,15 @@ function garageFullHTML(){
     </div>
     <div class="gar-stage" id="gar-stage">
       <div class="gar-side" id="gar-side"></div>
-      <div class="gar-platform"><div class="gar-ring outer" aria-hidden="true"></div><div class="gar-ring" aria-hidden="true"></div><div class="gar-ring inner" aria-hidden="true"></div><div class="gar-beam" aria-hidden="true"></div>
-        <div class="gar-car" id="gar-car"></div></div>
+      <div class="gar-spot" aria-hidden="true"></div>
+      <div class="gar-platform">
+        <div class="gar-ped-spill" aria-hidden="true"></div>
+        <div class="gar-ped-side" aria-hidden="true"></div>
+        <div class="gar-ped-top" aria-hidden="true"></div>
+        <div class="gar-ped-ring" aria-hidden="true"></div>
+        <div class="gar-ped-inner" aria-hidden="true"></div>
+        <div class="gar-car" id="gar-car"></div>
+      </div>
     </div>
     <div class="gar-browse" id="gar-browse"><span>Scroll to browse vehicles</span></div>
     <div class="gar-dots" id="gar-dots"></div>
@@ -8066,7 +8218,8 @@ function hydrateGarageFull(scope){
     const v = list[garageSelectedIndex];
     $g("#gar-name").textContent = v.vehicle;
     $g("#gar-specs").innerHTML = garSpecs(v).map(s=>`<span>${escapeHtml(s)}</span>`).join("") || `<span class="dim">Add details with Customize</span>`;
-    car.innerHTML = garVisualHTML(v, "gar-car-visual");
+    car.innerHTML = garShowcaseHTML(v);
+    wireGarImages(car, ()=>{ lastDir = 0; render(); });
     car.classList.remove("enter-left","enter-right"); void car.offsetWidth;
     if(lastDir) car.classList.add(lastDir > 0 ? "enter-right" : "enter-left");
     /* neighbours on the glass panels: next on the right, previous on the left, then one further each way */
@@ -8079,6 +8232,7 @@ function hydrateGarageFull(scope){
     });
     side.innerHTML = slots.map(({slot,i})=>`<button type="button" class="gar-panel ${slot}" data-i="${i}" title="${escapeHtml(list[i].vehicle)}" aria-label="Show ${escapeHtml(list[i].vehicle)}">${garVisualHTML(list[i], "gar-panel-visual")}</button>`).join("");
     side.querySelectorAll("[data-i]").forEach(b=>b.addEventListener("click", ()=>select(Number(b.dataset.i))));
+    wireGarImages(side, ()=>{ lastDir = 0; render(); });
     $g("#gar-dots").innerHTML = n > 1 ? list.map((_,i)=>`<button type="button" class="${i===garageSelectedIndex?"on":""}" data-dot="${i}" aria-label="Vehicle ${i+1}"></button>`).join("") : "";
     $g("#gar-dots").querySelectorAll("[data-dot]").forEach(b=>b.addEventListener("click", ()=>select(Number(b.dataset.dot))));
   }
@@ -8147,16 +8301,17 @@ function hydrateGarageFull(scope){
   function openForm(index){
     const editing = index != null;
     const v = editing ? vehicles()[index] : {vehicle:"", year:"", drive:"", engine:"", mileage:"", type:""};
-    let pendingPhoto = editing && v.photoId ? (garagePhotos[v.photoId] || null) : null;
+    let pendingPhoto = editing && v.photoId && garagePhotos[v.photoId] ? {dataUrl: garagePhotos[v.photoId], cutout: !!v.photoCutout} : null;
     openSheet(`
       <div class="gar-sheet-head"><h4>${editing ? "Customize vehicle" : "Add a vehicle"}</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
       <div class="gar-form">
         <div class="gar-photo-pick">
           <div class="gar-photo-preview" id="gar-photo-preview"></div>
           <div class="gar-photo-btns">
-            <label class="gar-btn small">${GAR_ICONS.camera}<span id="gar-photo-label">${pendingPhoto ? "Change photo" : "Add photo"}</span><input type="file" accept="image/*" id="gar-photo-input" hidden></label>
-            <button type="button" class="gar-btn small ghost" id="gar-photo-remove"${pendingPhoto ? "" : " hidden"}>Remove photo</button>
-            <p class="gar-hint">A side-on photo with a plain background looks best. Photos stay on this device.</p>
+            <label class="gar-btn small">${GAR_ICONS.camera}<span id="gar-photo-label">${pendingPhoto ? "Change image" : "Upload image"}</span><input type="file" accept="image/*" id="gar-photo-input" hidden></label>
+            <button type="button" class="gar-btn small ghost" id="gar-photo-remove"${pendingPhoto ? "" : " hidden"}>Remove upload</button>
+            <label class="gar-field gar-url"><span>…or image link</span><input type="url" id="gar-f-url" placeholder="https://…/my-car.png" value="${escapeHtml(v.imageUrl||"")}"></label>
+            <p class="gar-hint">A transparent PNG cutout (side or ¾ view) looks best on the stage. Uploads stay on this device; links sync everywhere. No image? The body-style silhouette is used.</p>
           </div>
         </div>
         <label class="gar-field wide"><span>Vehicle</span><input type="text" id="gar-f-name" placeholder="e.g. Ford Ranger" value="${escapeHtml(v.vehicle)}"></label>
@@ -8175,12 +8330,25 @@ function hydrateGarageFull(scope){
     applyLiveTitleCase(nameInp);
     const preview = sheet.querySelector("#gar-photo-preview");
     const typeSel = sheet.querySelector("#gar-f-type");
+    const urlInp = sheet.querySelector("#gar-f-url");
     function drawPreview(){
-      const fake = {vehicle: nameInp.value || "Vehicle", type: typeSel.value};
-      preview.innerHTML = pendingPhoto ? `<img class="gar-photo" src="${pendingPhoto}" alt="">` : garVisualHTML(fake, "gar-preview-holo");
+      const fake = {vehicle: nameInp.value || "Vehicle", type: typeSel.value, imageUrl: urlInp.value.trim()};
+      if(pendingPhoto){ preview.innerHTML = `<img class="gar-preview-holo gar-img kind-${pendingPhoto.cutout ? "cutout" : "photo"}" src="${pendingPhoto.dataUrl}" alt="">`; return; }
+      preview.innerHTML = garVisualHTML(fake, "gar-preview-holo");
+      wireGarImages(preview, ()=>{
+        const st = sheet.querySelector("#gar-form-status");
+        if(st && urlInp.value.trim()) st.textContent = "That image link didn't load — the silhouette will be shown instead.";
+        drawPreview();
+      });
     }
     drawPreview();
     typeSel.addEventListener("change", drawPreview);
+    let urlTimer = null;
+    urlInp.addEventListener("input", ()=>{
+      clearTimeout(urlTimer);
+      sheet.querySelector("#gar-form-status").textContent = "";
+      urlTimer = setTimeout(()=>{ delete garImgFailed[urlInp.value.trim()]; drawPreview(); }, 400);
+    });
     nameInp.addEventListener("input", ()=>{ if(!typeSel.value && !pendingPhoto) drawPreview(); });
     sheet.querySelector("#gar-photo-input").addEventListener("change", async e=>{
       const file = e.target.files && e.target.files[0];
@@ -8190,14 +8358,14 @@ function hydrateGarageFull(scope){
       try{
         pendingPhoto = await garCompressPhoto(file);
         status.textContent = "";
-        sheet.querySelector("#gar-photo-label").textContent = "Change photo";
+        sheet.querySelector("#gar-photo-label").textContent = "Change image";
         sheet.querySelector("#gar-photo-remove").hidden = false;
         drawPreview();
       }catch(err){ status.textContent = err.message; }
     });
     sheet.querySelector("#gar-photo-remove").addEventListener("click", ()=>{
       pendingPhoto = null;
-      sheet.querySelector("#gar-photo-label").textContent = "Add photo";
+      sheet.querySelector("#gar-photo-label").textContent = "Upload image";
       sheet.querySelector("#gar-photo-remove").hidden = true;
       drawPreview();
     });
@@ -8218,11 +8386,15 @@ function hydrateGarageFull(scope){
       entry.engine = sheet.querySelector("#gar-f-engine").value.trim();
       entry.mileage = sheet.querySelector("#gar-f-miles").value.trim();
       if(typeSel.value) entry.type = typeSel.value; else delete entry.type;
+      const link = urlInp.value.trim();
+      if(link && !/^(https?:|data:image\/)/i.test(link)){ status.textContent = "The image link should start with https://"; urlInp.focus(); return; }
+      if(link){ entry.imageUrl = link; delete garImgFailed[link]; } else delete entry.imageUrl;
       const oldPhotoId = entry.photoId;
       if(pendingPhoto){
-        if(!entry.photoId || garagePhotos[entry.photoId] !== pendingPhoto){
+        entry.photoCutout = !!pendingPhoto.cutout;
+        if(!entry.photoId || garagePhotos[entry.photoId] !== pendingPhoto.dataUrl){
           entry.photoId = entry.photoId || ("p" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
-          garagePhotos[entry.photoId] = pendingPhoto;
+          garagePhotos[entry.photoId] = pendingPhoto.dataUrl;
           if(!saveGaragePhotos()){
             delete garagePhotos[entry.photoId]; if(!oldPhotoId) delete entry.photoId;
             status.textContent = "This browser is out of storage space for photos — try a smaller image, or remove another vehicle's photo.";
@@ -8230,7 +8402,7 @@ function hydrateGarageFull(scope){
           }
         }
       } else if(oldPhotoId){
-        delete garagePhotos[oldPhotoId]; delete entry.photoId; saveGaragePhotos();
+        delete garagePhotos[oldPhotoId]; delete entry.photoId; delete entry.photoCutout; saveGaragePhotos();
       }
       if(!editing){ garageData.vehicles.push(entry); garageSelectedIndex = garageData.vehicles.length - 1; lastDir = 1; }
       save(); render(); closeSheet();
@@ -8277,6 +8449,7 @@ function hydrateGarageFull(scope){
       </div>
       <div class="gar-sheet-foot"><span class="gar-hint">${list.length} vehicle${list.length===1?"":"s"}</span><button type="button" class="gar-btn small primary" id="gar-m-add">${GAR_ICONS.plus}<span>Add Vehicle</span></button></div>`);
     sheet.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", closeSheet));
+    wireGarImages(sheet, ()=>{ render(); openManage(); });
     sheet.querySelector("#gar-m-add").addEventListener("click", ()=>openForm(null));
     sheet.querySelectorAll("[data-show]").forEach(b=>b.addEventListener("click", ()=>{ select(Number(b.dataset.show)); closeSheet(); }));
     sheet.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>{ garageSelectedIndex = Number(b.dataset.edit); render(); openForm(garageSelectedIndex); }));
