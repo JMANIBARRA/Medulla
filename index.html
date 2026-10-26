@@ -1121,6 +1121,67 @@
   /* Quick Launch tiles inside the Banking widget's own full-view modal (see renderBankQuickGrid/
      hydrateBankingFull) — a plain in-modal grid, not a separate floating popover, so it opens as
      the same centered modal every other widget's "enlarged view" already uses. */
+  /* ---------- Arcade full view (redesign) ---------- */
+  #modal-panel.modal-custom.modal-arcade{width:min(740px,94vw);}
+  .arc-head{display:flex;align-items:center;gap:14px;margin:-6px 0 18px;padding:0 0 16px 2px;border-bottom:1px solid rgba(130,153,184,.14);}
+  .arc-head-icon{width:34px;height:34px;color:var(--accent);filter:drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 55%, transparent));}
+  .arc-head-icon svg{width:100%;height:100%;}
+  .arc-head h2{flex:1;margin:0;font-size:23px;font-weight:600;color:var(--text-primary);}
+  .arc-close{width:38px;height:38px;}
+  .arc-close svg{width:17px;height:17px;}
+  .arc-tabs{display:inline-flex;gap:4px;padding:4px;margin-bottom:16px;border-radius:14px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .arc-tab{height:36px;padding:0 26px;border-radius:10px;border:none;background:none;color:#c3d4ea;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,color .15s;}
+  .arc-tab:hover{color:#fff;}
+  .arc-tab.active{color:#fff;background:linear-gradient(180deg,#2f8bff,#1462e0);box-shadow:0 6px 18px -6px #2f7bff, inset 0 1px 0 rgba(255,255,255,.25);}
+  .arc-card{padding:18px 18px 16px;border-radius:16px;background:linear-gradient(180deg, rgba(15,32,58,.7), rgba(8,18,35,.7));border:1px solid color-mix(in srgb, var(--accent) 20%, transparent);}
+  .arc-card-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-left:4px;}
+  .arc-card-icon{width:36px;height:36px;flex:none;}
+  .arc-card-icon svg{width:100%;height:100%;}
+  .arc-card-head h3{margin:0;font-size:16px;font-weight:600;color:var(--text-primary);text-transform:none;letter-spacing:0;font-family:var(--font-body);}
+  .arc-card-head p{margin:3px 0 0;font-size:12px;color:#a9bcd6;}
+  .arc-card-head > div:nth-child(2){flex:1;min-width:0;}
+  .arc-stats{display:flex;gap:8px;}
+  .arc-stats span{padding:5px 10px;border-radius:9px;font-size:12px;color:#a9bcd6;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);white-space:nowrap;}
+  .arc-stats b{color:#fff;font-family:var(--font-mono);margin-left:4px;}
+  .arc-screen{border-radius:12px;overflow:hidden;border:1px solid rgba(130,153,184,.22);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);}
+  .arc-screen{background:#0b1a33;}
+  .arc-screen canvas{display:block;width:100%;height:auto;max-height:min(48vh,420px);object-fit:contain;cursor:pointer;touch-action:manipulation;}
+  .arc-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:38px;padding:0 18px;border-radius:10px;cursor:pointer;
+    font:inherit;font-size:13.5px;font-weight:600;color:#dbe8f7;background:rgba(12,26,48,.85);border:1px solid rgba(130,153,184,.25);transition:background .15s,border-color .15s,box-shadow .15s,opacity .15s;}
+  .arc-btn svg{width:18px;height:18px;flex:none;}
+  .arc-btn:hover:not(:disabled){border-color:var(--accent);color:#fff;}
+  .arc-btn.primary{color:#fff;border-color:transparent;background:linear-gradient(180deg,#2f8bff,#1462e0);box-shadow:0 8px 20px -8px #2f7bff, inset 0 1px 0 rgba(255,255,255,.25);}
+  .arc-btn.primary:hover:not(:disabled){box-shadow:0 10px 24px -6px #2f7bff, inset 0 1px 0 rgba(255,255,255,.3);}
+  .arc-btn:disabled{opacity:.4;cursor:default;}
+  .arc-btn.wide{display:flex;width:100%;height:46px;margin-top:16px;font-size:15px;}
+  .arc-btn.wide svg{width:20px;height:20px;}
+  .arc-hint{margin:10px 0 0;text-align:center;font-size:11.5px;color:var(--text-dim);}
+  .bj-table{padding:18px 16px 18px;border-radius:12px;background:radial-gradient(ellipse at 50% 0%, rgba(40,100,200,.16), transparent 70%), rgba(6,14,28,.55);border:1px solid rgba(130,153,184,.14);font-size:19px;}
+  .bj-label{display:flex;align-items:center;justify-content:center;gap:12px;font-size:12.5px;color:#a9bcd6;margin:0 0 10px;}
+  .bj-label::before, .bj-label::after{content:"";width:42px;height:1px;background:rgba(130,153,184,.3);}
+  .bj-hand{display:flex;align-items:center;justify-content:center;gap:16px;min-height:4.9em;margin-bottom:16px;}
+  .bj-hand .card-row{min-height:4.7em;}
+  .bj-value{min-width:36px;height:28px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-family:var(--font-mono);font-size:13.5px;font-weight:600;color:#cfe4ff;background:rgba(20,50,100,.55);border:1px solid rgba(90,160,255,.35);}
+  .bj-value:empty{visibility:hidden;}
+  .bj-message{min-height:22px;margin:-4px 0 12px;text-align:center;font-size:13.5px;font-weight:600;color:#a9c8f0;}
+  .bj-message[data-tone="win"]{color:var(--good);}
+  .bj-message[data-tone="lose"]{color:var(--bad);}
+  .bj-actions{display:grid;grid-template-columns:repeat(2, minmax(0,170px));justify-content:center;gap:10px 14px;}
+  .bj-actions .deal{grid-column:1/-1;justify-self:center;width:200px;}
+  .bj-footer{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:#a9bcd6;}
+  .bj-balance-wrap{display:inline-flex;align-items:center;gap:8px;}
+  .bj-balance-wrap svg{width:18px;height:18px;}
+  .bj-balance-wrap b{font-size:15px;color:#fff;font-weight:700;}
+  .bj-bet{display:inline-flex;align-items:center;gap:4px;}
+  .bj-bet input{width:72px;height:30px;padding:0 8px !important;font-family:var(--font-mono);font-size:13px;}
+  @media (max-width:640px){
+    .arc-tabs{display:flex;}
+    .arc-tab{flex:1;padding:0 8px;}
+    .arc-stats{display:none;}
+    .bj-table{font-size:15px;padding:14px 8px;}
+    .bj-actions{grid-template-columns:repeat(2, minmax(0,1fr));}
+    .bj-actions .deal{width:100%;}
+  }
   /* Finance full view (redesign): own header with search + close, grid of app tiles, manage list */
   #modal-panel.modal-custom{width:min(1050px,94vw);}
   #modal-panel.modal-custom #modal-head{display:none;}
@@ -1285,21 +1346,27 @@
      wider, which is what actually keeps every column inside the card no matter what. */
   .mkt-fixed-table{table-layout:fixed;}
   .mkt-fixed-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .card-row{display:flex;gap:0.25em;justify-content:center;flex-wrap:wrap;align-items:center;}
+  .card-row{display:flex;gap:0.45em;justify-content:center;flex-wrap:wrap;align-items:center;}
+  /* playing cards (redesign): white cards, rank + small suit in the corner, big suit in the middle;
+     sized in em so the mini widget and the full view both scale them from their own font size */
   .playing-card{
-    display:inline-flex;flex-direction:column;justify-content:space-between;
-    width:3.4em;height:4.7em;border-radius:0.15em;background:linear-gradient(160deg,#1c130a,#241a10);
-    color:var(--accent-teal);padding:0.16em 0.28em;font-family:var(--font-mono);font-weight:700;
-    box-shadow:0 3px 10px rgba(0,0,0,.6), 0 0 8px -2px var(--accent-teal), inset 0 0 0 1px rgba(111,184,201,.25);
-    line-height:1;flex:none;
-    text-shadow:0 0 6px currentColor;
+    position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;
+    width:3.4em;height:4.7em;border-radius:0.32em;
+    background:linear-gradient(170deg,#ffffff,#e9eef6);color:#0b1a33;
+    font-family:var(--font-body);font-weight:700;line-height:1;
+    box-shadow:0 0.35em 0.9em -0.2em rgba(0,0,0,.6), inset 0 0 0 1px rgba(10,30,60,.12);
   }
-  .playing-card.red{color:var(--accent-rust);box-shadow:0 3px 10px rgba(0,0,0,.6), 0 0 8px -2px var(--accent-rust), inset 0 0 0 1px rgba(193,68,44,.25);}
-  .playing-card .pc-rank{font-size:0.72em;align-self:flex-start;}
-  .playing-card .pc-suit{font-size:1.3em;align-self:center;}
+  .playing-card.red{color:#e5333f;}
+  .playing-card .pc-corner{position:absolute;top:0.28em;left:0.32em;display:flex;flex-direction:column;align-items:center;gap:0.06em;}
+  .playing-card .pc-rank{font-size:0.95em;letter-spacing:-.04em;}
+  .playing-card .pc-mini{font-size:0.62em;}
+  .playing-card .pc-suit{font-size:1.75em;margin-top:0.45em;}
   .playing-card.back{
-    background:repeating-linear-gradient(135deg, var(--accent-violet), var(--accent-violet) 4px, #050708 4px, #050708 8px);
-    box-shadow:0 2px 6px rgba(0,0,0,.5), 0 0 8px -2px var(--accent-violet), inset 0 0 0 1px rgba(0,0,0,.2);
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.22) 0 1px, transparent 1.5px) 0 0/0.45em 0.45em,
+      repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 0.18em, transparent 0.18em 0.36em),
+      linear-gradient(160deg,#2f7bff,#0f47b8);
+    box-shadow:0 0 0 0.16em #f2f6fc, 0 0.35em 0.9em -0.2em rgba(0,0,0,.6), 0 0 1em -0.3em #3d8bff;
   }
   @keyframes card-deal{
     0%{ transform:translate(-40px,-26px) scale(.8) rotate(-14deg); opacity:0; }
@@ -5473,7 +5540,8 @@ window.addEventListener("keydown",(e)=>{
 function openModal(def){
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade");
+  document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
@@ -5993,41 +6061,49 @@ function renderFull(id){
   }
   if(id==="arcade"){
     return `
-    <div style="display:flex;gap:6px;margin-bottom:14px;">
-      <button class="btn primary" id="arcade-tab-flappy">Endless Momentum</button>
-      <button class="btn" id="arcade-tab-blackjack">Blackjack</button>
+    <div class="arc-head">
+      <span class="arc-head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 5 5v.5a3.5 3.5 0 0 1-6.3 2.1L14.5 14h-5l-1.2 1.6A3.5 3.5 0 0 1 2 13.5V13a5 5 0 0 1 5-5z"/><path d="M7.5 10.5v3.5M5.75 12.25h3.5"/><circle cx="15.5" cy="11" r=".9" fill="currentColor"/><circle cx="17.8" cy="13" r=".9" fill="currentColor"/></svg></span>
+      <h2>Arcade</h2>
+      <button type="button" class="fin-close arcade-close" id="arcade-close-btn" title="Close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
-    <div id="arcade-panel-flappy">
-      <canvas id="flappy-canvas" width="380" height="420" style="background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;display:block;margin:0 auto;"></canvas>
-      <div style="text-align:center;margin-top:10px;font-family:var(--font-mono);font-size:12px;">
-        Score: <span id="flappy-score">0</span> &middot; High score: <span id="flappy-high">0</span>
-      </div>
-      <div style="text-align:center;margin-top:8px;">
-        <button class="btn primary" id="flappy-start-btn">Start</button>
-      </div>
-      <p style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">Click the canvas or press space to flap.</p>
+    <div class="arc-tabs" role="tablist">
+      <button type="button" class="arc-tab" id="arcade-tab-flappy" role="tab">Endless Momentum</button>
+      <button type="button" class="arc-tab" id="arcade-tab-blackjack" role="tab">Blackjack</button>
     </div>
-    <div id="arcade-panel-blackjack" style="display:none;text-align:center;font-family:var(--font-mono);">
-      <div style="margin-bottom:6px;color:var(--text-dim);font-size:11px;">Dealer</div>
-      <div id="bj-dealer-cards" class="card-row" style="min-height:2.9em;margin-top:4px;"></div>
-      <div id="bj-dealer-value" style="font-size:11px;color:var(--text-dim);margin-bottom:12px;"></div>
-      <div style="margin-bottom:6px;color:var(--text-dim);font-size:11px;">You</div>
-      <div id="bj-player-cards" class="card-row" style="min-height:2.9em;margin-top:4px;"></div>
-      <div id="bj-player-value" style="font-size:11px;color:var(--text-dim);margin-bottom:12px;"></div>
-      <div id="bj-message" style="min-height:20px;color:var(--accent-teal);margin-bottom:10px;font-size:12px;"></div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:10px;">
-        <button class="btn primary" id="bj-hit-btn" disabled style="flex:1;max-width:9em;padding:0.6em;">Hit</button>
-        <button class="btn primary" id="bj-stand-btn" disabled style="flex:1;max-width:9em;padding:0.6em;">Stand</button>
+    <section class="arc-card" id="arcade-panel-flappy">
+      <div class="arc-card-head">
+        <span class="arc-card-icon"><svg viewBox="0 0 32 32"><path d="M6 17c0-6 5-10 11-10 4 0 7 2 9 5l3-1-2 4c0 6-5 10-11 10S6 23 6 17z" fill="#3d8bff"/><path d="M9 19c2 3 5 4 8 4 3 0 6-1 8-4-3 1-6 1-8 0-3 1-6 1-8 0z" fill="#cfe4ff"/><path d="M4 14l6 2-6 3z" fill="#2a63c8"/><circle cx="20" cy="13" r="2.2" fill="#fff"/><circle cx="20.6" cy="13" r="1.1" fill="#0b1a33"/><path d="M26 15l5 1.5-5 1.5z" fill="#ffb02e"/></svg></span>
+        <div><h3>Endless Momentum</h3><p>Keep going. The further you get, the higher your score.</p></div>
+        <div class="arc-stats"><span>Score <b id="flappy-score">0</b></span><span>Best <b id="flappy-high">0</b></span></div>
       </div>
-      <div style="display:flex;justify-content:center;margin-bottom:10px;">
-        <button class="btn primary" id="bj-deal-btn" style="padding:0.6em 2em;">Deal</button>
+      <div class="arc-screen"><canvas id="flappy-canvas" width="560" height="380" aria-label="Endless Momentum game — click or press Space to flap"></canvas></div>
+      <button type="button" class="arc-btn primary wide" id="flappy-start-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4.5h4.5"/></svg><span>Start</span></button>
+      <p class="arc-hint">Click the game or press Space to flap.</p>
+    </section>
+    <section class="arc-card" id="arcade-panel-blackjack" style="display:none;">
+      <div class="arc-card-head">
+        <span class="arc-card-icon"><svg viewBox="0 0 32 32"><rect x="5" y="6" width="14" height="20" rx="2.5" transform="rotate(-12 12 16)" fill="#2a63c8"/><rect x="12" y="5" width="14" height="20" rx="2.5" fill="#3d8bff"/><path d="M19 10.5c-1.6 2-3.5 3.3-3.5 5.2a2 2 0 0 0 3.2 1.6L18 20h2l-.7-2.7a2 2 0 0 0 3.2-1.6c0-1.9-1.9-3.2-3.5-5.2z" fill="#fff"/></svg></span>
+        <div><h3>Blackjack</h3><p>Beat the dealer without going over 21.</p></div>
       </div>
-      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">
-        <button class="btn" id="bj-double-btn" disabled>Double Down</button>
-        <button class="btn" id="bj-restart-btn">Restart</button>
+      <div class="bj-table">
+        <div class="bj-label"><span>Dealer</span></div>
+        <div class="bj-hand"><div id="bj-dealer-cards" class="card-row"></div><span class="bj-value" id="bj-dealer-value"></span></div>
+        <div class="bj-label"><span>You</span></div>
+        <div class="bj-hand"><div id="bj-player-cards" class="card-row"></div><span class="bj-value" id="bj-player-value"></span></div>
+        <div id="bj-message" class="bj-message" aria-live="polite"></div>
+        <div class="bj-actions">
+          <button type="button" class="arc-btn primary" id="bj-hit-btn" disabled><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M12 8v8M8 12h8" stroke="#1060e0" stroke-width="2.4" stroke-linecap="round"/></svg><span>Hit</span></button>
+          <button type="button" class="arc-btn" id="bj-stand-btn" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12h12"/></svg><span>Stand</span></button>
+          <button type="button" class="arc-btn deal" id="bj-deal-btn"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5" fill="currentColor"/><path d="M12 7.5c-1.4 1.8-3 2.9-3 4.5a1.7 1.7 0 0 0 2.7 1.4L11 16h2l-.7-2.6A1.7 1.7 0 0 0 15 12c0-1.6-1.6-2.7-3-4.5z" fill="#0d1b31"/></svg><span>Deal</span></button>
+          <button type="button" class="arc-btn" id="bj-double-btn" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l4-5 4 4 8-8"/><path d="M15 5h5v5"/></svg><span>Double Down</span></button>
+          <button type="button" class="arc-btn" id="bj-restart-btn" title="Reset your balance to $1,000"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M21 4v4.5h-4.5"/></svg><span>Restart</span></button>
+        </div>
       </div>
-      <div id="bj-balance" style="color:var(--accent-amber);font-size:13px;">$1000</div>
-    </div>`;
+      <div class="bj-footer">
+        <span class="bj-balance-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5M5 11.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/></svg>Balance <b id="bj-balance">$1,000</b></span>
+        <label class="bj-bet">Bet $<input id="bj-bet-input" type="text" inputmode="numeric" autocomplete="off" aria-label="Bet amount"></label>
+      </div>
+    </section>`;
   }
   if(id==="banking"){
     return `
@@ -12193,18 +12269,22 @@ function hydrateArcadeFull(scope){
   const tabBJ = scope.querySelector("#arcade-tab-blackjack");
   const panelFlappy = scope.querySelector("#arcade-panel-flappy");
   const panelBJ = scope.querySelector("#arcade-panel-blackjack");
-  tabFlappy.addEventListener("click", ()=>{
-    panelFlappy.style.display=""; panelBJ.style.display="none";
-    tabFlappy.classList.add("primary"); tabBJ.classList.remove("primary");
-  });
-  tabBJ.addEventListener("click", ()=>{
-    panelBJ.style.display=""; panelFlappy.style.display="none";
-    tabBJ.classList.add("primary"); tabFlappy.classList.remove("primary");
-    bjAutoDealIfEmpty();
-  });
+  function show(which){
+    const bj = which==="blackjack";
+    panelBJ.style.display = bj ? "" : "none";
+    panelFlappy.style.display = bj ? "none" : "";
+    tabBJ.classList.toggle("active", bj); tabFlappy.classList.toggle("active", !bj);
+    tabBJ.setAttribute("aria-selected", String(bj)); tabFlappy.setAttribute("aria-selected", String(!bj));
+    if(arcadeData.lastTab !== which){ arcadeData.lastTab = which; saveArcadeData(); }
+    if(bj) bjAutoDealIfEmpty();
+  }
+  tabFlappy.addEventListener("click", ()=>show("flappy"));
+  tabBJ.addEventListener("click", ()=>show("blackjack"));
+  scope.querySelector("#arcade-close-btn").addEventListener("click", ()=>closeModal());
 
   const flappyCleanup = setupFlappy(scope);
   const bjCleanup = setupBlackjack(scope);
+  show(arcadeData.lastTab==="blackjack" ? "blackjack" : "flappy");
 
   return function cleanup(){
     flappyCleanup();
@@ -12217,24 +12297,154 @@ function setupFlappy(scope, ids){
   ids = Object.assign({canvas:"#flappy-canvas", score:"#flappy-score", high:"#flappy-high", start:"#flappy-start-btn"}, ids||{});
   const canvas = scope.querySelector(ids.canvas);
   const ctx2 = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
+  /* logical size comes from the canvas attributes; the backing store is scaled up for sharp
+     rendering on Retina screens (done once per canvas element) */
+  if(!canvas.dataset.logicalW){ canvas.dataset.logicalW = canvas.width; canvas.dataset.logicalH = canvas.height; }
+  const W = Number(canvas.dataset.logicalW), H = Number(canvas.dataset.logicalH);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W*dpr); canvas.height = Math.round(H*dpr);
+  ctx2.setTransform(dpr,0,0,dpr,0,0);
   const scoreEl = scope.querySelector(ids.score);
   const highEl = scope.querySelector(ids.high);
   const startBtn = scope.querySelector(ids.start);
   highEl.textContent = arcadeData.flappyHigh;
+  const setStartLabel = t=>{ const sp = startBtn.querySelector("span"); if(sp) sp.textContent = t; else startBtn.textContent = t; };
 
   const GRAVITY = 0.5, FLAP_V = -8.2, MAX_FALL = 11, PIPE_W = 54, PIPE_GAP = 150, PIPE_SPEED = 2.6, SPAWN_FRAMES = 95;
-  let bird, pipes, frame, score, playing, rafId;
+  const GROUND_H = Math.max(10, Math.round(H*0.055));
+  const FIELD_H = H - GROUND_H; /* playable height, above the ground strip */
+  let bird, pipes, frame, score, playing, rafId, lastScore = null;
+
+  /* ---- scenery, generated once per canvas: stars + two layers of city skyline ---- */
+  const rand = (()=>{ let seed = 1337; return ()=>((seed = (seed*16807) % 2147483647) / 2147483647); })();
+  const stars = Array.from({length: Math.round(W*H/5200)}, ()=>({x:rand()*W, y:rand()*FIELD_H*0.6, r:rand()*1.1+0.3, a:rand()*0.6+0.25}));
+  function makeSkyline(minH, maxH, minW, maxW, windows){
+    const out = []; let x = -10;
+    while(x < W*2 + 20){
+      const w = minW + rand()*(maxW-minW), h = minH + rand()*(maxH-minH);
+      const lit = [];
+      if(windows){
+        for(let wy = FIELD_H - h + 8; wy < FIELD_H - 8; wy += 9)
+          for(let wx = x + 5; wx < x + w - 6; wx += 8)
+            if(rand() < 0.28) lit.push([wx - x, wy]);
+      }
+      out.push({x, w, h, lit, spire: rand() < 0.15});
+      x += w + rand()*6;
+    }
+    return {blocks: out, width: x};
+  }
+  const farCity = makeSkyline(FIELD_H*0.18, FIELD_H*0.42, 18, 42, false);
+  const nearCity = makeSkyline(FIELD_H*0.12, FIELD_H*0.32, 22, 50, true);
+
+  function drawCity(city, speed, color, windowColor){
+    const off = (frame*PIPE_SPEED*speed) % city.width;
+    for(const pass of [0, city.width]){
+      for(const b of city.blocks){
+        const bx = b.x - off + pass;
+        if(bx > W || bx + b.w < 0) continue;
+        ctx2.fillStyle = color;
+        ctx2.fillRect(bx, FIELD_H - b.h, b.w, b.h);
+        if(b.spire){ ctx2.fillRect(bx + b.w/2 - 1.5, FIELD_H - b.h - 12, 3, 12); }
+        if(windowColor){
+          ctx2.fillStyle = windowColor;
+          for(const [wx, wy] of b.lit) ctx2.fillRect(bx + wx, wy, 3, 4);
+        }
+      }
+    }
+  }
+  function drawBackground(){
+    const sky = ctx2.createLinearGradient(0,0,0,FIELD_H);
+    sky.addColorStop(0,"#071228"); sky.addColorStop(0.6,"#0c2148"); sky.addColorStop(1,"#163a72");
+    ctx2.fillStyle = sky; ctx2.fillRect(0,0,W,H);
+    for(const st of stars){ ctx2.globalAlpha = st.a; ctx2.fillStyle = "#cfe4ff"; ctx2.beginPath(); ctx2.arc(st.x, st.y, st.r, 0, Math.PI*2); ctx2.fill(); }
+    ctx2.globalAlpha = 1;
+    /* soft clouds band behind the skyline */
+    const haze = ctx2.createLinearGradient(0, FIELD_H*0.55, 0, FIELD_H);
+    haze.addColorStop(0,"rgba(60,110,200,0)"); haze.addColorStop(1,"rgba(70,120,210,.35)");
+    ctx2.fillStyle = haze; ctx2.fillRect(0, FIELD_H*0.55, W, FIELD_H*0.45);
+    drawCity(farCity, 0.15, "#12305f", null);
+    drawCity(nearCity, 0.3, "#0a1d3d", "rgba(255,214,140,.75)");
+    /* ground: dark strip with moving diagonal hatching */
+    ctx2.fillStyle = "#0b1a33"; ctx2.fillRect(0, FIELD_H, W, GROUND_H);
+    ctx2.fillStyle = "#3d6fb8"; ctx2.fillRect(0, FIELD_H, W, 2);
+    ctx2.save(); ctx2.beginPath(); ctx2.rect(0, FIELD_H+2, W, GROUND_H-2); ctx2.clip();
+    ctx2.strokeStyle = "rgba(90,140,220,.35)"; ctx2.lineWidth = 3;
+    const gOff = (frame*PIPE_SPEED) % 16;
+    for(let gx = -GROUND_H - gOff; gx < W + GROUND_H; gx += 16){ ctx2.beginPath(); ctx2.moveTo(gx, H); ctx2.lineTo(gx + GROUND_H, FIELD_H); ctx2.stroke(); }
+    ctx2.restore();
+  }
+  function drawPipe(x, y, h, capAtBottom){
+    if(h <= 0) return;
+    const body = ctx2.createLinearGradient(x, 0, x + PIPE_W, 0);
+    body.addColorStop(0,"#1e7a3c"); body.addColorStop(0.35,"#3fcf6a"); body.addColorStop(0.55,"#2fb257"); body.addColorStop(1,"#155c2c");
+    ctx2.fillStyle = body; ctx2.fillRect(x, y, PIPE_W, h);
+    ctx2.fillStyle = "rgba(255,255,255,.18)"; ctx2.fillRect(x + PIPE_W*0.22, y, 4, h);
+    const capH = 16, capY = capAtBottom ? y + h - capH : y;
+    const cap = ctx2.createLinearGradient(x - 4, 0, x + PIPE_W + 4, 0);
+    cap.addColorStop(0,"#1e7a3c"); cap.addColorStop(0.35,"#4ee07a"); cap.addColorStop(1,"#166a31");
+    ctx2.fillStyle = cap; ctx2.fillRect(x - 4, capY, PIPE_W + 8, capH);
+    ctx2.strokeStyle = "rgba(4,30,14,.55)"; ctx2.lineWidth = 1.5;
+    ctx2.strokeRect(x - 4 + .75, capY + .75, PIPE_W + 8 - 1.5, capH - 1.5);
+  }
+  function drawBird(){
+    const angle = Math.max(-0.55, Math.min(0.95, bird.v/12));
+    const r = bird.r;
+    ctx2.save();
+    ctx2.translate(bird.x, bird.y);
+    ctx2.rotate(angle);
+    /* tail */
+    ctx2.fillStyle = "#1f56b8";
+    ctx2.beginPath(); ctx2.moveTo(-r*0.9, -r*0.15); ctx2.lineTo(-r*1.7, -r*0.55); ctx2.lineTo(-r*1.55, r*0.35); ctx2.closePath(); ctx2.fill();
+    /* body */
+    const bodyG = ctx2.createRadialGradient(-r*0.3, -r*0.4, r*0.2, 0, 0, r*1.3);
+    bodyG.addColorStop(0, "#6fb2ff"); bodyG.addColorStop(1, "#2a6fe0");
+    ctx2.fillStyle = bodyG;
+    ctx2.beginPath(); ctx2.ellipse(0, 0, r*1.2, r*1.02, 0, 0, Math.PI*2); ctx2.fill();
+    /* belly */
+    ctx2.fillStyle = "#dcebff";
+    ctx2.beginPath(); ctx2.ellipse(r*0.2, r*0.42, r*0.75, r*0.48, 0, 0, Math.PI*2); ctx2.fill();
+    /* wing (flicks up briefly after each flap) */
+    const wingLift = bird.wing>0 ? -0.75 : 0.3;
+    ctx2.fillStyle = "#1c4fae";
+    ctx2.beginPath(); ctx2.ellipse(-r*0.25, r*0.05, r*0.65, r*0.34, wingLift, 0, Math.PI*2); ctx2.fill();
+    /* beak */
+    ctx2.fillStyle = "#ffb02e";
+    ctx2.beginPath(); ctx2.moveTo(r*0.95, -r*0.2); ctx2.lineTo(r*1.75, r*0.05); ctx2.lineTo(r*0.95, r*0.32); ctx2.closePath(); ctx2.fill();
+    /* eye */
+    ctx2.fillStyle = "#fff"; ctx2.beginPath(); ctx2.arc(r*0.45, -r*0.35, r*0.34, 0, Math.PI*2); ctx2.fill();
+    ctx2.fillStyle = "#0b1a33"; ctx2.beginPath(); ctx2.arc(r*0.56, -r*0.33, r*0.16, 0, Math.PI*2); ctx2.fill();
+    ctx2.restore();
+    if(bird.wing>0) bird.wing -= 0.08;
+  }
+  function roundRect(x, y, w, h, rad){
+    ctx2.beginPath();
+    ctx2.moveTo(x+rad, y); ctx2.arcTo(x+w, y, x+w, y+h, rad); ctx2.arcTo(x+w, y+h, x, y+h, rad);
+    ctx2.arcTo(x, y+h, x, y, rad); ctx2.arcTo(x, y, x+w, y, rad); ctx2.closePath();
+  }
+  /* centered info panel drawn on the canvas ("Game over / Score 7", "Tap to start") */
+  function drawPanel(title, big, foot){
+    const small = W < 320;
+    const pw = small ? Math.min(W*0.62, 150) : 150, ph = small ? 64 : (foot ? 92 : 78);
+    const px = (W - pw)/2, py = (FIELD_H - ph)/2;
+    ctx2.fillStyle = "rgba(8,20,42,.88)"; roundRect(px, py, pw, ph, 12); ctx2.fill();
+    ctx2.strokeStyle = "rgba(120,170,255,.35)"; ctx2.lineWidth = 1; ctx2.stroke();
+    ctx2.textAlign = "center"; ctx2.textBaseline = "middle";
+    ctx2.fillStyle = "#b9cbe6"; ctx2.font = `500 ${small?10:12}px Inter, system-ui, sans-serif`;
+    ctx2.fillText(title, W/2, py + (small ? 16 : 20));
+    ctx2.fillStyle = "#fff"; ctx2.font = `700 ${small?20:24}px Inter, system-ui, sans-serif`;
+    ctx2.fillText(big, W/2, py + (small ? 40 : 46));
+    if(foot && !small){ ctx2.fillStyle = "#8aa2c4"; ctx2.font = "500 11px Inter, system-ui, sans-serif"; ctx2.fillText(foot, W/2, py + 74); }
+  }
 
   function reset(){
-    bird = {x:70, y:H/2, v:0, r:12, wing:0};
+    bird = {x:Math.round(W*0.18), y:FIELD_H/2, v:0, r:12, wing:0};
     pipes = [];
     frame = 0; score = 0; playing = false;
     scoreEl.textContent = "0";
     drawFrame();
   }
   function spawnPipe(){
-    const gapY = 50 + Math.random()*(H-100-PIPE_GAP);
+    const gapY = 40 + Math.random()*Math.max(0, FIELD_H-80-PIPE_GAP);
     pipes.push({x:W, gapY, passed:false});
   }
   function flap(){
@@ -12242,117 +12452,88 @@ function setupFlappy(scope, ids){
     bird.v = FLAP_V;
     bird.wing = 1;
   }
-  function drawBird(){
-    const angle = Math.max(-0.55, Math.min(0.95, bird.v/12));
-    ctx2.save();
-    ctx2.translate(bird.x, bird.y);
-    ctx2.rotate(angle);
-    /* wing (flaps up briefly after each flap input) */
-    const wingLift = bird.wing>0 ? -0.5 : 0.35;
-    ctx2.fillStyle = "#4a7c8c";
-    ctx2.beginPath();
-    ctx2.ellipse(-bird.r*0.15, bird.r*0.1, bird.r*0.62, bird.r*0.36, wingLift, 0, Math.PI*2);
-    ctx2.fill();
-    /* body */
-    ctx2.fillStyle = themeAccentDisplay;
-    ctx2.beginPath();
-    ctx2.ellipse(0, 0, bird.r*1.15, bird.r, 0, 0, Math.PI*2);
-    ctx2.fill();
-    /* tail */
-    ctx2.fillStyle = "#4a7c8c";
-    ctx2.beginPath();
-    ctx2.moveTo(-bird.r*1.05, -bird.r*0.25);
-    ctx2.lineTo(-bird.r*1.55, 0);
-    ctx2.lineTo(-bird.r*1.05, bird.r*0.25);
-    ctx2.closePath();
-    ctx2.fill();
-    /* beak */
-    ctx2.fillStyle = "#7fb8cc";
-    ctx2.beginPath();
-    ctx2.moveTo(bird.r*0.85, -bird.r*0.18);
-    ctx2.lineTo(bird.r*1.5, 0);
-    ctx2.lineTo(bird.r*0.85, bird.r*0.2);
-    ctx2.closePath();
-    ctx2.fill();
-    /* eye */
-    ctx2.fillStyle = "#020304";
-    ctx2.beginPath();
-    ctx2.arc(bird.r*0.3, -bird.r*0.28, bird.r*0.16, 0, Math.PI*2);
-    ctx2.fill();
-    ctx2.restore();
-    if(bird.wing>0) bird.wing -= 0.08;
-  }
   function drawFrame(){
-    ctx2.clearRect(0,0,W,H);
-    const sky = ctx2.createLinearGradient(0,0,0,H);
-    sky.addColorStop(0,"#050708"); sky.addColorStop(1,"#020304");
-    ctx2.fillStyle = sky;
-    ctx2.fillRect(0,0,W,H);
-    ctx2.strokeStyle = "#0f1e23";
-    for(let gx=(-frame*PIPE_SPEED*0.3)%40; gx<W; gx+=40){ ctx2.beginPath(); ctx2.moveTo(gx,0); ctx2.lineTo(gx,H); ctx2.stroke(); }
+    drawBackground();
     pipes.forEach(p=>{
-      const grad = ctx2.createLinearGradient(p.x,0,p.x+PIPE_W,0);
-      grad.addColorStop(0,"#4a7c8c"); grad.addColorStop(0.5,themeAccentDisplay); grad.addColorStop(1,"#4a7c8c");
-      ctx2.fillStyle = grad;
-      ctx2.fillRect(p.x, 0, PIPE_W, p.gapY);
-      ctx2.fillRect(p.x, p.gapY+PIPE_GAP, PIPE_W, H-(p.gapY+PIPE_GAP));
-      ctx2.fillStyle = themeAccentDisplay;
-      ctx2.fillRect(p.x-3, p.gapY-14, PIPE_W+6, 14);
-      ctx2.fillRect(p.x-3, p.gapY+PIPE_GAP, PIPE_W+6, 14);
+      drawPipe(p.x, 0, p.gapY, true);
+      drawPipe(p.x, p.gapY + PIPE_GAP, FIELD_H - (p.gapY + PIPE_GAP), false);
     });
     drawBird();
+    if(playing){
+      ctx2.textAlign = "center"; ctx2.textBaseline = "top";
+      ctx2.font = "800 30px Inter, system-ui, sans-serif";
+      ctx2.lineWidth = 4; ctx2.strokeStyle = "rgba(5,15,35,.7)"; ctx2.strokeText(String(score), W/2, 14);
+      ctx2.fillStyle = "#fff"; ctx2.fillText(String(score), W/2, 14);
+    } else if(lastScore === null){
+      drawPanel("Endless Momentum", "Tap to start", W >= 320 ? "or press Space" : "");
+    }
   }
-  function loop(){
+  /* fixed 60 steps/second regardless of the screen's refresh rate — on a 120Hz display a
+     per-frame step made the whole game run at double speed */
+  const STEP_MS = 1000/60;
+  let lastTs = 0, acc = 0;
+  function loop(ts){
+    if(!lastTs) lastTs = ts;
+    acc += Math.min(ts - lastTs, 100); /* cap catch-up after a tab switch or hiccup */
+    lastTs = ts;
+    let died = false;
+    while(acc >= STEP_MS && !died){ acc -= STEP_MS; died = step(); }
+    if(died){ gameOver(); return; }
+    drawFrame();
+    rafId = requestAnimationFrame(loop);
+  }
+  function step(){
     frame++;
     bird.v += GRAVITY;
     if(bird.v > MAX_FALL) bird.v = MAX_FALL;
     bird.y += bird.v;
-    /* forgiving bounds: bumping the ceiling or floor just stops you there, it doesn't end the run */
+    /* forgiving bounds: bumping the ceiling or ground just stops you there, it doesn't end the run */
     if(bird.y - bird.r < 0){ bird.y = bird.r; bird.v = 0; }
-    if(bird.y + bird.r > H){ bird.y = H - bird.r; bird.v = 0; }
+    if(bird.y + bird.r > FIELD_H){ bird.y = FIELD_H - bird.r; bird.v = 0; }
 
     if(frame % SPAWN_FRAMES === 0) spawnPipe();
     pipes.forEach(p=>{ p.x -= PIPE_SPEED; });
-    while(pipes.length && pipes[0].x < -PIPE_W) pipes.shift();
+    while(pipes.length && pipes[0].x < -PIPE_W-8) pipes.shift();
 
     let dead = false;
     pipes.forEach(p=>{
-      if(bird.x+bird.r > p.x && bird.x-bird.r < p.x+PIPE_W){
+      if(bird.x+bird.r > p.x-4 && bird.x-bird.r < p.x+PIPE_W+4){
         if(bird.y-bird.r < p.gapY || bird.y+bird.r > p.gapY+PIPE_GAP) dead = true;
       }
       if(!p.passed && p.x+PIPE_W < bird.x){ p.passed=true; score++; scoreEl.textContent=score; }
     });
 
-    drawFrame();
-
-    if(dead){
-      playing = false;
-      if(score > arcadeData.flappyHigh){
-        arcadeData.flappyHigh = score;
-        saveArcadeData();
-        highEl.textContent = arcadeData.flappyHigh;
-      }
-      ctx2.fillStyle = "rgba(2,3,4,.78)";
-      ctx2.fillRect(0,0,W,H);
-      ctx2.fillStyle = themeAccentDisplay;
-      ctx2.font = "700 16px 'Space Mono', monospace";
-      ctx2.textAlign = "center";
-      ctx2.fillText("Game over — score "+score, W/2, H/2);
-      startBtn.textContent = "Restart";
-      return;
+    return dead;
+  }
+  function gameOver(){
+    playing = false;
+    lastScore = score;
+    const best = score > arcadeData.flappyHigh;
+    if(best){
+      arcadeData.flappyHigh = score;
+      saveArcadeData();
+      highEl.textContent = arcadeData.flappyHigh;
     }
-    rafId = requestAnimationFrame(loop);
+    drawFrame();
+    ctx2.fillStyle = "rgba(3,9,22,.35)"; ctx2.fillRect(0,0,W,H);
+    drawPanel("Game over", `Score  ${score}`, best && score > 0 ? "New best!" : `Best  ${arcadeData.flappyHigh}`);
+    setStartLabel("Restart");
   }
   function start(){
+    if(rafId) cancelAnimationFrame(rafId);
     reset();
+    lastTs = 0; acc = 0;
     playing = true;
-    startBtn.textContent = "Restart";
+    setStartLabel("Restart");
     rafId = requestAnimationFrame(loop);
   }
   startBtn.addEventListener("click", start);
   canvas.addEventListener("pointerdown", (e)=>{ e.preventDefault(); if(playing) flap(); else start(); });
+  /* Space only drives a game that's actually on screen — not one on a hidden tab or the hidden
+     canvas view (previously Space on the Blackjack tab silently started this game) */
+  const isShown = ()=> canvas.checkVisibility ? canvas.checkVisibility({visibilityProperty:true, opacityProperty:true}) : !!canvas.offsetParent;
   function onKey(e){
-    if(e.code==="Space" && !isTypingTarget(e)){
+    if(e.code==="Space" && !isTypingTarget(e) && isShown()){
       e.preventDefault();
       if(playing) flap(); else start();
     }
@@ -12394,7 +12575,7 @@ function bjCardValue(card){
 function bjCardFrontHTML(card){
   const rank = card.slice(0,-1), suit = card.slice(-1);
   const isRed = suit==="♥" || suit==="♦";
-  return `<span class="playing-card${isRed?' red':''}"><span class="pc-rank">${rank}</span><span class="pc-suit">${suit}</span></span>`;
+  return `<span class="playing-card${isRed?' red':''}" aria-label="${rank} of ${{"♠":"spades","♥":"hearts","♦":"diamonds","♣":"clubs"}[suit]}"><span class="pc-corner"><span class="pc-rank">${rank}</span><span class="pc-mini">${suit}</span></span><span class="pc-suit">${suit}</span></span>`;
 }
 function bjCardBackHTML(){ return `<span class="playing-card back"></span>`; }
 function bjRenderCardRow(el, hand, hideAfterFirst){
@@ -12407,13 +12588,19 @@ function bjHandValue(hand){
   while(total>21 && aces>0){ total-=10; aces--; }
   return total;
 }
+function bjMoney(n){ return (n<0?"-":"") + "$" + Math.abs(n).toLocaleString("en-US"); }
+/* while the hole card is face down, the dealer's total shows only what's visible */
+function bjDealerShownValue(hideHoleCard){
+  if(!bjDealer.length) return "";
+  return String(hideHoleCard ? bjHandValue([bjDealer[0]]) : bjHandValue(bjDealer));
+}
 function bjRenderAll(hideHoleCard){
   bjViews.forEach(v=>{
     bjRenderCardRow(v.dealerCardsEl, bjDealer, hideHoleCard);
-    if(v.dealerValEl) v.dealerValEl.textContent = hideHoleCard ? "" : "value "+bjHandValue(bjDealer);
+    if(v.dealerValEl) v.dealerValEl.textContent = bjDealerShownValue(hideHoleCard);
     bjRenderCardRow(v.playerCardsEl, bjPlayer, false);
-    if(v.playerValEl) v.playerValEl.textContent = "value "+bjHandValue(bjPlayer);
-    if(v.balanceEl) v.balanceEl.textContent = "$"+arcadeData.blackjackBalance;
+    if(v.playerValEl) v.playerValEl.textContent = bjPlayer.length ? String(bjHandValue(bjPlayer)) : "";
+    if(v.balanceEl) v.balanceEl.textContent = bjMoney(arcadeData.blackjackBalance);
   });
   bjFitMiniWidgetToCards();
 }
@@ -12465,7 +12652,8 @@ function bjSetControls({deal,hit,stand,dbl}){
   });
 }
 function bjSetMessage(text){
-  bjViews.forEach(v=>{ if(v.msgEl) v.msgEl.textContent = text; });
+  const tone = /win|blackjack/i.test(text) ? "win" : /lose|bust|dealer wins/i.test(text) ? "lose" : "";
+  bjViews.forEach(v=>{ if(v.msgEl){ v.msgEl.textContent = text; v.msgEl.dataset.tone = tone; } });
 }
 function bjEndHand(text, delta){
   arcadeData.blackjackBalance += delta;
@@ -12509,9 +12697,12 @@ function bjStartHand(betVal){
   }
 }
 function bjDeal(){
-  const raw = prompt("Bet amount:", String(arcadeData.lastBet||50));
-  if(raw===null) return; /* cancelled */
-  bjStartHand(Math.max(1, Math.floor(Number(raw)||0)));
+  /* the full view has a bet box; anywhere without one falls back to asking */
+  const betView = bjViews.find(v=>v.betEl);
+  let raw;
+  if(betView) raw = betView.betEl.value;
+  else { raw = prompt("Bet amount:", String(arcadeData.lastBet||50)); if(raw===null) return; }
+  bjStartHand(Math.max(1, Math.floor(Number(String(raw).replace(/[$,\s]/g,""))||Number(arcadeData.lastBet)||50)));
 }
 /* clicking the "Blackjack" tab should just show cards, not make you also click Deal — but only
    when there's genuinely nothing on the table yet (fresh state), so switching tabs back to a hand
@@ -12561,7 +12752,7 @@ function setupBlackjack(scope, ids){
     balance:"#bj-balance", dealerCards:"#bj-dealer-cards", dealerVal:"#bj-dealer-value",
     playerCards:"#bj-player-cards", playerVal:"#bj-player-value", msg:"#bj-message",
     deal:"#bj-deal-btn", hit:"#bj-hit-btn", stand:"#bj-stand-btn",
-    dbl:"#bj-double-btn", restart:"#bj-restart-btn"
+    dbl:"#bj-double-btn", restart:"#bj-restart-btn", bet:"#bj-bet-input"
   }, ids||{});
   const view = {
     balanceEl: scope.querySelector(ids.balance),
@@ -12574,9 +12765,19 @@ function setupBlackjack(scope, ids){
     hitBtn: scope.querySelector(ids.hit),
     standBtn: scope.querySelector(ids.stand),
     doubleBtn: scope.querySelector(ids.dbl),
-    restartBtn: scope.querySelector(ids.restart)
+    restartBtn: scope.querySelector(ids.restart),
+    betEl: scope.querySelector(ids.bet)
   };
   bjViews.push(view);
+  if(view.betEl){
+    view.betEl.value = String(arcadeData.lastBet||50);
+    view.betEl.addEventListener("change", ()=>{
+      const v = Math.max(1, Math.floor(Number(view.betEl.value.replace(/[$,\s]/g,""))||0));
+      view.betEl.value = String(v || arcadeData.lastBet || 50);
+      if(v){ arcadeData.lastBet = v; saveArcadeData(); }
+    });
+    view.betEl.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); view.betEl.blur(); if(!bjInHand) bjDeal(); } });
+  }
 
   if(view.dealBtn) view.dealBtn.addEventListener("click", bjDeal);
   if(view.hitBtn) view.hitBtn.addEventListener("click", bjHit);
@@ -12586,16 +12787,16 @@ function setupBlackjack(scope, ids){
 
   /* bring this newly-mounted view up to date with whatever's already in progress */
   bjRenderCardRow(view.dealerCardsEl, bjDealer, bjInHand);
-  if(view.dealerValEl) view.dealerValEl.textContent = bjInHand ? "" : (bjDealer.length ? "value "+bjHandValue(bjDealer) : "");
+  if(view.dealerValEl) view.dealerValEl.textContent = bjDealerShownValue(bjInHand);
   bjRenderCardRow(view.playerCardsEl, bjPlayer, false);
-  if(view.playerValEl) view.playerValEl.textContent = bjPlayer.length ? "value "+bjHandValue(bjPlayer) : "";
-  if(view.balanceEl) view.balanceEl.textContent = "$"+arcadeData.blackjackBalance;
+  if(view.playerValEl) view.playerValEl.textContent = bjPlayer.length ? String(bjHandValue(bjPlayer)) : "";
+  if(view.balanceEl) view.balanceEl.textContent = bjMoney(arcadeData.blackjackBalance);
   if(view.dealBtn) view.dealBtn.disabled = bjInHand;
   if(view.hitBtn) view.hitBtn.disabled = !bjInHand;
   if(view.standBtn) view.standBtn.disabled = !bjInHand;
   if(view.doubleBtn) view.doubleBtn.disabled = !bjInHand;
 
-  function onArcadeUpdate(){ if(!bjInHand && view.balanceEl) view.balanceEl.textContent = "$"+arcadeData.blackjackBalance; }
+  function onArcadeUpdate(){ if(!bjInHand && view.balanceEl) view.balanceEl.textContent = bjMoney(arcadeData.blackjackBalance); }
   window.addEventListener("arcade-data-changed", onArcadeUpdate);
 
   return function cleanup(){
