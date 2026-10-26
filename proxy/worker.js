@@ -123,6 +123,7 @@ function sfNormalize(r, glbOk, base){
     likes: r.likeCount || 0, views: r.viewCount || 0, faces: r.faceCount || 0,
     staff: !!r.staffpickedAt, downloadable: !!r.isDownloadable,
     tags: (r.tags||[]).map(t=>t && (t.slug || t.name)).filter(Boolean).slice(0,20),
+    description: String(r.description||"").replace(/\s+/g, " ").slice(0, 220),
     thumb: sfThumb(r.thumbnails),
     glb: canGlb ? `${base}/garage/glb/${r.uid}.glb` : null,
     glbSize: canGlb && glb.size ? glb.size : null,
@@ -192,6 +193,123 @@ async function garageGlb(uid, env, cors, ctx){
   return new Response(buf, {status:200, headers:glbHeaders});
 }
 
+/* ---- /garage/pick: search + an AI judge ----
+   Keyword rules can't tell "Ford Mustang 2011" from a 1999 Mustang, or a bike's licence-plate
+   bracket from the bike. So the candidates are judged by the chat model (which knows model
+   generations and trims), then the shortlist's preview images are checked by a vision model.
+   GET /garage/pick?vehicle=Ford%20Mustang&year=1999&kind=car&standin=ford%20muscle%20car|muscle%20car
+   -> {judged:true, glb:bool, pick:{...candidate, standIn, reason}|null} */
+const PICK_TTL = 7 * 86400;
+const JUNK = /\b(low ?poly|lowpoly|toy|lego|minecraft|roblox|voxel|papercraft|keychain|hot ?wheels)\b/i;
+async function groqJSON(env, model, messages, maxTokens){
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method:"POST",
+    headers:{"Content-Type":"application/json", "Authorization":`Bearer ${env.GROQ_API_KEY}`},
+    body: JSON.stringify({model, messages, temperature:0, max_tokens:maxTokens || 700, response_format:{type:"json_object"}}),
+  });
+  if(!res.ok) throw new Error("groq " + res.status);
+  const data = await res.json();
+  let txt = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+  txt = txt.replace(/<think>[\s\S]*?<\/think>/g, "");
+  const m = txt.match(/\{[\s\S]*\}/);
+  return JSON.parse(m ? m[0] : txt);
+}
+async function searchMany(queries, glbOk, base){
+  const seen = new Set(), out = [];
+  const lists = await Promise.all(queries.flatMap(q=>{
+    const common = `type=models&categories=cars-vehicles&count=24&q=${encodeURIComponent(q)}`;
+    return [sfSearch(common).catch(()=>[]), glbOk ? sfSearch(`${common}&downloadable=true`).catch(()=>[]) : Promise.resolve([])];
+  }));
+  /* downloadable lists first so their entries carry the archive info */
+  for(let i = 1; i < lists.length; i += 2) for(const r of lists[i]) if(r && r.uid && !seen.has(r.uid)){ seen.add(r.uid); out.push(sfNormalize(r, glbOk, base)); }
+  for(let i = 0; i < lists.length; i += 2) for(const r of lists[i]) if(r && r.uid && !seen.has(r.uid)){ seen.add(r.uid); out.push(sfNormalize(r, glbOk, base)); }
+  return out.filter(c=>!(c.faces && c.faces < 5000) && !JUNK.test(c.name));
+}
+async function judgeText(env, want, cands, standIn){
+  const list = cands.map((c, i)=>({i, name:c.name, tags:c.tags.slice(0,12), description:c.description, downloadable:!!c.glb, likes:c.likes, polygons:c.faces}));
+  const rules = standIn
+    ? `No model of this exact vehicle exists. Choose stand-ins: complete, realistic, STOCK vehicles of the same kind (${want.kind || "vehicle"}${want.make ? `, ideally made by ${want.make}` : ""}) from roughly the same era as ${want.year || "the vehicle"}.`
+    : `Choose models that ARE this exact vehicle: same make and model, and a generation that was actually sold in ${want.year || "that year"}. Use your knowledge of model generations: e.g. a 1999 Ford Mustang is the SN95 generation (1994-2004), so a "2011 Mustang" or "Mustang GT 2018" is WRONG; a 2000 Ford Ranger is the 1998-2011 generation, so a 2019+ Ranger or a T6 Ranger is WRONG. If a name gives no year, judge by generation hints (codes like SN95, E46, C5; styling words) and accept only if it plausibly matches. Kawasaki "Z400" means the motorcycle.`;
+  const prompt = `Vehicle: ${JSON.stringify(want.vehicle)}${want.year ? `, model year ${want.year}` : ""}${want.kind ? `, kind: ${want.kind}` : ""}.
+${rules}
+Reject anything that is: a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer "downloadable": true when two are equally good.
+Candidates: ${JSON.stringify(list)}
+Answer with JSON only: {"ranked":[candidate i values, best first, ONLY acceptable ones, at most 5], "reason":"one short sentence"}`;
+  const out = await groqJSON(env, DEFAULT_MODEL, [
+    {role:"system", content:"You are a meticulous automotive expert selecting 3D models for a car-collection app. You answer with strict JSON."},
+    {role:"user", content:prompt},
+  ], 400);
+  const ranked = (Array.isArray(out.ranked) ? out.ranked : []).map(Number).filter(i=>Number.isInteger(i) && i >= 0 && i < cands.length);
+  return {ranked:[...new Set(ranked)], reason:String(out.reason||"").slice(0,200)};
+}
+async function judgeImages(env, want, shortlist, standIn){
+  const withImg = shortlist.filter(c=>c.thumb).slice(0, 3);
+  if(!withImg.length) return null;
+  const content = [{type:"text", text:
+    `These are preview images of 3D models (numbered 0-${withImg.length-1} in order). ${standIn
+      ? `Which ones show a complete, stock, realistic ${want.kind || "vehicle"} (a stand-in for a ${want.year||""} ${want.vehicle})?`
+      : `Which ones show a complete, stock (unmodified: not lifted, no roll bar or off-road kit, not a race car) ${want.year||""} ${want.vehicle} of the correct generation?`}
+Reject parts/accessories, scenes, wrecks, toys, and the wrong generation. Answer with JSON only: {"ok":[image numbers that pass, best first]}`}];
+  withImg.forEach(c=>content.push({type:"image_url", image_url:{url:c.thumb}}));
+  const out = await groqJSON(env, env.GARAGE_VISION_MODEL || "qwen/qwen3.8-27b", [{role:"user", content}], 600);
+  const ok = (Array.isArray(out.ok) ? out.ok : []).map(Number).filter(i=>Number.isInteger(i) && i >= 0 && i < withImg.length);
+  return {checked: withImg.map(c=>c.uid), ok: ok.map(i=>withImg[i].uid)};
+}
+async function pickFrom(env, want, cands, standIn){
+  if(!cands.length) return null;
+  cands = cands.slice(0, 40);
+  const {ranked, reason} = await judgeText(env, want, cands, standIn);
+  if(!ranked.length) return null;
+  let shortlist = ranked.map(i=>cands[i]);
+  /* clean .glb files sit on the pedestal; keep the text ranking otherwise */
+  try{
+    const vis = await judgeImages(env, want, shortlist, standIn);
+    if(vis){
+      const failed = new Set(vis.checked.filter(u=>!vis.ok.includes(u)));
+      shortlist = shortlist.filter(c=>!failed.has(c.uid));
+      const okOrder = vis.ok;
+      shortlist.sort((a,b)=>{ const ia = okOrder.indexOf(a.uid), ib = okOrder.indexOf(b.uid); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    }
+  }catch(e){ /* vision model unavailable: the text judgement stands */ }
+  if(!shortlist.length) return null;
+  const top = shortlist[0];
+  const glbAlt = shortlist.slice(0, 3).find(c=>c.glb);
+  const pick = (!top.glb && glbAlt) ? glbAlt : top;
+  return {...pick, standIn, reason};
+}
+async function garagePick(request, env, cors, ctx){
+  const url = new URL(request.url);
+  const clean = s=>String(s||"").replace(/\s+/g, " ").trim().slice(0, 80);
+  const want = {
+    vehicle: clean(url.searchParams.get("vehicle")),
+    year: Number(url.searchParams.get("year")) || 0,
+    kind: clean(url.searchParams.get("kind")),
+    make: clean(url.searchParams.get("make")),
+  };
+  const standinQs = clean(url.searchParams.get("standin")).split("|").map(clean).filter(Boolean).slice(0, 3);
+  const extraQs = clean(url.searchParams.get("also")).split("|").map(clean).filter(Boolean).slice(0, 3);
+  if(want.vehicle.length < 2) return json({error:"bad_query"}, 400, cors);
+  if(!env.GROQ_API_KEY) return json({error:"judge_not_configured"}, 503, cors);
+  const glbOk = !!env.SKETCHFAB_API_TOKEN;
+  const cache = caches.default;
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/pick?v=1&glb=${glbOk?1:0}&` + new URLSearchParams({vehicle:want.vehicle.toLowerCase(), year:want.year, kind:want.kind, s:standinQs.join("|"), a:extraQs.join("|")}));
+  const hit = await cache.match(cacheKey);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const base = url.origin;
+  let pick = null;
+  try{
+    const qs = [want.year ? `${want.vehicle} ${want.year}` : null, want.vehicle, ...extraQs].filter(Boolean);
+    pick = await pickFrom(env, want, await searchMany(qs, glbOk, base), false);
+    if(!pick && standinQs.length) pick = await pickFrom(env, want, await searchMany(standinQs, glbOk, base), true);
+  }catch(e){
+    return json({error:"judge_failed", message:String(e && e.message || e).slice(0,120)}, 502, cors);
+  }
+  const body = JSON.stringify({judged:true, glb:glbOk, pick});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":`public, max-age=${PICK_TTL}`}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+
 export default {
   async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
@@ -204,7 +322,7 @@ export default {
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockMovers(env, cors, ctx);
     }
-    if(path === "/garage/find" || path.startsWith("/garage/glb/")){
+    if(path === "/garage/find" || path === "/garage/pick" || path.startsWith("/garage/glb/")){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       if(env.RATE_LIMITER){
         const who = "garage:" + (request.headers.get("CF-Connecting-IP") || "unknown");
@@ -212,6 +330,7 @@ export default {
         if(!success) return json({error:"rate_limited"}, 429, cors);
       }
       if(path === "/garage/find") return garageFind(request, env, cors, ctx);
+      if(path === "/garage/pick") return garagePick(request, env, cors, ctx);
       return garageGlb(path.slice("/garage/glb/".length).replace(/\.glb$/i, ""), env, cors, ctx);
     }
     if(request.method !== "POST") return json({error:"method_not_allowed"}, 405, cors);

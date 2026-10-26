@@ -55,7 +55,11 @@ npx wrangler secret put SKETCHFAB_API_TOKEN   # paste the token
 npx wrangler deploy
 ```
 
-Search results are cached for a day and model files for 30 days at Cloudflare's edge.
+Each vehicle's model is chosen by the Worker: it searches Sketchfab, then the Groq chat model
+judges the results (right make/model, a generation actually sold in that year, stock, a whole
+vehicle) and a Groq vision model checks the preview images. That uses your GROQ_API_KEY — about two
+small requests per new vehicle, cached for a week. Search results are cached for a day and model
+files for 30 days at Cloudflare's edge.
 
 ## Settings you might change
 

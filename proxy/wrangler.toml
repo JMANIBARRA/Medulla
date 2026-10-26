@@ -7,6 +7,11 @@ compatibility_date = "2026-10-01"
 # localhost is always allowed for local testing.
 ALLOWED_ORIGINS = "https://jmanibarra.github.io"
 
+# Groq model that double-checks Garage 3D-model picks by looking at their preview images
+# (must accept image input; see https://console.groq.com/docs/vision). If it's ever retired,
+# picks still work from the text check alone.
+GARAGE_VISION_MODEL = "qwen/qwen3.8-27b"
+
 # Per-visitor limit: 20 chat requests per 60 seconds.
 [[ratelimits]]
 name = "RATE_LIMITER"
