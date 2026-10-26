@@ -8144,7 +8144,7 @@ const VEHICLE_MODELS = [
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
 const GAR_SF_STORE = NS + "garageModels";
-const GAR_SF_VERSION = 7;           /* bump to re-pick every vehicle's model after changing the scoring */
+const GAR_SF_VERSION = 8;           /* bump to re-pick every vehicle's model after changing the scoring */
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
@@ -8204,7 +8204,7 @@ function garAssetFor(v, opts={}){
 function garAutoWaiting(v){
   if(garAssetFor(v, {noAuto:true})) return false;
   const rec = garAutoModels[garModelKey(v)];
-  return !rec || garAutoPending[garModelKey(v)] != null;
+  return !rec || !!rec.busy || garAutoPending[garModelKey(v)] != null;
 }
 
 /* ---- automatic model search ---- */
@@ -8340,6 +8340,8 @@ async function garPickViaWorker(v){
     make: toks.find(t=>GAR_MAKES.has(t)) || "", standin: cls ? garStandInQueries(v, cls).join("|") : "", also: also.join("|")});
   let res;
   try{ res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/pick?${params}`); }catch(e){ return null; }
+  /* the judge is there but busy (rate limits): try again shortly rather than guess with keyword rules */
+  if(res.status === 503 || res.status === 429 || res.status === 502){ const e = new Error("judge busy"); e.busy = true; throw e; }
   if(!res.ok) return null;
   const d = await res.json().catch(()=>null);
   if(!d || !d.judged) return null;
@@ -8347,8 +8349,10 @@ async function garPickViaWorker(v){
   if(!p || !p.uid) return {none:true, judged:true, ts:Date.now()};
   return {uid:p.uid, name:p.name, author:p.author, license:p.license, thumb:p.thumb, glb:p.glb || null, standIn:!!p.standIn, judged:true, ts:Date.now()};
 }
+let garPickQueue = Promise.resolve();
+function garQueued(fn){ const p = garPickQueue.then(fn, fn); garPickQueue = p.catch(()=>{}); return p; }
 async function garFindModel(v){
-  const viaWorker = await garPickViaWorker(v);
+  const viaWorker = await garQueued(()=>garPickViaWorker(v));
   if(viaWorker) return viaWorker;
   const year = garYear(v);
   const tokens = garTokens(v.vehicle);
@@ -8401,7 +8405,7 @@ function garEnsureModel(v, onDone){
   if(recheck){
     garRecheckTried[key] = true;
     if(!garAutoPending[key]){
-      garAutoPending[key] = garPickViaWorker(v).then(found=>{
+      garAutoPending[key] = garQueued(()=>garPickViaWorker(v)).then(found=>{
         if(found && (found.uid || found.none) && (found.uid !== rec.uid)){ garAutoModels[key] = found; saveJSON(GAR_SF_STORE, garAutoModels); }
         else if(found){ rec.judged = true; saveJSON(GAR_SF_STORE, garAutoModels); }
       }).catch(()=>{}).finally(()=>{ delete garAutoPending[key]; });
@@ -8413,8 +8417,9 @@ function garEnsureModel(v, onDone){
     garAutoPending[key] = garFindModel(v).then(found=>{
       garAutoModels[key] = found;
       saveJSON(GAR_SF_STORE, garAutoModels);
-    }).catch(()=>{
-      garAutoModels[key] = {none:true, offline:true, ts:Date.now() - 86400000 + 5*60000};   /* retry in 5 min */
+    }).catch(e=>{
+      garAutoModels[key] = {none:true, offline:true, busy:!!(e && e.busy), ts:Date.now() - 86400000 + (e && e.busy ? 45000 : 5*60000)};   /* retry soon */
+      if(e && e.busy) setTimeout(()=>{ if(onDone) garEnsureModel(v, onDone); }, 47000);
     }).finally(()=>{ delete garAutoPending[key]; });
   }
   if(onDone) garAutoPending[key].then(onDone);

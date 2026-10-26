@@ -202,11 +202,18 @@ async function garageGlb(uid, env, cors, ctx){
 const PICK_TTL = 7 * 86400;
 const JUNK = /\b(low ?poly|lowpoly|toy|lego|minecraft|roblox|voxel|papercraft|keychain|hot ?wheels)\b/i;
 async function groqJSON(env, model, messages, maxTokens){
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const send = ()=>fetch("https://api.groq.com/openai/v1/chat/completions", {
     method:"POST",
     headers:{"Content-Type":"application/json", "Authorization":`Bearer ${env.GROQ_API_KEY}`},
     body: JSON.stringify({model, messages, temperature:0, max_tokens:maxTokens || 700, response_format:{type:"json_object"}}),
   });
+  let res = await send();
+  /* free-tier per-minute limits: wait as long as Groq asks (up to 20 s, twice) and try again */
+  for(let tries = 0; res.status === 429 && tries < 2; tries++){
+    const wait = Math.min(20, Math.max(2, Number(res.headers.get("retry-after")) || 6));
+    await new Promise(r=>setTimeout(r, wait*1000));
+    res = await send();
+  }
   if(!res.ok) throw new Error("groq " + res.status);
   const data = await res.json();
   let txt = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
@@ -226,13 +233,13 @@ async function searchMany(queries, glbOk, base){
   return out.filter(c=>!(c.faces && c.faces < 5000) && !JUNK.test(c.name));
 }
 async function judgeText(env, want, cands, standIn){
-  const list = cands.map((c, i)=>({i, name:c.name, tags:c.tags.slice(0,12), description:c.description, downloadable:!!c.glb, likes:c.likes, polygons:c.faces}));
+  const list = cands.map((c, i)=>({i, name:c.name, tags:c.tags.slice(0,6).join(","), about:(c.description||"").slice(0,90), dl:c.glb ? 1 : 0}));
   const rules = standIn
     ? `No model of this exact vehicle exists. Choose stand-ins: complete, realistic, STOCK vehicles of the same kind AND SIZE CLASS (${want.kind || "vehicle"}${want.make ? `, ideally made by ${want.make}` : ""}) from roughly the same era as ${want.year || "the vehicle"} — something a person would mistake for it at a glance. For a jon boat that means a small (10-20 ft) open, flat-bottom aluminum or small fishing boat: NOT ships, tugboats, trawlers, ferries, barges, yachts, cabin cruisers, sailboats, military or industrial vessels.`
     : `Choose models that ARE this exact vehicle: same make and model, and a generation that was actually sold in ${want.year || "that year"}. Use your knowledge of model generations: e.g. a 1999 Ford Mustang is the SN95 generation (1994-2004), so a "2011 Mustang" or "Mustang GT 2018" is WRONG; a 2000 Ford Ranger is the 1998-2011 generation, so a 2019+ Ranger or a T6 Ranger is WRONG. If a name gives no year, judge by generation hints (codes like SN95, E46, C5; styling words) and accept only if it plausibly matches. Kawasaki "Z400" means the motorcycle. A "jon boat" (john boat) is a small open flat-bottom aluminum boat, never a ship, tug, trawler or cabin boat.`;
   const prompt = `Vehicle: ${JSON.stringify(want.vehicle)}${want.year ? `, model year ${want.year}` : ""}${want.kind ? `, kind: ${want.kind}` : ""}.
 ${rules}
-Reject anything that is: a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer "downloadable": true when two are equally good.
+Reject anything that is: a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer dl:1 when two are equally good.
 Candidates: ${JSON.stringify(list)}
 Answer with JSON only: {"ranked":[candidate i values, best first, ONLY acceptable ones, at most 5], "reason":"one short sentence"}`;
   const out = await groqJSON(env, DEFAULT_MODEL, [
@@ -257,7 +264,8 @@ Reject parts/accessories, scenes, wrecks, toys, and the wrong generation. Answer
 }
 async function pickFrom(env, want, cands, standIn){
   if(!cands.length) return null;
-  cands = cands.slice(0, 40);
+  /* the most popular few dozen, so the judge's prompt stays small (free-tier token limits) */
+  cands = cands.slice().sort((a,b)=>(b.likes + b.views/50) - (a.likes + a.views/50)).slice(0, 22);
   const {ranked, reason} = await judgeText(env, want, cands, standIn);
   if(!ranked.length) return null;
   let shortlist = ranked.map(i=>cands[i]);
@@ -302,7 +310,7 @@ async function garagePick(request, env, cors, ctx){
     pick = await pickFrom(env, want, await searchMany(qs, glbOk, base), false);
     if(!pick && standinQs.length) pick = await pickFrom(env, want, await searchMany(standinQs, glbOk, base), true);
   }catch(e){
-    return json({error:"judge_failed", message:String(e && e.message || e).slice(0,120)}, 502, cors);
+    return json({error:"judge_failed", message:String(e && e.message || e).slice(0,120)}, 503, cors);
   }
   const body = JSON.stringify({judged:true, glb:glbOk, pick});
   const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":`public, max-age=${PICK_TTL}`}});
