@@ -25,6 +25,19 @@ const MEDULLA_AI_PROXY_URL = "https://medulla-ai.<your-subdomain>.workers.dev";
 
 Commit and push, and everyone's Medulla chat uses the proxy.
 
+## Stock movers for the Market "Trending" card (optional, one time)
+
+The Market window's Trending list shows today's most active US stocks, top gainers and top
+losers from Alpha Vantage. Get a free key at https://www.alphavantage.co/support/#api-key, then
+from this folder:
+
+```bash
+npx wrangler secret put ALPHAVANTAGE_API_KEY   # paste the Alpha Vantage key
+npx wrangler deploy
+```
+
+The Worker caches the list for an hour, which keeps it inside the free tier's ~25 requests a day.
+
 ## Settings you might change
 
 - `ALLOWED_ORIGINS` in `wrangler.toml`: the sites allowed to use the proxy. If your site's

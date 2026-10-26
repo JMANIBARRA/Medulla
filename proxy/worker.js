@@ -20,7 +20,7 @@ const MAX_TOKENS_CAP = 1024;
 function corsHeaders(origin){
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
@@ -37,13 +37,72 @@ function originAllowed(origin, env){
   return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
+/* ---- US stock movers for Medulla's Market "Trending" card ----
+   Alpha Vantage's free TOP_GAINERS_LOSERS endpoint (most actively traded, top gainers, top
+   losers), with the key stored as the ALPHAVANTAGE_API_KEY secret. The free tier allows ~25
+   requests a day, so the result is cached for an hour at Cloudflare's edge (plus in memory),
+   which keeps a single location well under that no matter how often Medulla asks. */
+const MOVERS_TTL_SECONDS = 3600;
+let moversMemory = null; /* {time, body} */
+function trimMovers(list){
+  return (Array.isArray(list) ? list : []).slice(0, 10).map(r=>({
+    ticker: String(r.ticker||""),
+    price: Number(r.price),
+    change: Number(r.change_amount),
+    changePct: Number(String(r.change_percentage||"").replace("%","")),
+    volume: Number(r.volume),
+  })).filter(r=>r.ticker);
+}
+async function stockMovers(env, cors, ctx){
+  if(!env.ALPHAVANTAGE_API_KEY) return json({error:"stocks_not_configured"}, 503, cors);
+  if(moversMemory && Date.now() - moversMemory.time < MOVERS_TTL_SECONDS*1000){
+    return new Response(moversMemory.body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  }
+  const cache = caches.default;
+  const cacheKey = new Request("https://medulla-cache.internal/stocks/movers");
+  const hit = await cache.match(cacheKey);
+  if(hit){
+    const body = await hit.text();
+    moversMemory = {time: Date.now(), body};
+    return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  }
+  let data;
+  try{
+    const res = await fetch(`https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${encodeURIComponent(env.ALPHAVANTAGE_API_KEY)}`);
+    data = await res.json();
+  }catch(e){
+    return json({error:"upstream_unreachable"}, 502, cors);
+  }
+  /* Alpha Vantage answers 200 with an "Information"/"Note" message when the key is bad or the
+     daily limit is used up — pass that on instead of caching an empty list */
+  if(!data || !Array.isArray(data.most_actively_traded)){
+    const msg = (data && (data.Information || data.Note || data["Error Message"])) || "unexpected response";
+    return json({error:"upstream_error", message:String(msg).slice(0,200)}, 502, cors);
+  }
+  const body = JSON.stringify({
+    updated: data.last_updated || null,
+    mostActive: trimMovers(data.most_actively_traded),
+    gainers: trimMovers(data.top_gainers),
+    losers: trimMovers(data.top_losers),
+  });
+  moversMemory = {time: Date.now(), body};
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":`public, max-age=${MOVERS_TTL_SECONDS}`}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+
 export default {
-  async fetch(request, env){
+  async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
     if(!originAllowed(origin, env)) return new Response("Forbidden", {status:403});
     const cors = corsHeaders(origin);
 
     if(request.method === "OPTIONS") return new Response(null, {status:204, headers:cors});
+    const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if(path === "/stocks/movers"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return stockMovers(env, cors, ctx);
+    }
     if(request.method !== "POST") return json({error:"method_not_allowed"}, 405, cors);
     if(!env.GROQ_API_KEY) return json({error:"proxy_not_configured"}, 500, cors);
 

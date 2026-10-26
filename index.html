@@ -1324,8 +1324,16 @@
   .mkt-trend-icon svg{width:17px;height:17px;}
   .mkt-trend-head h3{flex:1;margin:0;font-size:17px;font-weight:600;color:var(--text-primary);text-transform:none;letter-spacing:0;font-family:var(--font-body);}
   .mkt-trend-head a{font-size:13px;color:#6fb2ff;text-decoration:none;}
+  .mkt-trend-head h3 small{font-size:12px;font-weight:500;color:var(--text-dim);margin-left:6px;}
+  .mkt-trend-tabs{display:flex;gap:4px;margin:0 4px 8px;padding:3px;border-radius:11px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);width:max-content;}
+  .mkt-trend-tabs button{height:30px;padding:0 14px;border-radius:8px;border:none;background:none;color:#c3d4ea;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .mkt-trend-tabs button.active{color:#fff;background:linear-gradient(180deg,#2f8bff,#1462e0);}
+  a.mkt-trow{color:inherit;text-decoration:none;border-radius:10px;transition:background .15s;}
+  a.mkt-trow:hover{background:rgba(90,169,255,.08);}
+  .mkt-trow .mkt-badge{font-size:10px;letter-spacing:-.02em;}
+  .mkt-trend-foot{padding:8px 4px 0;font-size:11.5px;color:var(--text-dim);}
   .mkt-trend-head a:hover{text-decoration:underline;}
-  .mkt-trow{display:grid;grid-template-columns:28px 34px minmax(0,1fr) auto 30px;align-items:center;column-gap:12px;padding:9px 4px;border-top:1px solid rgba(130,153,184,.1);}
+  .mkt-trow{display:grid;grid-template-columns:28px 34px minmax(0,1fr) auto;align-items:center;column-gap:12px;padding:9px 4px;border-top:1px solid rgba(130,153,184,.1);}
   .mkt-rank{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:#c3d4ea;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.18);}
   .mkt-trow .mkt-badge{width:32px;height:32px;}
   .mkt-tname{min-width:0;display:flex;flex-direction:column;}
@@ -1372,7 +1380,7 @@
     .mkt-thead span:nth-child(2){grid-column:3;}
     .mkt-badge{width:34px;height:34px;}
     .mkt-remove{opacity:1;right:-4px;top:4px;transform:none;width:20px;height:20px;font-size:13px;}
-    .mkt-trow{grid-template-columns:24px 30px minmax(0,1fr) auto 28px;column-gap:8px;}
+    .mkt-trow{grid-template-columns:24px 30px minmax(0,1fr) auto;column-gap:8px;}
     .mkt-ranges{width:100%;}
     .mkt-ranges button{flex:1;min-width:0;padding:0;}
     .mkt-filter{width:100%;}
@@ -6952,10 +6960,16 @@ function marketFullHTML(){
       </section>
       <section class="mkt-card mkt-trend">
         <div class="mkt-trend-head">
-          <span class="mkt-trend-icon">${MKT_ICONS.fire}</span><h3>Trending</h3>
-          <a href="https://www.coingecko.com/en/highlights/trending-crypto" target="_blank" rel="noopener noreferrer">View all →</a>
+          <span class="mkt-trend-icon">${MKT_ICONS.fire}</span><h3>Trending <small>US stocks</small></h3>
+          <a id="mkt-trend-all" href="https://finance.yahoo.com/markets/stocks/most-active/" target="_blank" rel="noopener noreferrer">View all →</a>
         </div>
-        <div id="mkt-trending" class="mkt-trending"><div class="mkt-empty">Loading trending coins…</div></div>
+        <div class="mkt-trend-tabs" id="mkt-trend-tabs" role="tablist">
+          <button type="button" data-mv="mostActive">Most active</button>
+          <button type="button" data-mv="gainers">Gainers</button>
+          <button type="button" data-mv="losers">Losers</button>
+        </div>
+        <div id="mkt-trending" class="mkt-trending"><div class="mkt-empty">Loading trending stocks…</div></div>
+        <div class="mkt-trend-foot" id="mkt-trend-foot"></div>
       </section>
     </div>
     <section class="mkt-card mkt-charts">
@@ -7015,7 +7029,7 @@ function hydrateMarketFull(scope){
       rows.querySelectorAll("[data-remove]").forEach(btn=>btn.addEventListener("click", ()=>{
         tickerData.pinned = tickerData.pinned.filter(x=>x!==btn.dataset.remove);
         saveJSON(NS+"tickers", tickerData);
-        renderTable(); renderFilter(); renderCharts(); renderTrending();
+        renderTable(); renderFilter(); renderCharts();
       }));
     };
     draw(pending.map(p=>({...p, price: p.price==null ? "…" : (typeof p.price==="number" ? "$"+mktPrice(p.price) : p.price)})));
@@ -7060,48 +7074,59 @@ function hydrateMarketFull(scope){
     tickerData.pinned.push(id);
     saveJSON(NS+"tickers", tickerData);
     inp.value = ""; status.textContent = "";
-    renderTable(); renderFilter(); renderCharts(); renderTrending();
+    renderTable(); renderFilter(); renderCharts();
   }
   $s("#mkt-add-btn").addEventListener("click", addAsset);
   $s("#mkt-add-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addAsset(); } });
   scope.querySelectorAll(".mkt-tabs [data-tab]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.tab = b.dataset.tab; saveUi(); renderTable(); }));
 
-  /* ---------- trending ---------- */
-  let trendingCoins = null;
+  /* ---------- trending: US stock movers via the Medulla proxy (Alpha Vantage, cached hourly) ---------- */
+  const MV_LINKS = {mostActive:"https://finance.yahoo.com/markets/stocks/most-active/", gainers:"https://finance.yahoo.com/markets/stocks/gainers/", losers:"https://finance.yahoo.com/markets/stocks/losers/"};
+  const MV_ERRORS = {
+    stocks_not_configured: "Stock trends aren't switched on yet — the site owner needs to add a free Alpha Vantage key to the Medulla proxy (see proxy/README.md).",
+    upstream_error: "The stock data provider didn't answer just now (its free daily limit may be used up). Try again later.",
+  };
+  let movers = null, moversErr = "";
+  function fmtVolume(v){
+    if(!isFinite(v)) return "";
+    if(v >= 1e9) return (v/1e9).toFixed(1)+"B";
+    if(v >= 1e6) return (v/1e6).toFixed(1)+"M";
+    if(v >= 1e3) return (v/1e3).toFixed(0)+"K";
+    return String(v);
+  }
+  async function loadMovers(){
+    if(!MEDULLA_AI_PROXY_URL){ moversErr = "Stock trends need the Medulla proxy (see proxy/README.md)."; return; }
+    if(isFileOrigin()){ moversErr = feedErrorLabel("file-origin"); return; }
+    try{
+      const res = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/stocks/movers");
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok){ moversErr = MV_ERRORS[data.error] || `Stock trends unavailable right now (HTTP ${res.status}).`; return; }
+      movers = data;
+    }catch(e){ moversErr = "Couldn't reach the stock data service right now."; }
+  }
   async function renderTrending(){
     const box = $s("#mkt-trending");
     if(!box) return;
-    if(isFileOrigin()){ box.innerHTML = `<div class="mkt-empty">${escapeHtml(feedErrorLabel("file-origin"))}</div>`; return; }
-    if(!trendingCoins){
-      try{
-        const res = await fetch("https://api.coingecko.com/api/v3/search/trending");
-        if(!res.ok) throw new Error(res.status===429 ? "CoinGecko rate limit hit, try again shortly" : "HTTP "+res.status);
-        trendingCoins = ((await res.json()).coins || []).slice(0,7).map(c=>c.item);
-      }catch(e){
-        if(alive) box.innerHTML = `<div class="mkt-empty">Trending feed unavailable right now (${escapeHtml(e.message)}).</div>`;
-        return;
-      }
-    }
+    const which = MV_LINKS[mktUi.movers] ? mktUi.movers : "mostActive";
+    scope.querySelectorAll("#mkt-trend-tabs [data-mv]").forEach(b=>b.classList.toggle("active", b.dataset.mv===which));
+    $s("#mkt-trend-all").href = MV_LINKS[which];
+    if(!movers && !moversErr) await loadMovers();
     if(!alive) return;
-    box.innerHTML = trendingCoins.map((c,i)=>{
-      const chg = c.data && c.data.price_change_percentage_24h ? c.data.price_change_percentage_24h.usd : null;
-      const pinned = tickerData.pinned.includes(c.id);
-      return `<div class="mkt-trow">
+    if(!movers){ box.innerHTML = `<div class="mkt-empty">${escapeHtml(moversErr)}</div>`; $s("#mkt-trend-foot").textContent = ""; return; }
+    const list = (movers[which] || []).slice(0, 7);
+    box.innerHTML = list.length ? list.map((r,i)=>{
+      const up = r.changePct >= 0;
+      return `<a class="mkt-trow" href="https://finance.yahoo.com/quote/${encodeURIComponent(r.ticker)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(r.ticker)} quote">
         <span class="mkt-rank">${i+1}</span>
-        ${mktBadge({image:c.small || c.thumb, sym:c.symbol})}
-        <span class="mkt-tname"><b>${escapeHtml((c.symbol||"").toUpperCase())}</b><span>Trending: ${escapeHtml(c.name)} (${escapeHtml((c.symbol||"").toUpperCase())}) — rank #${c.market_cap_rank || "–"}</span></span>
-        <span class="mkt-tchg ${chg==null ? "" : chg>=0 ? "up" : "down"}">${chg==null ? "" : (chg>=0 ? MKT_ICONS.up : MKT_ICONS.down) + mktPct(chg)}</span>
-        <button type="button" class="mkt-watch-btn${pinned ? " on" : ""}" data-watch="${escapeHtml(c.id)}" title="${pinned ? "On your watchlist" : "Add to watchlist"}" aria-label="${pinned ? "On your watchlist" : "Add to watchlist"}">${pinned ? MKT_ICONS.check : MKT_ICONS.plus}</button>
-      </div>`;
-    }).join("");
-    box.querySelectorAll("[data-watch]").forEach(b=>b.addEventListener("click", ()=>{
-      const id = b.dataset.watch;
-      if(tickerData.pinned.includes(id)) return;
-      tickerData.pinned.push(id);
-      saveJSON(NS+"tickers", tickerData);
-      renderTrending(); renderTable(); renderFilter(); renderCharts();
-    }));
+        <span class="mkt-badge" style="${bankBadgeStyle(r.ticker)}">${escapeHtml(r.ticker.slice(0,4))}</span>
+        <span class="mkt-tname"><b>${escapeHtml(r.ticker)}</b><span>$${mktPrice(r.price)} · Vol ${fmtVolume(r.volume)}</span></span>
+        <span class="mkt-tchg ${up ? "up" : "down"}">${up ? MKT_ICONS.up : MKT_ICONS.down}${mktPct(r.changePct)}</span>
+      </a>`;
+    }).join("") : `<div class="mkt-empty">No data for this list right now.</div>`;
+    const upd = movers.updated ? String(movers.updated).replace(/\s*US\/Eastern$/,"") : "";
+    $s("#mkt-trend-foot").textContent = upd ? `US market data as of ${upd} ET · refreshes hourly` : "";
   }
+  scope.querySelectorAll("#mkt-trend-tabs [data-mv]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.movers = b.dataset.mv; saveUi(); renderTrending(); }));
 
   /* ---------- charts ---------- */
   function chartAssets(){
