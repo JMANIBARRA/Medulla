@@ -8144,7 +8144,7 @@ const VEHICLE_MODELS = [
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
 const GAR_SF_STORE = NS + "garageModels";
-const GAR_SF_VERSION = 6;           /* bump to re-pick every vehicle's model after changing the scoring */
+const GAR_SF_VERSION = 7;           /* bump to re-pick every vehicle's model after changing the scoring */
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
@@ -8390,11 +8390,25 @@ async function garFindModel(v){
   return {uid:best.uid, name:best.name, author:best.author, license:best.license, thumb:best.thumb, glb:best.glb || null, standIn, ts:Date.now()};
 }
 /* start (once) the automatic search for a vehicle; onDone runs when a result is stored */
+const garRecheckTried = {};
 function garEnsureModel(v, onDone){
   if(!v || !v.vehicle || garAssetFor(v, {noAuto:true})) return;
   const key = garModelKey(v);
   const rec = garAutoModels[key];
-  if(rec && (rec.uid || Date.now() - (rec.ts||0) < 86400000)) return;   /* "none" is retried after a day */
+  /* picks made by the in-browser rules (the Worker was unreachable) get re-judged once it answers */
+  const recheck = rec && !rec.judged && !garRecheckTried[key];
+  if(rec && !recheck && (rec.uid || Date.now() - (rec.ts||0) < 86400000)) return;   /* "none" is retried after a day */
+  if(recheck){
+    garRecheckTried[key] = true;
+    if(!garAutoPending[key]){
+      garAutoPending[key] = garPickViaWorker(v).then(found=>{
+        if(found && (found.uid || found.none) && (found.uid !== rec.uid)){ garAutoModels[key] = found; saveJSON(GAR_SF_STORE, garAutoModels); }
+        else if(found){ rec.judged = true; saveJSON(GAR_SF_STORE, garAutoModels); }
+      }).catch(()=>{}).finally(()=>{ delete garAutoPending[key]; });
+    }
+    if(onDone) garAutoPending[key].then(onDone);
+    return;
+  }
   if(!garAutoPending[key]){
     garAutoPending[key] = garFindModel(v).then(found=>{
       garAutoModels[key] = found;

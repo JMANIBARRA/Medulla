@@ -228,8 +228,8 @@ async function searchMany(queries, glbOk, base){
 async function judgeText(env, want, cands, standIn){
   const list = cands.map((c, i)=>({i, name:c.name, tags:c.tags.slice(0,12), description:c.description, downloadable:!!c.glb, likes:c.likes, polygons:c.faces}));
   const rules = standIn
-    ? `No model of this exact vehicle exists. Choose stand-ins: complete, realistic, STOCK vehicles of the same kind (${want.kind || "vehicle"}${want.make ? `, ideally made by ${want.make}` : ""}) from roughly the same era as ${want.year || "the vehicle"}.`
-    : `Choose models that ARE this exact vehicle: same make and model, and a generation that was actually sold in ${want.year || "that year"}. Use your knowledge of model generations: e.g. a 1999 Ford Mustang is the SN95 generation (1994-2004), so a "2011 Mustang" or "Mustang GT 2018" is WRONG; a 2000 Ford Ranger is the 1998-2011 generation, so a 2019+ Ranger or a T6 Ranger is WRONG. If a name gives no year, judge by generation hints (codes like SN95, E46, C5; styling words) and accept only if it plausibly matches. Kawasaki "Z400" means the motorcycle.`;
+    ? `No model of this exact vehicle exists. Choose stand-ins: complete, realistic, STOCK vehicles of the same kind AND SIZE CLASS (${want.kind || "vehicle"}${want.make ? `, ideally made by ${want.make}` : ""}) from roughly the same era as ${want.year || "the vehicle"} — something a person would mistake for it at a glance. For a jon boat that means a small (10-20 ft) open, flat-bottom aluminum or small fishing boat: NOT ships, tugboats, trawlers, ferries, barges, yachts, cabin cruisers, sailboats, military or industrial vessels.`
+    : `Choose models that ARE this exact vehicle: same make and model, and a generation that was actually sold in ${want.year || "that year"}. Use your knowledge of model generations: e.g. a 1999 Ford Mustang is the SN95 generation (1994-2004), so a "2011 Mustang" or "Mustang GT 2018" is WRONG; a 2000 Ford Ranger is the 1998-2011 generation, so a 2019+ Ranger or a T6 Ranger is WRONG. If a name gives no year, judge by generation hints (codes like SN95, E46, C5; styling words) and accept only if it plausibly matches. Kawasaki "Z400" means the motorcycle. A "jon boat" (john boat) is a small open flat-bottom aluminum boat, never a ship, tug, trawler or cabin boat.`;
   const prompt = `Vehicle: ${JSON.stringify(want.vehicle)}${want.year ? `, model year ${want.year}` : ""}${want.kind ? `, kind: ${want.kind}` : ""}.
 ${rules}
 Reject anything that is: a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer "downloadable": true when two are equally good.
@@ -247,7 +247,7 @@ async function judgeImages(env, want, shortlist, standIn){
   if(!withImg.length) return null;
   const content = [{type:"text", text:
     `These are preview images of 3D models (numbered 0-${withImg.length-1} in order). ${standIn
-      ? `Which ones show a complete, stock, realistic ${want.kind || "vehicle"} (a stand-in for a ${want.year||""} ${want.vehicle})?`
+      ? `Which ones show a complete, stock, realistic ${want.kind || "vehicle"} of the same size class as a ${want.year||""} ${want.vehicle} (someone could mistake it for one at a glance)?`
       : `Which ones show a complete, stock (unmodified: not lifted, no roll bar or off-road kit, not a race car) ${want.year||""} ${want.vehicle} of the correct generation?`}
 Reject parts/accessories, scenes, wrecks, toys, and the wrong generation. Answer with JSON only: {"ok":[image numbers that pass, best first]}`}];
   withImg.forEach(c=>content.push({type:"image_url", image_url:{url:c.thumb}}));
@@ -292,7 +292,7 @@ async function garagePick(request, env, cors, ctx){
   if(!env.GROQ_API_KEY) return json({error:"judge_not_configured"}, 503, cors);
   const glbOk = !!env.SKETCHFAB_API_TOKEN;
   const cache = caches.default;
-  const cacheKey = new Request(`https://medulla-cache.internal/garage/pick?v=1&glb=${glbOk?1:0}&` + new URLSearchParams({vehicle:want.vehicle.toLowerCase(), year:want.year, kind:want.kind, s:standinQs.join("|"), a:extraQs.join("|")}));
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/pick?v=2&glb=${glbOk?1:0}&` + new URLSearchParams({vehicle:want.vehicle.toLowerCase(), year:want.year, kind:want.kind, s:standinQs.join("|"), a:extraQs.join("|")}));
   const hit = await cache.match(cacheKey);
   if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
   const base = url.origin;
