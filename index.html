@@ -8152,6 +8152,8 @@ const GAR_SF_VERSION = 9;           /* bump to re-pick every vehicle's model aft
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
+Object.keys(garAutoModels).forEach(k=>{ const r = garAutoModels[k];
+  if(r && typeof r === "object" && (r.busy || /\b(exploded|disassembled|disassembly|cutaway|x-?ray|teardown|breakdown)\b/i.test(String(r.name||"")))) delete garAutoModels[k]; });
 const garAutoPending = {};          /* key -> Promise */
 /* models the person turned down with "Wrong model?": key -> [uid, …], never picked again for that vehicle */
 const GAR_REJECT_STORE = NS + "garageRejected";
@@ -8293,15 +8295,19 @@ function garSfNormalize(r){
     likes:r.likeCount||0, views:r.viewCount||0, faces:r.faceCount||0, staff:!!r.staffpickedAt,
     tags:(r.tags||[]).map(x=>x && (x.slug||x.name)).filter(Boolean), thumb:t ? t.url : "", glb:null};
 }
+function garTimeout(ms){
+  if(typeof AbortSignal !== "undefined" && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController(); setTimeout(()=>c.abort(), ms); return c.signal;
+}
 async function garSearchModels(q){
   if(MEDULLA_AI_PROXY_URL){
     try{
-      const res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/find?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/find?q=${encodeURIComponent(q)}`, {signal:garTimeout(10000)});
       if(res.ok){ const d = await res.json(); if(d && Array.isArray(d.results)) return d.results; }
     }catch(e){}
   }
   /* the Worker doesn't have the Garage route yet (or is unreachable): Sketchfab's public search */
-  const res = await fetch(`https://api.sketchfab.com/v3/search?type=models&categories=cars-vehicles&count=24&q=${encodeURIComponent(q)}`);
+  const res = await fetch(`https://api.sketchfab.com/v3/search?type=models&categories=cars-vehicles&count=24&q=${encodeURIComponent(q)}`, {signal:garTimeout(10000)});
   if(!res.ok) throw new Error("search " + res.status);
   const d = await res.json();
   return (d.results||[]).filter(r=>r && r.uid).map(garSfNormalize);
@@ -8351,9 +8357,10 @@ async function garPickViaWorker(v){
   const rejected = garRejectedFor(v);
   if(rejected.length) params.set("exclude", rejected.join("|"));
   let res;
-  try{ res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/pick?${params}`); }catch(e){ return null; }
-  /* the judge is there but busy (rate limits): try again shortly rather than guess with keyword rules */
-  if(res.status === 503 || res.status === 429 || res.status === 502){ const e = new Error("judge busy"); e.busy = true; throw e; }
+  try{ res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/pick?${params}`, {signal:garTimeout(15000)}); }catch(e){ return null; }
+  /* the judge is busy (Groq free-tier limits) or slow: show the quick in-browser pick now; it is
+     re-judged later in the background, once, and swapped only if the judge prefers another model */
+  if(!res.ok) return null;
   if(!res.ok) return null;
   const d = await res.json().catch(()=>null);
   if(!d || !d.judged) return null;
@@ -8415,7 +8422,7 @@ function garEnsureModel(v, onDone){
   const key = garModelKey(v);
   const rec = garAutoModels[key];
   /* picks made by the in-browser rules (the Worker was unreachable) get re-judged once it answers */
-  const recheck = rec && !rec.judged && !garRecheckTried[key];
+  const recheck = rec && !rec.judged && !garRecheckTried[key] && Date.now() - (rec.ts||0) > 120000;   /* give the judge a couple of minutes to cool down */
   if(rec && !recheck && (rec.uid || Date.now() - (rec.ts||0) < 86400000)) return;   /* "none" is retried after a day */
   if(recheck){
     garRecheckTried[key] = true;
