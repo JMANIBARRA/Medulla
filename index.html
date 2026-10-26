@@ -8204,7 +8204,10 @@ function garAssetFor(v, opts={}){
   if(own && garAssetKind(own) && !garAssetFailed[own]) return {kind:garAssetKind(own), url:own, orbit:v.orbit || null, credit:null};
   const m = garRegistryMatch(v);
   if(m && m.asset && garAssetKind(m.asset) && !garAssetFailed[m.asset]) return {kind:garAssetKind(m.asset), url:m.asset, orbit:m.orbit || null, credit:m.credit || null};
-  return null;   /* automatic Sketchfab models are off: set a transparent PNG in Customize */
+  /* automatic: a free AI studio render of this exact vehicle in its paint colour (Pollinations, no key) */
+  const ai = garAiUrl(v);
+  if(ai && !garAssetFailed[ai]) return {kind:"ai", url:ai, credit:null};
+  return null;
   const rec = garAutoModels[garModelKey(v)];
   if(rec && rec.uid){
     if(rec.glb && !garAssetFailed[rec.glb]) return {kind:"model", url:rec.glb, orbit:null, credit:garCreditFor(rec), thumb:rec.thumb, auto:rec};
@@ -8213,6 +8216,19 @@ function garAssetFor(v, opts={}){
   return null;
 }
 /* true while the automatic search for this vehicle hasn't answered yet */
+const GAR_COLOR_NAMES = {};
+function garAiUrl(v){
+  const name = String(v.vehicle||"").trim();
+  if(!name) return null;
+  const hex = String(v.color||"").toLowerCase();
+  const named = (GAR_COLORS.find(c=>c[1].toLowerCase() === hex)||[])[0];
+  const color = named ? named.toLowerCase() : (/^#[0-9a-f]{6}$/.test(hex) ? `paint color ${hex}` : "");
+  const cls = garVehicleClass(v);
+  const year = garYear(v);
+  const prompt = `${year ? year + " " : ""}${name}${color ? ", " + color : ""}, stock factory ${cls === "boat" ? "boat" : cls === "moto" ? "motorcycle" : "vehicle"}, full side profile view facing left, entire vehicle in frame, photorealistic studio product photo, isolated on a pure plain white background, no text, no people`;
+  let h = 7; for(const ch of prompt) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=576&nologo=true&seed=${h % 100000}`;
+}
 function garAutoWaiting(v){
   return false;
   if(garAssetFor(v, {noAuto:true})) return false;
@@ -8660,10 +8676,19 @@ function garWireHTML(v, cls){
 function garGhostHTML(v, cls){
   return `<div class="${cls} gar-ghost" role="img" aria-label="${escapeHtml(v.vehicle)} (loading a 3D model)" style="--src:url('${garSilSrc(v)}')"><span></span></div>`;
 }
+/* AI render: a shimmering silhouette while it's drawn, then the vehicle cut out of its white backdrop
+   (or, if the cut fails, the picture itself with its edges faded) */
+function garAiHTML(v, cls, url){
+  const clean = garThumbClean[url];
+  if(clean) return `<img class="${cls} gar-render gar-cut" src="${clean}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  if(clean === false) return `<img class="${cls} gar-render gar-thumbimg" src="${escapeHtml(url)}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  return garGhostHTML(v, cls).replace('class="', `data-ai-src="${escapeHtml(url)}" class="`);
+}
 /* small visual: side panels, manage list, form preview */
 function garVisualHTML(v, cls, opts){
   const a = garAssetFor(v, opts);
   if(a && a.kind === "render") return `<img class="${cls} gar-render" src="${escapeHtml(garPaintedSrc(a.url, v.color))}" data-asset="${escapeHtml(a.url)}" data-paint="${escapeHtml(v.color||"")}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  if(a && a.kind === "ai") return garAiHTML(v, cls, a.url);
   if(a && a.kind === "model" && garSnapshots[a.url + "|" + (v.color||"")]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url + "|" + (v.color||"")]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.thumb) return garThumbHTML(v, cls, a.thumb);
   if(a || garAutoWaiting(v)) return garGhostHTML(v, cls);
@@ -8694,6 +8719,12 @@ function garShowcaseHTML(v, opts){
             allow="autoplay; fullscreen; xr-spatial-tracking" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
       </div>
+    </div>`;
+  }
+  if(a && a.kind === "ai"){
+    return `<div class="gar-show kind-render">
+      <div class="gar-contact" aria-hidden="true"></div>
+      <div class="gar-model">${garAiHTML(v, "", a.url)}</div>
     </div>`;
   }
   if(a && a.kind === "render"){
@@ -8731,6 +8762,18 @@ function wireGarAssets(container, onFail){
       img.src = out;
       const sheen = img.parentElement && img.parentElement.querySelector(".gar-sheen");
       if(sheen) sheen.style.setProperty("--src", `url('${out}')`);
+    });
+  });
+  container.querySelectorAll("[data-ai-src]").forEach(el=>{
+    const url = el.dataset.aiSrc;
+    garCleanThumb(url).then(clean=>{
+      if(!el.isConnected) return;
+      const img = document.createElement("img");
+      const base = el.className.replace(/\bgar-ghost\b/, "").trim();
+      if(clean){ img.className = base + " gar-render gar-cut"; img.src = clean; }
+      else{ img.className = base + " gar-render gar-thumbimg"; img.src = url; img.onerror = ()=>fail(url); }
+      img.alt = ""; img.draggable = false;
+      el.replaceWith(img);
     });
   });
   container.querySelectorAll("[data-clean-thumb]").forEach(el=>{
