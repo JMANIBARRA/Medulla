@@ -1121,6 +1121,109 @@
   /* Quick Launch tiles inside the Banking widget's own full-view modal (see renderBankQuickGrid/
      hydrateBankingFull) — a plain in-modal grid, not a separate floating popover, so it opens as
      the same centered modal every other widget's "enlarged view" already uses. */
+  /* ---------- Market full view (redesign) ---------- */
+  #modal-panel.modal-custom.modal-market{width:min(1200px,95vw);max-height:92vh;}
+  .mkt-head{display:flex;align-items:center;gap:16px;margin:-4px 0 22px;padding:0 0 0 6px;}
+  .mkt-head-icon{width:46px;height:46px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--accent);background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .mkt-head-icon svg{width:28px;height:28px;filter:drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));}
+  .mkt-head-text{flex:1;min-width:0;}
+  .mkt-head-text h2{margin:0;font-size:25px;font-weight:600;color:var(--text-primary);}
+  .mkt-head-text p{margin:3px 0 0;font-size:14px;color:#a9bcd6;}
+  .mkt-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;margin-bottom:20px;}
+  .mkt-card{border-radius:16px;padding:14px 16px 16px;background:linear-gradient(180deg, rgba(15,32,58,.7), rgba(8,18,35,.7));border:1px solid color-mix(in srgb, var(--accent) 20%, transparent);min-width:0;}
+  .mkt-tabs{margin-bottom:12px;}
+  .mkt-thead, .mkt-row{display:grid;grid-template-columns:40px minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr) 84px;align-items:center;column-gap:12px;}
+  .mkt-thead{padding:0 4px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a9bcd6;border-bottom:1px solid rgba(130,153,184,.12);}
+  .mkt-thead span:first-child{grid-column:1/3;}
+  .mkt-thead span:nth-child(2){grid-column:3;}
+  .mkt-rows{max-height:390px;overflow:auto;scrollbar-width:thin;}
+  .mkt-row{position:relative;padding:11px 4px;border-bottom:1px solid rgba(130,153,184,.1);}
+  .mkt-row:last-child{border-bottom:none;}
+  .mkt-badge{width:38px;height:38px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.14);}
+  .mkt-badge.img{background:#fff;}
+  .mkt-badge.img img{width:100%;height:100%;object-fit:cover;}
+  .mkt-name{min-width:0;display:flex;flex-direction:column;}
+  .mkt-name b{font-weight:500;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mkt-name > span{font-size:12px;color:var(--text-dim);}
+  .mkt-name em{font-style:normal;color:#6d84a3;}
+  .mkt-price{font-family:var(--font-mono);font-size:14px;font-weight:600;white-space:nowrap;}
+  .mkt-chg{font-family:var(--font-mono);font-size:13.5px;white-space:nowrap;}
+  .mkt-err{font-family:var(--font-body);font-size:11.5px;color:var(--text-dim);}
+  .mkt-spark{height:28px;display:flex;align-items:center;}
+  .mkt-spark svg{height:28px !important;}
+  .mkt-remove{position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:1px solid rgba(130,153,184,.3);background:#0b1830;color:#c9d7ea;cursor:pointer;font-size:15px;line-height:1;opacity:0;transition:opacity .15s;}
+  .mkt-row:hover .mkt-remove, .mkt-remove:focus-visible{opacity:1;}
+  .mkt-remove:hover{background:var(--bad);border-color:var(--bad);color:#fff;}
+  .mkt-section{padding:16px 4px 6px;font-size:15px;font-weight:500;color:#a9c8f0;}
+  .mkt-empty{padding:16px 6px;color:var(--text-dim);font-size:13px;text-align:center;}
+  .mkt-empty.small{padding:0;text-align:left;font-size:12px;}
+  .mkt-add{display:flex;gap:10px;margin-top:14px;}
+  .mkt-add-search{flex:1;width:auto !important;min-width:0;order:0 !important;}
+  .mkt-add .arc-btn{height:46px;padding:0 24px;font-size:14.5px;}
+  .mkt-add-status{min-height:16px;margin-top:6px;font-size:12px;color:var(--text-dim);}
+  .mkt-add-status.bad{color:var(--bad);}
+  .mkt-indices-extra{margin-top:12px;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .mkt-indices-extra p{margin:0 0 10px;}
+  .mkt-trend-head{display:flex;align-items:center;gap:10px;padding:2px 4px 12px;}
+  .mkt-trend-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,107,61,.14);}
+  .mkt-trend-icon svg{width:17px;height:17px;}
+  .mkt-trend-head h3{flex:1;margin:0;font-size:17px;font-weight:600;color:var(--text-primary);text-transform:none;letter-spacing:0;font-family:var(--font-body);}
+  .mkt-trend-head a{font-size:13px;color:#6fb2ff;text-decoration:none;}
+  .mkt-trend-head a:hover{text-decoration:underline;}
+  .mkt-trow{display:grid;grid-template-columns:28px 34px minmax(0,1fr) auto 30px;align-items:center;column-gap:12px;padding:9px 4px;border-top:1px solid rgba(130,153,184,.1);}
+  .mkt-rank{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:#c3d4ea;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.18);}
+  .mkt-trow .mkt-badge{width:32px;height:32px;}
+  .mkt-tname{min-width:0;display:flex;flex-direction:column;}
+  .mkt-tname b{font-weight:600;font-size:14px;}
+  .mkt-tname span{font-size:12px;color:#a9bcd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mkt-tchg{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:13.5px;font-weight:600;white-space:nowrap;}
+  .mkt-tchg svg{width:11px;height:11px;}
+  .mkt-watch-btn{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a9bcd6;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.2);}
+  .mkt-watch-btn svg{width:14px;height:14px;}
+  .mkt-watch-btn:hover{color:#fff;border-color:var(--accent);}
+  .mkt-watch-btn.on{color:var(--good);border-color:color-mix(in srgb, var(--good) 45%, transparent);cursor:default;}
+  .mkt-charts{padding:16px;}
+  .mkt-charts-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .mkt-ranges{display:flex;gap:6px;}
+  .mkt-ranges button{height:36px;min-width:56px;padding:0 14px;border-radius:10px;border:1px solid transparent;background:rgba(9,20,38,.6);color:#c3d4ea;font-family:var(--font-mono);font-size:13px;font-weight:600;cursor:pointer;}
+  .mkt-ranges button:hover{color:#fff;border-color:rgba(130,153,184,.3);}
+  .mkt-ranges button.active{color:#fff;background:linear-gradient(180deg,#2f8bff,#1462e0);box-shadow:0 6px 16px -6px #2f7bff;}
+  .mkt-filter{display:flex;align-items:center;gap:10px;height:42px;padding:0 6px 0 14px;border-radius:12px;background:rgba(9,20,38,.7);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);}
+  .mkt-filter svg{width:18px;height:18px;color:var(--accent);flex:none;}
+  .mkt-filter select{height:38px;min-width:190px;border:none !important;background:transparent !important;color:var(--text-primary);font:inherit;font-size:14px;cursor:pointer;outline:none;}
+  .mkt-filter select option{background:#0b1830;}
+  .mkt-chart-list{display:flex;flex-direction:column;gap:12px;}
+  .mkt-chart-row{display:grid;grid-template-columns:230px minmax(0,1fr);align-items:center;gap:16px;padding:14px 16px;border-radius:14px;background:rgba(6,14,28,.5);border:1px solid rgba(130,153,184,.12);}
+  .mkt-chart-info{display:flex;gap:14px;align-items:flex-start;}
+  .mkt-chart-name{font-size:14.5px;font-weight:500;}
+  .mkt-chart-price{margin-top:8px;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .mkt-chart-delta{margin-top:6px;font-family:var(--font-mono);font-size:13px;}
+  .mkt-chart-delta span{color:#a9bcd6;margin-left:4px;}
+  .mkt-chart-plot{position:relative;padding-right:74px;min-height:120px;}
+  .mkt-chart-svg{height:120px;}
+  .mkt-axis{position:absolute;top:0;right:0;width:68px;height:120px;border-left:1px solid rgba(130,153,184,.14);}
+  .mkt-axis span{position:absolute;left:8px;transform:translateY(-50%);font-family:var(--font-mono);font-size:11px;color:#a9bcd6;white-space:nowrap;}
+  .mkt-axis span.now{left:4px;padding:2px 6px;border-radius:5px;color:#05101f;font-weight:700;}
+  .mkt-chart-tooltip{position:absolute;top:-6px;display:none;pointer-events:none;padding:4px 8px;border-radius:7px;font-family:var(--font-mono);font-size:11.5px;color:#fff;background:#0b1830;border:1px solid rgba(130,153,184,.3);white-space:nowrap;z-index:2;}
+  @media (max-width:980px){
+    .mkt-top{grid-template-columns:1fr;}
+    .mkt-chart-row{grid-template-columns:1fr;}
+  }
+  @media (max-width:640px){
+    .mkt-head{gap:12px;padding:0;}
+    .mkt-head-text p{display:none;}
+    .mkt-thead, .mkt-row{grid-template-columns:34px minmax(0,1fr) auto auto;column-gap:10px;}
+    .mkt-thead span:nth-child(4), .mkt-spark{display:none;}
+    .mkt-thead span:nth-child(2){grid-column:3;}
+    .mkt-badge{width:34px;height:34px;}
+    .mkt-remove{opacity:1;right:-4px;top:4px;transform:none;width:20px;height:20px;font-size:13px;}
+    .mkt-trow{grid-template-columns:24px 30px minmax(0,1fr) auto 28px;column-gap:8px;}
+    .mkt-ranges{width:100%;}
+    .mkt-ranges button{flex:1;min-width:0;padding:0;}
+    .mkt-filter{width:100%;}
+    .mkt-filter select{flex:1;min-width:0;}
+    .mkt-chart-row{padding:12px;}
+  }
   /* ---------- Arcade full view (redesign) ---------- */
   #modal-panel.modal-custom.modal-arcade{width:min(740px,94vw);}
   .arc-head{display:flex;align-items:center;gap:14px;margin:-6px 0 18px;padding:0 0 16px 2px;border-bottom:1px solid rgba(130,153,184,.14);}
@@ -5540,12 +5643,13 @@ window.addEventListener("keydown",(e)=>{
 function openModal(def){
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market");
+  document.getElementById("modal-panel").classList.toggle("modal-market", def.id==="market");
   document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
-    if(def.id==="market") hydrateMarketFull(modalBody);
+    if(def.id==="market") modalCloseCleanup = hydrateMarketFull(modalBody);
     if(def.id==="sports") modalCloseCleanup = hydrateSportsFull(modalBody);
     if(def.id==="weather") modalCloseCleanup = hydrateWeatherFull(modalBody);
     if(def.id==="mail") hydrateMailFull(modalBody);
@@ -5791,28 +5895,7 @@ function renderMini(id){
   return "";
 }
 function renderFull(id){
-  if(id==="market"){
-    return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Asset Tracker</h3>
-        <table class="mono"><tbody id="mkt-idx-full"></tbody></table>
-        <div style="margin:10px 0 6px;font-size:11px;color:var(--text-dim);">pinned assets</div>
-        <table class="mono"><tbody id="mkt-pin-full"></tbody></table>
-        <div style="display:flex;gap:6px;margin-top:10px;">
-          <input id="mkt-add-input" type="text" placeholder="coingecko id e.g. solana" style="flex:1;"/>
-          <button class="btn" id="mkt-add-btn">Add</button>
-        </div>
-        <p style="font-size:11px;color:var(--text-dim);margin-top:10px;">Index values above are sample data. Crypto prices and charts are live via CoinGecko.</p>
-        <div id="mkt-twelvedata-setup" style="margin-top:10px;"></div>
-        <div id="mkt-charts-full" style="margin-top:14px;"></div>
-      </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">The Wire</h3>
-        <div id="mkt-wire" style="font-size:12px;color:var(--text-dim);line-height:1.7;">Loading headlines…</div>
-      </div>
-    </div>`;
-  }
+  if(id==="market") return marketFullHTML();
   if(id==="sports"){
     return `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
@@ -6636,36 +6719,356 @@ function renderTwelveDataSetup(container){
     renderMarketCharts(document.querySelector("#mkt-charts-full"));
     const idxTable = document.querySelector("#mkt-idx-full");
     if(idxTable) renderIndexRows(idxTable);
+    window.dispatchEvent(new Event("twelvedata-key-changed"));
   });
 }
-async function hydrateMarketFull(scope){
-  renderIndexRows(scope.querySelector("#mkt-idx-full"));
-  renderPinRows(scope.querySelector("#mkt-pin-full"));
-  renderMarketCharts(scope.querySelector("#mkt-charts-full"));
-  renderTwelveDataSetup(scope.querySelector("#mkt-twelvedata-setup"));
-  scope.querySelector("#mkt-add-btn").addEventListener("click", async ()=>{
-    const inp = scope.querySelector("#mkt-add-input");
-    const id = inp.value.trim().toLowerCase();
-    if(!id) return;
-    if(!tickerData.pinned.includes(id)) tickerData.pinned.push(id);
-    saveJSON(NS+"tickers", tickerData);
-    inp.value="";
-    renderPinRows(scope.querySelector("#mkt-pin-full"));
-    renderMarketCharts(scope.querySelector("#mkt-charts-full"));
-  });
-  const wire = scope.querySelector("#mkt-wire");
-  if(isFileOrigin()){
-    wire.innerHTML = `<div style="color:var(--accent-rust);">Can't reach external feeds when this file is opened directly (file://). Serve it from a local server instead — e.g. run <code>python3 -m http.server</code> in this folder and open http://localhost:8000.</div>`;
-    return;
-  }
+/* ================= MARKET FULL VIEW (redesign) =================
+   Watchlist/Indices table (left), CoinGecko trending (right), and one big chart per asset below
+   with a shared range picker and an asset filter. Coin names/prices/logos come from CoinGecko's
+   /coins/markets (one request for the whole watchlist); index rows keep using SAMPLE_INDICES for
+   the headline number, with real SPY/QQQ history from Twelve Data when a key is set — same data
+   sources the mini widget already uses. */
+const MKT_ICONS = {
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+  fire:'<svg viewBox="0 0 24 24"><path d="M12 2.5c.6 3.2-1 5-2.6 6.8C8 10.9 6.5 12.6 6.5 15a5.5 5.5 0 0 0 11 0c0-2.2-1-3.9-2.2-5.2-.3 1.3-1 2.3-2 2.8.5-3.6-.3-7.6-1.3-10.1z" fill="#ff6b3d"/><path d="M12 13c.3 1.6-.6 2.4-1.3 3.2-.5.6-.9 1.2-.9 2a2.2 2.2 0 0 0 4.4 0c0-1.6-.9-3.1-2.2-5.2z" fill="#ffc24a"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  up:'<svg viewBox="0 0 12 12"><path d="M6 2.5 10 8H2z" fill="currentColor"/></svg>',
+  down:'<svg viewBox="0 0 12 12"><path d="M6 9.5 2 4h8z" fill="currentColor"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></svg>',
+};
+const MKT_RANGES = [{k:"1",label:"24H",days:1},{k:"7",label:"7D",days:7},{k:"30",label:"30D",days:30},{k:"365",label:"1Y",days:365},{k:"max",label:"ALL",days:"max"}];
+const MKT_INDEX_META = {
+  sp500:{name:"S&P 500", sym:"SPX", badge:"S&P", bg:"linear-gradient(160deg,#3d7bff,#1747b0)", chartLabel:"S&P 500 (via SPY)"},
+  nasdaq:{name:"NASDAQ", sym:"IXIC", badge:"N", bg:"linear-gradient(160deg,#21407a,#0d1f45)", chartLabel:"NASDAQ (via QQQ)"},
+};
+let mktUi = loadJSON(NS+"marketUi", {tab:"watchlist", range:"1", filter:"all"});
+
+/* one request for every watchlist coin: name, symbol, logo, price, 24h change */
+let coinMarketsCache = {key:"", time:0, data:null};
+async function fetchCoinMarkets(ids){
+  if(!ids.length) return {ok:true, data:[]};
+  if(isFileOrigin()) return {ok:false, reason:"file-origin"};
+  const key = ids.slice().sort().join(",");
+  if(coinMarketsCache.key===key && Date.now()-coinMarketsCache.time < 60000) return {ok:true, data:coinMarketsCache.data};
   try{
-    const res = await fetch("https://api.coingecko.com/api/v3/search/trending");
-    if(!res.ok) throw new Error("http "+res.status);
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids.join(","))}&price_change_percentage=24h`);
+    if(res.status===429) return {ok:false, reason:"rate-limit"};
+    if(!res.ok) return {ok:false, reason:"http-"+res.status};
     const data = await res.json();
-    wire.innerHTML = (data.coins||[]).slice(0,7).map(c=>`<div>▸ Trending: ${c.item.name} (${c.item.symbol.toUpperCase()}) — rank #${c.item.market_cap_rank||"–"}</div>`).join("");
-  }catch(e){
-    wire.innerHTML = `<div style="color:var(--text-dim);">Headline feed unavailable right now (${e.message}).</div>`;
+    coinMarketsCache = {key, time:Date.now(), data};
+    return {ok:true, data};
+  }catch(e){ return {ok:false, reason:"network"}; }
+}
+/* "sol", "Solana" or "solana" all resolve to CoinGecko's id via its search endpoint */
+async function resolveCoinId(query){
+  const q = query.trim().toLowerCase();
+  if(!q) return null;
+  try{
+    const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`);
+    if(!res.ok) return null;
+    const coins = (await res.json()).coins || [];
+    const exact = coins.find(c=>c.id===q) || coins.find(c=>(c.symbol||"").toLowerCase()===q) || coins.find(c=>(c.name||"").toLowerCase()===q);
+    return (exact || coins[0] || {}).id || null;
+  }catch(e){ return null; }
+}
+/* history for a range, for either a coin or an index key. Coins: CoinGecko; "max" falls back to
+   1 year when the keyless API refuses full history. Indices: Twelve Data (key required). */
+async function fetchMktSeries(assetKey, days){
+  if(INDEX_ASSETS[assetKey]){
+    if(!twelveDataApiKey) return null;
+    return fetchTwelveDataSeries(INDEX_ASSETS[assetKey].symbol, days==="max" ? 9999 : days);
   }
+  const data = await fetchCoinMarketChart(assetKey, days);
+  if(!data && days==="max") return fetchCoinMarketChart(assetKey, 365);
+  return data;
+}
+function mktPrice(v){
+  if(v==null || !isFinite(v)) return "—";
+  const digits = v >= 1000 ? 2 : v >= 1 ? 2 : v >= 0.01 ? 4 : 6;
+  return v.toLocaleString("en-US", {minimumFractionDigits: v>=1 ? 2 : 2, maximumFractionDigits: digits});
+}
+function mktPct(p){ return p==null || !isFinite(p) ? "" : `${p>=0?"+":""}${p.toFixed(2)}%`; }
+function mktBadge(meta){
+  if(meta.image) return `<span class="mkt-badge img"><img src="${escapeHtml(meta.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.remove('img');this.replaceWith(document.createTextNode('${escapeHtml((meta.sym||"?")[0])}'))"></span>`;
+  return `<span class="mkt-badge" style="background:${meta.bg || "linear-gradient(160deg,#3a4f78,#1d2c4a)"}">${escapeHtml(meta.badge || (meta.sym||"?")[0])}</span>`;
+}
+
+function marketFullHTML(){
+  const rangeBtns = MKT_RANGES.map(r=>`<button type="button" data-range="${r.k}">${r.label}</button>`).join("");
+  return `
+    <div class="mkt-head">
+      <span class="mkt-head-icon">${MKT_ICONS.chart}</span>
+      <div class="mkt-head-text"><h2>Market</h2><p>Track assets, indices and trends in real time</p></div>
+      <button type="button" class="fin-close" id="mkt-close-btn" title="Close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="mkt-top">
+      <section class="mkt-card mkt-watch">
+        <div class="arc-tabs mkt-tabs" role="tablist">
+          <button type="button" class="arc-tab" data-tab="watchlist">Watchlist</button>
+          <button type="button" class="arc-tab" data-tab="indices">Indices</button>
+        </div>
+        <div class="mkt-thead"><span>Asset</span><span>Price</span><span>24h change</span><span></span></div>
+        <div class="mkt-rows" id="mkt-rows"></div>
+        <div class="mkt-add" id="mkt-add-wrap">
+          <label class="fin-search mkt-add-search">${MKT_ICONS.search}<input id="mkt-add-input" type="text" placeholder="Add asset (e.g. solana)" autocomplete="off"></label>
+          <button type="button" class="arc-btn primary" id="mkt-add-btn">Add</button>
+        </div>
+        <div class="mkt-add-status" id="mkt-add-status"></div>
+        <div id="mkt-indices-extra" class="mkt-indices-extra" style="display:none;">
+          <p>S&amp;P 500 and NASDAQ headline values are sample figures. Add a free Twelve Data key to chart them (tracked through the SPY and QQQ funds).</p>
+          <div id="mkt-twelvedata-setup"></div>
+        </div>
+      </section>
+      <section class="mkt-card mkt-trend">
+        <div class="mkt-trend-head">
+          <span class="mkt-trend-icon">${MKT_ICONS.fire}</span><h3>Trending</h3>
+          <a href="https://www.coingecko.com/en/highlights/trending-crypto" target="_blank" rel="noopener noreferrer">View all →</a>
+        </div>
+        <div id="mkt-trending" class="mkt-trending"><div class="mkt-empty">Loading trending coins…</div></div>
+      </section>
+    </div>
+    <section class="mkt-card mkt-charts">
+      <div class="mkt-charts-bar">
+        <div class="mkt-ranges" id="mkt-ranges">${rangeBtns}</div>
+        <label class="mkt-filter">${MKT_ICONS.chart}<select id="mkt-filter" aria-label="Which charts to show"></select></label>
+      </div>
+      <div id="mkt-chart-list" class="mkt-chart-list"></div>
+    </section>`;
+}
+
+function hydrateMarketFull(scope){
+  let alive = true;
+  const $s = sel=>scope.querySelector(sel);
+  scope.querySelector("#mkt-close-btn").addEventListener("click", ()=>closeModal());
+  const saveUi = ()=>saveJSON(NS+"marketUi", mktUi);
+  const coinMeta = {}; /* id -> {name, sym, image, price, chg} from the last markets fetch */
+
+  /* ---------- left table ---------- */
+  function rowHTML(r){
+    const chgCls = r.chg==null ? "" : (r.chg>=0 ? "up" : "down");
+    return `<div class="mkt-row" data-key="${escapeHtml(r.key)}">
+      ${mktBadge(r)}
+      <span class="mkt-name"><b>${escapeHtml(r.name)}</b><span>${escapeHtml(r.sym)}${r.sample ? ` <em title="Sample figure">· sample</em>` : ""}</span></span>
+      <span class="mkt-price">${r.price}</span>
+      <span class="mkt-chg ${chgCls}">${r.err ? `<span class="mkt-err">${escapeHtml(r.err)}</span>` : mktPct(r.chg)}</span>
+      <span class="mkt-spark"></span>
+      ${r.removable ? `<button type="button" class="mkt-remove" data-remove="${escapeHtml(r.key)}" title="Remove ${escapeHtml(r.name)} from watchlist" aria-label="Remove">×</button>` : ""}
+    </div>`;
+  }
+  function indexRows(){
+    return SAMPLE_INDICES.map(r=>{
+      const m = MKT_INDEX_META[r.id] || {name:r.sym, sym:r.sym};
+      return {key:r.id, name:m.name, sym:m.sym, badge:m.badge, bg:m.bg, price:r.val.toLocaleString("en-US",{minimumFractionDigits:2}), chg:r.chg, sample:true};
+    });
+  }
+  async function renderTable(){
+    const rows = $s("#mkt-rows");
+    if(!rows) return;
+    const tab = mktUi.tab;
+    scope.querySelectorAll(".mkt-tabs [data-tab]").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+    $s("#mkt-add-wrap").style.display = tab==="watchlist" ? "" : "none";
+    $s("#mkt-add-status").style.display = tab==="watchlist" ? "" : "none";
+    $s("#mkt-indices-extra").style.display = tab==="indices" ? "" : "none";
+    const idx = indexRows();
+    if(tab==="indices"){
+      rows.innerHTML = idx.map(rowHTML).join("");
+      fillSparks(rows, idx.map(r=>r.key));
+      return;
+    }
+    const ids = tickerData.pinned.slice();
+    const pending = ids.map(id=>({key:id, name:id[0].toUpperCase()+id.slice(1), sym:(COIN_NAMES[id]||id).toUpperCase(), price:"…", chg:null, removable:true, ...(coinMeta[id]||{})}));
+    const draw = list=>{
+      rows.innerHTML = idx.map(rowHTML).join("")
+        + `<div class="mkt-section">Pinned assets</div>`
+        + (list.length ? list.map(rowHTML).join("") : `<div class="mkt-empty">Nothing pinned yet — add a coin below.</div>`);
+      rows.querySelectorAll("[data-remove]").forEach(btn=>btn.addEventListener("click", ()=>{
+        tickerData.pinned = tickerData.pinned.filter(x=>x!==btn.dataset.remove);
+        saveJSON(NS+"tickers", tickerData);
+        renderTable(); renderFilter(); renderCharts(); renderTrending();
+      }));
+    };
+    draw(pending.map(p=>({...p, price: p.price==null ? "…" : (typeof p.price==="number" ? "$"+mktPrice(p.price) : p.price)})));
+    fillSparks(rows, idx.map(r=>r.key));
+    if(!ids.length) return;
+    const res = await fetchCoinMarkets(ids);
+    if(!alive) return;
+    if(!res.ok){
+      draw(pending.map(p=>({...p, price:"—", err: feedErrorLabel(res.reason).split(" — ")[0]})));
+      return;
+    }
+    const byId = Object.fromEntries(res.data.map(c=>[c.id, c]));
+    const list = ids.map(id=>{
+      const c = byId[id];
+      if(!c) return {key:id, name:id, sym:"?", price:"—", chg:null, removable:true, err:"Unknown coin"};
+      coinMeta[id] = {name:c.name, sym:(c.symbol||"").toUpperCase(), image:c.image, price:c.current_price, chg:c.price_change_percentage_24h};
+      return {key:id, name:c.name, sym:(c.symbol||"").toUpperCase(), image:c.image, price:"$"+mktPrice(c.current_price), chg:c.price_change_percentage_24h, removable:true};
+    });
+    draw(list);
+    fillSparks(rows, [...idx.map(r=>r.key), ...ids]);
+    renderFilter(); /* names/logos for the chart picker now that we have them */
+  }
+  function fillSparks(rows, keys){
+    keys.forEach(async key=>{
+      const data = await fetchMktSeries(key, 1);
+      const cell = rows.querySelector(`.mkt-row[data-key="${CSS.escape(key)}"] .mkt-spark`);
+      if(cell && data && alive) cell.innerHTML = buildSparklineSVG(data, {width:80, height:28});
+    });
+  }
+
+  /* ---------- add asset ---------- */
+  async function addAsset(){
+    const inp = $s("#mkt-add-input"), status = $s("#mkt-add-status"), btn = $s("#mkt-add-btn");
+    const q = inp.value.trim();
+    if(!q){ inp.focus(); return; }
+    btn.disabled = true; status.textContent = "Looking it up…"; status.className = "mkt-add-status";
+    const id = await resolveCoinId(q);
+    btn.disabled = false;
+    if(!alive) return;
+    if(!id){ status.textContent = `Couldn't find “${q}” on CoinGecko.`; status.className = "mkt-add-status bad"; return; }
+    if(tickerData.pinned.includes(id)){ status.textContent = "Already on your watchlist."; return; }
+    tickerData.pinned.push(id);
+    saveJSON(NS+"tickers", tickerData);
+    inp.value = ""; status.textContent = "";
+    renderTable(); renderFilter(); renderCharts(); renderTrending();
+  }
+  $s("#mkt-add-btn").addEventListener("click", addAsset);
+  $s("#mkt-add-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addAsset(); } });
+  scope.querySelectorAll(".mkt-tabs [data-tab]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.tab = b.dataset.tab; saveUi(); renderTable(); }));
+
+  /* ---------- trending ---------- */
+  let trendingCoins = null;
+  async function renderTrending(){
+    const box = $s("#mkt-trending");
+    if(!box) return;
+    if(isFileOrigin()){ box.innerHTML = `<div class="mkt-empty">${escapeHtml(feedErrorLabel("file-origin"))}</div>`; return; }
+    if(!trendingCoins){
+      try{
+        const res = await fetch("https://api.coingecko.com/api/v3/search/trending");
+        if(!res.ok) throw new Error(res.status===429 ? "CoinGecko rate limit hit, try again shortly" : "HTTP "+res.status);
+        trendingCoins = ((await res.json()).coins || []).slice(0,7).map(c=>c.item);
+      }catch(e){
+        if(alive) box.innerHTML = `<div class="mkt-empty">Trending feed unavailable right now (${escapeHtml(e.message)}).</div>`;
+        return;
+      }
+    }
+    if(!alive) return;
+    box.innerHTML = trendingCoins.map((c,i)=>{
+      const chg = c.data && c.data.price_change_percentage_24h ? c.data.price_change_percentage_24h.usd : null;
+      const pinned = tickerData.pinned.includes(c.id);
+      return `<div class="mkt-trow">
+        <span class="mkt-rank">${i+1}</span>
+        ${mktBadge({image:c.small || c.thumb, sym:c.symbol})}
+        <span class="mkt-tname"><b>${escapeHtml((c.symbol||"").toUpperCase())}</b><span>Trending: ${escapeHtml(c.name)} (${escapeHtml((c.symbol||"").toUpperCase())}) — rank #${c.market_cap_rank || "–"}</span></span>
+        <span class="mkt-tchg ${chg==null ? "" : chg>=0 ? "up" : "down"}">${chg==null ? "" : (chg>=0 ? MKT_ICONS.up : MKT_ICONS.down) + mktPct(chg)}</span>
+        <button type="button" class="mkt-watch-btn${pinned ? " on" : ""}" data-watch="${escapeHtml(c.id)}" title="${pinned ? "On your watchlist" : "Add to watchlist"}" aria-label="${pinned ? "On your watchlist" : "Add to watchlist"}">${pinned ? MKT_ICONS.check : MKT_ICONS.plus}</button>
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-watch]").forEach(b=>b.addEventListener("click", ()=>{
+      const id = b.dataset.watch;
+      if(tickerData.pinned.includes(id)) return;
+      tickerData.pinned.push(id);
+      saveJSON(NS+"tickers", tickerData);
+      renderTrending(); renderTable(); renderFilter(); renderCharts();
+    }));
+  }
+
+  /* ---------- charts ---------- */
+  function chartAssets(){
+    return [...(twelveDataApiKey ? Object.keys(INDEX_ASSETS) : []), ...tickerData.pinned];
+  }
+  function assetLabel(key){
+    if(MKT_INDEX_META[key]) return MKT_INDEX_META[key].chartLabel;
+    const m = coinMeta[key];
+    return m ? `${m.name} (${m.sym})` : (COIN_NAMES[key] || key);
+  }
+  function renderFilter(){
+    const sel = $s("#mkt-filter");
+    if(!sel) return;
+    const keys = chartAssets();
+    if(mktUi.filter!=="all" && !keys.includes(mktUi.filter)) mktUi.filter = "all";
+    sel.innerHTML = `<option value="all">All assets</option>` + keys.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(assetLabel(k))}</option>`).join("");
+    sel.value = mktUi.filter;
+  }
+  $s("#mkt-filter").addEventListener("change", e=>{ mktUi.filter = e.target.value; saveUi(); renderCharts(); });
+  scope.querySelectorAll("#mkt-ranges [data-range]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.range = b.dataset.range; saveUi(); renderCharts(); }));
+
+  let chartRun = 0;
+  function renderCharts(){
+    const list = $s("#mkt-chart-list");
+    if(!list) return;
+    const run = ++chartRun;
+    scope.querySelectorAll("#mkt-ranges [data-range]").forEach(b=>b.classList.toggle("active", b.dataset.range===mktUi.range));
+    const range = MKT_RANGES.find(r=>r.k===mktUi.range) || MKT_RANGES[0];
+    const keys = chartAssets().filter(k=>mktUi.filter==="all" || k===mktUi.filter);
+    if(!keys.length){
+      list.innerHTML = `<div class="mkt-empty">${tickerData.pinned.length ? "" : "Pin a coin to see its chart here. "}${twelveDataApiKey ? "" : "Index charts need a free Twelve Data key (see the Indices tab)."}</div>`;
+      return;
+    }
+    list.innerHTML = keys.map(k=>{
+      const isIdx = !!MKT_INDEX_META[k], m = isIdx ? MKT_INDEX_META[k] : (coinMeta[k] || {sym:(COIN_NAMES[k]||k)});
+      return `<div class="mkt-chart-row" data-key="${escapeHtml(k)}">
+        <div class="mkt-chart-info">
+          ${mktBadge(isIdx ? m : {image:m.image, sym:m.sym})}
+          <div><div class="mkt-chart-name">${escapeHtml(assetLabel(k))}</div>
+          <div class="mkt-chart-price">…</div>
+          <div class="mkt-chart-delta"></div></div>
+        </div>
+        <div class="mkt-chart-plot">
+          <div class="mkt-chart-svg"><div class="mkt-empty small">Loading chart…</div></div>
+          <div class="mkt-axis"></div>
+          <div class="mkt-chart-tooltip"></div>
+        </div>
+      </div>`;
+    }).join("");
+    keys.forEach(async k=>{
+      const data = await fetchMktSeries(k, range.days);
+      if(!alive || run!==chartRun) return;
+      const row = list.querySelector(`.mkt-chart-row[data-key="${CSS.escape(k)}"]`);
+      if(!row) return;
+      if(!data){ row.querySelector(".mkt-chart-svg").innerHTML = `<div class="mkt-empty small">Chart unavailable right now.</div>`; row.querySelector(".mkt-chart-price").textContent = "—"; return; }
+      drawChartRow(row, data, range.days);
+    });
+  }
+  function niceTicks(min, max, count){
+    const span = max - min || Math.abs(max) || 1;
+    const raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1,2,2.5,5,10].map(f=>f*mag).find(s=>s >= raw) || raw;
+    const out = [];
+    for(let v = Math.ceil(min/step)*step; v <= max + 1e-9; v += step) out.push(v);
+    return out;
+  }
+  function drawChartRow(row, data, days){
+    const H = 120, PAD_T = 10, PAD_B = 6;
+    const {svg, color, pointsArr} = buildPriceChartSVG(data, {width:800, height:H});
+    const plot = row.querySelector(".mkt-chart-plot");
+    row.querySelector(".mkt-chart-svg").innerHTML = svg;
+    row.style.setProperty("--line", color);
+    const vals = data.map(p=>p.price), min = Math.min(...vals), max = Math.max(...vals), range = (max-min) || 1;
+    const yPct = v => (PAD_T + (H-PAD_T-PAD_B) - ((v-min)/range)*(H-PAD_T-PAD_B)) / H * 100;
+    const first = vals[0], last = vals[vals.length-1], diff = last-first, pct = first ? diff/first*100 : 0;
+    const fmtAxis = v => v >= 1000 ? Math.round(v).toLocaleString("en-US") : mktPrice(v);
+    const ticks = niceTicks(min, max, 3).filter(v=>{ const y = yPct(v); return y > 4 && y < 96; });
+    const lastY = yPct(last);
+    row.querySelector(".mkt-axis").innerHTML =
+      ticks.filter(v=>Math.abs(yPct(v)-lastY) > 9).map(v=>`<span style="top:${yPct(v).toFixed(1)}%">${fmtAxis(v)}</span>`).join("")
+      + `<span class="now" style="top:${lastY.toFixed(1)}%;background:${color}">${fmtAxis(last)}</span>`;
+    row.querySelector(".mkt-chart-price").textContent = "$" + mktPrice(last);
+    const d = row.querySelector(".mkt-chart-delta");
+    d.className = "mkt-chart-delta " + (diff>=0 ? "up" : "down");
+    d.innerHTML = `${mktPct(pct)} <span>(${diff>=0?"+":"-"}$${mktPrice(Math.abs(diff))})</span>`;
+    wireMarketChartHover(plot, pointsArr, typeof days==="number" ? days : 999);
+  }
+
+  /* Twelve Data key saved from the Indices tab: refresh everything that depends on it */
+  const onKey = ()=>{ renderTable(); renderFilter(); renderCharts(); };
+  window.addEventListener("twelvedata-key-changed", onKey);
+  renderTwelveDataSetup($s("#mkt-twelvedata-setup"));
+
+  renderTable(); renderFilter(); renderCharts(); renderTrending();
+  /* keep prices fresh while the window is open (CoinGecko's keyless limit is ~30/min, so once a minute) */
+  const timer = setInterval(()=>{ if(!document.hidden){ coinMarketsCache.time = 0; renderTable(); } }, 60000);
+  return function cleanup(){ alive = false; clearInterval(timer); window.removeEventListener("twelvedata-key-changed", onKey); };
 }
 
 /* ================= SPORTS TRACKER WIDGET ================= */
