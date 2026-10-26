@@ -10592,8 +10592,27 @@ function getLocalLLMSystemPrompt(){
    browser can never call it directly (confirmed by testing the raw response headers) — Groq
    does send Access-Control-Allow-Origin: *, so it's the one that actually works here. Same
    system prompt/personality/history handling as before. */
+/* why the last cloud AI request failed, in plain words — shown in the chat's failure message so a
+   broken key / quota / blocked site is self-diagnosing instead of a generic "couldn't reach" */
+let lastCloudAiError = "";
+async function describeCloudAiFailure(res){
+  let detail = "";
+  try{
+    const body = await res.clone().json();
+    detail = (body && body.error && (typeof body.error === "string" ? body.error : (body.error.code || body.error.message))) || "";
+  }catch(e){
+    try{ detail = (await res.clone().text()).slice(0,80); }catch(e2){}
+  }
+  const d = String(detail).toLowerCase();
+  if(res.status===401 || d.includes("invalid_api_key") || d.includes("invalid api key")) return "the Groq key on the server is invalid or was deleted — store a new one with `npx wrangler secret put GROQ_API_KEY`";
+  if(res.status===403) return "the AI service refused this site (check ALLOWED_ORIGINS in proxy/wrangler.toml)";
+  if(res.status===429) return d.includes("rate_limited") ? "too many messages in a minute — wait a moment" : "the shared Groq usage limit is used up for now";
+  if(d.includes("proxy_not_configured")) return "the server has no Groq key yet — run `npx wrangler secret put GROQ_API_KEY`";
+  return `HTTP ${res.status}${detail ? ` (${detail})` : ""}`;
+}
 async function tryGroq(text){
   if(!cloudAiAvailable()) return null;
+  lastCloudAiError = "";
   try{
     const messages = [
       {role:"system", content: getAiSystemPrompt()},
@@ -10601,7 +10620,7 @@ async function tryGroq(text){
       {role:"user", content: text}
     ];
     const res = await groqChatRequest({ model:"llama-3.3-70b-versatile", messages });
-    if(!res.ok) throw new Error("groq request failed");
+    if(!res.ok){ lastCloudAiError = await describeCloudAiFailure(res); console.warn("cloud AI failed:", lastCloudAiError); return null; }
     const data = await res.json();
     const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if(!reply) return "(empty response)";
@@ -10610,6 +10629,10 @@ async function tryGroq(text){
     saveAiConversation();
     return reply;
   }catch(e){
+    /* a fetch that throws outright (no response at all) is a network/CORS block — usually the
+       Worker being unreachable or rejecting this site before CORS headers are added */
+    lastCloudAiError = navigator.onLine ? "the AI service couldn't be reached (network or site not allowed)" : "you're offline";
+    console.warn("cloud AI failed:", e);
     return null;
   }
 }
@@ -10851,7 +10874,7 @@ aiForm.addEventListener("submit", async (e)=>{
     presentAiReply(groqApiKey && !MEDULLA_AI_PROXY_URL
       ? "No local command matched, and the Groq request failed — check your API key in Settings or try again in a moment."
       : MEDULLA_AI_PROXY_URL
-        ? "I couldn't reach my thinking service just now — give it a moment and try again."
+        ? `I couldn't reach my thinking service just now${lastCloudAiError ? ` — ${lastCloudAiError}` : " — give it a moment and try again"}.`
         : "No local command matched, and the built-in local model couldn't respond either.");
   }
 });
