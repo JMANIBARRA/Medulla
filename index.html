@@ -1297,6 +1297,32 @@
   .gar-mv::part(default-progress-bar){display:none;}
   .gar-show.kind-model .gar-contact{left:14%;right:14%;opacity:.6;}
   /* ---- studio renders (.svg/.png) ---- */
+  /* real 3D models from Sketchfab: the embedded viewer, cropped to the car and faded into the stage */
+  .gar-model-sf{overflow:visible;}
+  .gar-sf-frame{position:absolute;left:-24%;right:-24%;top:-34%;bottom:-44%;overflow:hidden;pointer-events:auto;
+    -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0,0,0,.6) 76%, transparent 100%);
+            mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0,0,0,.6) 76%, transparent 100%);}
+  .gar-sf{position:absolute;left:0;top:-64px;width:100%;height:calc(100% + 128px);border:0;display:block;background:transparent;opacity:0;transition:opacity .7s ease;color-scheme:normal;}
+  .gar-show.kind-sketch.loaded .gar-sf{opacity:1;}
+  .gar-sf-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.9;transition:opacity .7s ease;pointer-events:none;}
+  .gar-show.kind-sketch.loaded .gar-sf-thumb{opacity:0;}
+  .gar-show.kind-sketch .gar-contact{left:16%;right:16%;opacity:.55;}
+  .gar-model-3d img.gar-mv-wait{position:absolute;left:0;right:0;bottom:-10%;width:100%;height:120%;object-fit:contain;transition:opacity .5s;
+    -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);}
+  .gar-thumbimg{display:block;object-fit:cover;border-radius:10px;
+    -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);}
+  .gar-panel .gar-thumbimg, .gar-mthumb .gar-thumbimg, .gar-photo-preview .gar-thumbimg{width:100%;height:100%;}
+  /* loading skeleton while the model is looked up */
+  .gar-ghost{position:relative;width:100%;aspect-ratio:2.4/1;max-height:100%;
+    -webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;
+    background:linear-gradient(100deg, rgba(120,160,210,.10) 30%, rgba(170,210,255,.32) 50%, rgba(120,160,210,.10) 70%) 0 0/250% 100%;
+    animation:gar-ghost-sweep 1.6s linear infinite;}
+  .gar-ghost span{display:none;}
+  @keyframes gar-ghost-sweep{from{background-position:120% 0;}to{background-position:-120% 0;}}
+  .gar-show.kind-ghost .gar-model{left:6%;right:6%;}
+  .gar-model-3d .gar-ghost.gar-mv-wait{left:10%;right:10%;bottom:2%;opacity:.8;}
+  .gar-show.kind-ghost .gar-contact{opacity:.4;}
+  @media (prefers-reduced-motion: reduce){ .gar-ghost{animation:none;} }
   .gar-render{display:block;object-fit:contain;}
   .gar-model .gar-render{position:relative;max-width:100%;max-height:100%;object-position:center bottom;filter:drop-shadow(0 1px 0 rgba(170,215,255,.35)) drop-shadow(0 10px 14px rgba(0,0,0,.45));}
   .gar-reflect .gar-render{display:block;max-width:100%;max-height:100%;object-fit:contain;object-position:center bottom;}
@@ -3637,7 +3663,7 @@ function dumpLocalState(){
    excluded either way — it's a public OAuth client ID, not a secret, per Google's own docs. */
 /* vehicle photos stay on the device they were added on: the synced record has a ~1MB cap that a
    few photos would exceed, which would stop everything else from syncing */
-const CLOUD_SYNC_EXCLUDED_KEYS = ["garagePhotos","deviceLocation"].map(k=>NS+k);
+const CLOUD_SYNC_EXCLUDED_KEYS = ["garagePhotos","deviceLocation","garageModels"].map(k=>NS+k);
 function dumpLocalStateForCloud(){
   const dump = dumpLocalState();
   CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
@@ -8085,39 +8111,46 @@ function garSmoothSrc(type){
   img.src = garIconSrc(type);
   return garIconSrc(type);
 }
-/* ================= GARAGE: VEHICLE ASSETS (3D models, renders, wireframe fallback) =================
+/* ================= GARAGE: VEHICLE ASSETS (real 3D models of your actual vehicles) =================
    Each vehicle on the stage is drawn from the first of these that exists:
-     1. its own asset — Customize ▸ "3D model or render" (v.asset): a path in this repo or a URL
-     2. a match in VEHICLE_MODELS below (make/model aliases + year range)
-     3. the holographic wireframe silhouette of its body style
-   Asset types, by file extension:
-     .glb / .gltf          -> real 3D model in a studio-lit WebGL viewer (<model-viewer>, Apache-2.0):
-                              slow turntable spin, drag to rotate, soft contact shadow
-     .svg / .png / .webp   -> a clean pre-rendered side or 3/4 view (transparent background)
-   An asset that fails to load drops back to the wireframe for the rest of the session.
-
-   ADDING A MODEL: put the file in models/vehicles/ and add an entry:
-     { id, name, aliases:[lowercase name variants], years:[from, to] (optional),
-       asset:"models/vehicles/file.glb", orbit:"-35deg 76deg auto" (optional camera angle),
-       credit:{ text:"Model by …, CC BY 4.0", url:"…" } (optional, shown under the stage) }
-   Good free sources of car models: Sketchfab (filter "downloadable" + license), Poly Pizza (CC0),
-   Kenney Car Kit (CC0). Keep files small (< ~8 MB) — they load over the network. */
+     1. its own asset — Customize ▸ "3D model": a .glb/.gltf, an .svg/.png render, or a Sketchfab link
+     2. a match in VEHICLE_MODELS below (make/model aliases + year range) — for files in this repo
+     3. AUTOMATIC: a search of Sketchfab's car library for the vehicle's year + make + model. The
+        best realistic match is picked (name and year match, popularity, polygon count; toys,
+        low-poly, wrecks and parts are skipped) and remembered on this device.
+          - If the Medulla Worker has a SKETCHFAB_API_TOKEN, downloadable models arrive as .glb
+            and render in Medulla's own studio-lit viewer, transparent, right on the pedestal.
+          - Otherwise Sketchfab's embedded 3D viewer is placed on the pedestal, its edges faded out.
+        No exact match -> a realistic stand-in of the same body style (labelled as one).
+     4. the holographic wireframe, only when nothing at all can be reached (offline).
+   Model credits (author + license) are shown under the stage, as the Creative Commons licenses ask. */
 const VEHICLE_MODELS = [
-  { id:"ford-ranger-1998", name:"Ford Ranger", aliases:["ford ranger","ranger"], years:[1998, 2011],
-    asset:"models/vehicles/ford-ranger-1998-2011.glb", orbit:"-35deg 76deg auto" },
+  /* { id:"honda-civic-2016", name:"Honda Civic", aliases:["civic"], years:[2016, 2021],
+       asset:"models/vehicles/honda-civic-2016.glb", orbit:"-35deg 76deg auto",
+       credit:{ text:"Model by …, CC BY 4.0", url:"…" } }, */
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
-const garAssetFailed = {};    /* asset url -> true after a load failure (this session) */
-const garSnapshots = {};      /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
+const GAR_SF_STORE = NS + "garageModels";
+const GAR_SF_VERSION = 2;           /* bump to re-pick every vehicle's model after changing the scoring */
+const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
+const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
+let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
+const garAutoPending = {};          /* key -> Promise */
 function garAssetKind(url){
   const u = String(url||"").split(/[?#]/)[0].toLowerCase();
+  if(garSketchfabUid(url)) return "sketchfab";
   if(/\.(glb|gltf)$/.test(u)) return "model";
   if(/\.(svg|png|webp|avif)$/.test(u)) return "render";
   return null;
 }
+function garSketchfabUid(s){
+  s = String(s||"").trim();
+  const m = s.match(/sketchfab\.com\/(?:3d-models\/(?:[^\s/?#]*-)?|models\/)([0-9a-f]{32})/i) || s.match(/^(?:sketchfab:)?([0-9a-f]{32})$/i);
+  return m ? m[1].toLowerCase() : null;
+}
 function garRegistryMatch(v){
   const name = normalizePlaceName(v.vehicle);
-  const year = Number((String(v.year||"").match(/\d{4}/)||[0])[0]);
+  const year = garYear(v);
   if(!name) return null;
   return VEHICLE_MODELS.find(m=>{
     const names = [m.name, ...(m.aliases||[])].map(normalizePlaceName);
@@ -8126,26 +8159,179 @@ function garRegistryMatch(v){
     return nameOk && yearOk;
   }) || null;
 }
-/* -> {kind:"model"|"render", url, orbit, credit} or null (= wireframe) */
+function garYear(v){ return Number((String(v.year||"").match(/\d{4}/)||[0])[0]) || 0; }
+function garModelKey(v){ return garYear(v) + "|" + normalizePlaceName(v.vehicle) + "|" + (v.type||""); }
+function garCreditFor(rec){
+  if(!rec) return null;
+  const by = rec.author ? ` by ${rec.author}` : "";
+  const lic = rec.license ? ` · ${rec.license}` : "";
+  return {text:`${rec.standIn ? "Stand-in model: " : ""}“${rec.name}”${by}${lic} · Sketchfab`, url:`https://sketchfab.com/3d-models/${rec.uid}`};
+}
+/* -> {kind:"model"|"render"|"sketchfab", url|uid, orbit, credit, thumb} or null */
 function garAssetFor(v, opts={}){
   if(opts.forceWire) return null;
   const own = String(v.asset || v.imageUrl || "").trim();
+  const ownUid = garSketchfabUid(own);
+  if(ownUid && !garAssetFailed["sf:"+ownUid]){
+    const known = Object.values(garAutoModels).find(r=>r && r.uid === ownUid);
+    return {kind:"sketchfab", uid:ownUid, thumb:known && known.thumb, credit:known ? garCreditFor(known) : {text:"Model on Sketchfab", url:`https://sketchfab.com/3d-models/${ownUid}`}};
+  }
   if(own && garAssetKind(own) && !garAssetFailed[own]) return {kind:garAssetKind(own), url:own, orbit:v.orbit || null, credit:null};
   const m = garRegistryMatch(v);
   if(m && m.asset && garAssetKind(m.asset) && !garAssetFailed[m.asset]) return {kind:garAssetKind(m.asset), url:m.asset, orbit:m.orbit || null, credit:m.credit || null};
+  if(opts.noAuto) return null;
+  const rec = garAutoModels[garModelKey(v)];
+  if(rec && rec.uid){
+    if(rec.glb && !garAssetFailed[rec.glb]) return {kind:"model", url:rec.glb, orbit:null, credit:garCreditFor(rec), thumb:rec.thumb, auto:rec};
+    if(!garAssetFailed["sf:"+rec.uid]) return {kind:"sketchfab", uid:rec.uid, thumb:rec.thumb, credit:garCreditFor(rec), auto:rec};
+  }
   return null;
+}
+/* true while the automatic search for this vehicle hasn't answered yet */
+function garAutoWaiting(v){
+  if(garAssetFor(v, {noAuto:true})) return false;
+  const rec = garAutoModels[garModelKey(v)];
+  return !rec || garAutoPending[garModelKey(v)] != null;
+}
+
+/* ---- automatic model search ---- */
+const GAR_MAKES = new Set(("ford chevrolet chevy toyota honda nissan dodge ram jeep gmc bmw mercedes benz mercedes-benz audi volkswagen vw subaru mazda hyundai kia tesla lexus acura infiniti porsche ferrari lamborghini cadillac buick lincoln chrysler mitsubishi volvo jaguar land rover mini fiat alfa romeo pontiac oldsmobile saturn scion genesis rivian lucid polestar maserati bentley rolls royce mclaren aston martin bugatti lotus suzuki harley davidson yamaha kawasaki ducati triumph ktm indian aprilia").split(" "));
+const GAR_BAD_WORDS = /\b(low[\s-]?poly|lowpoly|toy|lego|minecraft|roblox|cartoon|chibi|voxel|papercraft|paper|rc|hot ?wheels|matchbox|keychain|wheel|wheels|rim|rims|tire|tyre|tires|engine|motor block|interior|cockpit|dashboard|seat|steering|headlight|taillight|bumper|door|hood|crash(ed)?|wreck(ed)?|destroyed|burn(ed|t)|abandoned|rust(y|ed)?|derelict|junk|scrap|stance|drift|monster truck|lifted|kit|sketch|wip|test|scan|photogrammetry|diorama|scene|garage|parking|street|city|game ?ready ?pack|pack|collection|set)\b/;
+function garTokens(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter(t=>t && !/^(19|20)\d\d$/.test(t)); }
+function garYearsIn(name){
+  const s = String(name||"");
+  const out = [];
+  const range = s.match(/\b(19[4-9]\d|20[0-3]\d)\s*(?:-|–|to)\s*(19[4-9]\d|20[0-3]\d|\d{2})\b/);
+  if(range){
+    let b = Number(range[2]); if(b < 100) b = Math.floor(Number(range[1])/100)*100 + b;
+    return [Number(range[1]), b];
+  }
+  (s.match(/\b(19[4-9]\d|20[0-3]\d)\b/g)||[]).forEach(y=>out.push(Number(y)));
+  return out.length ? [Math.min(...out), Math.max(...out)] : null;
+}
+function garScoreModel(r, want, opts={}){
+  const name = String(r.name||"").toLowerCase();
+  const hay = name + " " + (r.tags||[]).join(" ").replace(/-/g, " ");
+  if(GAR_BAD_WORDS.test(name)) return -Infinity;
+  if(r.faces && r.faces < 6000) return -Infinity;                 /* low-poly: not the realistic look */
+  let score = 0;
+  if(!opts.standIn){
+    const nameToks = new Set(garTokens(name)), hayToks = new Set(garTokens(hay));
+    const model = want.tokens.filter(t=>!GAR_MAKES.has(t));
+    const make = want.tokens.filter(t=>GAR_MAKES.has(t));
+    if(model.length && !model.some(t=>nameToks.has(t))) return -Infinity;   /* must name the model */
+    model.forEach(t=>{ score += nameToks.has(t) ? 4 : hayToks.has(t) ? 1 : -2; });
+    make.forEach(t=>{ score += nameToks.has(t) ? 2 : hayToks.has(t) ? 1 : 0; });
+    const extra = [...nameToks].filter(t=>!want.tokens.includes(t) && !/^\d+$/.test(t) && t.length > 2 && !["the","and","car","truck","model","3d","pbr","free","with","high","realistic","pickup","sedan","coupe","suv","van"].includes(t));
+    score -= Math.min(extra.length, 4) * 0.6;                      /* "Ranger Raptor Concept" < "Ford Ranger" */
+    if(want.year){
+      const ys = garYearsIn(name);
+      if(ys){
+        const d = want.year < ys[0] ? ys[0]-want.year : want.year > ys[1] ? want.year-ys[1] : 0;
+        score += d === 0 ? 5 : -Math.min(d, 20) * 0.7;
+      }
+    }
+  }
+  score += Math.log10((r.likes||0) + 1) * 1.6 + Math.log10((r.views||0) + 1) * 0.5;
+  if(r.staff) score += 1.5;
+  if(r.faces > 30000) score += 1;
+  if(r.faces > 2500000) score -= 3;                                /* very heavy for a browser */
+  if(r.glb) score += 3;                                            /* can sit right on the pedestal */
+  return score;
+}
+function garSfNormalize(r){
+  const imgs = (r.thumbnails && Array.isArray(r.thumbnails.images)) ? r.thumbnails.images.slice().sort((a,b)=>a.width-b.width) : [];
+  const t = imgs.find(i=>i.width >= 480) || imgs[imgs.length-1];
+  const lic = r.license ? (typeof r.license === "string" ? r.license : (r.license.label || r.license.slug || "")) : "";
+  return {uid:r.uid, name:r.name, author:r.user ? (r.user.displayName || r.user.username) : "", license:lic,
+    likes:r.likeCount||0, views:r.viewCount||0, faces:r.faceCount||0, staff:!!r.staffpickedAt,
+    tags:(r.tags||[]).map(x=>x && (x.slug||x.name)).filter(Boolean), thumb:t ? t.url : "", glb:null};
+}
+async function garSearchModels(q){
+  if(MEDULLA_AI_PROXY_URL){
+    try{
+      const res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/find?q=${encodeURIComponent(q)}`);
+      if(res.ok){ const d = await res.json(); if(d && Array.isArray(d.results)) return d.results; }
+    }catch(e){}
+  }
+  /* the Worker doesn't have the Garage route yet (or is unreachable): Sketchfab's public search */
+  const res = await fetch(`https://api.sketchfab.com/v3/search?type=models&categories=cars-vehicles&count=24&q=${encodeURIComponent(q)}`);
+  if(!res.ok) throw new Error("search " + res.status);
+  const d = await res.json();
+  return (d.results||[]).filter(r=>r && r.uid).map(garSfNormalize);
+}
+async function garFindModel(v){
+  const year = garYear(v);
+  const tokens = garTokens(v.vehicle);
+  const base = tokens.join(" ");
+  const want = {tokens, year};
+  const pick = (lists, opts)=>{
+    const seen = new Set(), all = [];
+    lists.flat().forEach(r=>{ if(r && r.uid && !seen.has(r.uid)){ seen.add(r.uid); all.push(r); } });
+    const ranked = all.map(r=>({r, s:garScoreModel(r, want, opts)})).filter(x=>x.s > (opts && opts.standIn ? 2 : 3)).sort((a,b)=>b.s-a.s);
+    return ranked.length ? ranked[0].r : null;
+  };
+  let best = null, ok = false;
+  if(base){
+    const qs = year ? [`${base} ${year}`, base] : [base];
+    const lists = await Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ ok = true; return r; }).catch(()=>[])));
+    best = pick(lists);
+  }
+  let standIn = false;
+  if(!best){
+    /* nothing that is this vehicle: a realistic one of the same body style */
+    const type = resolveVehicleType(v);
+    const label = String(VEHICLE_TYPE_LABELS[type] || type || "car").toLowerCase().replace(/[^a-z ]/g, " ").trim();
+    const make = tokens.find(t=>GAR_MAKES.has(t));
+    const qs = [make ? `${make} ${label}` : null, label].filter(Boolean);
+    const lists = await Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ ok = true; return r; }).catch(()=>[])));
+    best = pick(lists, {standIn:true});
+    standIn = !!best;
+  }
+  if(!ok) throw new Error("offline");
+  if(!best) return {none:true, ts:Date.now()};
+  return {uid:best.uid, name:best.name, author:best.author, license:best.license, thumb:best.thumb, glb:best.glb || null, standIn, ts:Date.now()};
+}
+/* start (once) the automatic search for a vehicle; onDone runs when a result is stored */
+function garEnsureModel(v, onDone){
+  if(!v || !v.vehicle || garAssetFor(v, {noAuto:true})) return;
+  const key = garModelKey(v);
+  const rec = garAutoModels[key];
+  if(rec && (rec.uid || Date.now() - (rec.ts||0) < 86400000)) return;   /* "none" is retried after a day */
+  if(!garAutoPending[key]){
+    garAutoPending[key] = garFindModel(v).then(found=>{
+      garAutoModels[key] = found;
+      saveJSON(GAR_SF_STORE, garAutoModels);
+    }).catch(()=>{
+      garAutoModels[key] = {none:true, offline:true, ts:Date.now() - 86400000 + 5*60000};   /* retry in 5 min */
+    }).finally(()=>{ delete garAutoPending[key]; });
+  }
+  if(onDone) garAutoPending[key].then(onDone);
+}
+/* re-pick: drop the stored choice so the next search can find a different model */
+function garForgetModel(v){ delete garAutoModels[garModelKey(v)]; saveJSON(GAR_SF_STORE, garAutoModels); }
+
+function garSfEmbedUrl(uid){
+  const p = "autostart=1&autospin=0.16&preload=1&transparent=1&camera=0&dnt=1&scrollwheel=0&double_click=0&ui_theme=dark&ui_color=7cc4ff" +
+    "&ui_hint=0&ui_infos=0&ui_controls=0&ui_stop=0&ui_inspector=0&ui_settings=0&ui_help=0&ui_vr=0&ui_ar=0&ui_fullscreen=0&ui_annotations=0&ui_watermark=0&ui_watermark_link=0&ui_loading=0";
+  return `https://sketchfab.com/models/${uid}/embed?${p}`;
 }
 function garSilSrc(v){ return garSmoothSrc(resolveVehicleType(v)); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
   const edge = garEdgeCache[type] ? `;--edge:url('${garEdgeCache[type]}')` : "";
-  return `<div class="${cls} gar-wire" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)} (no 3D model yet)" style="--src:url('${garSilSrc(v)}')${edge}"><span class="gar-wire-fill"></span><span class="gar-wire-edge"></span><span class="gar-wire-scan"></span></div>`;
+  return `<div class="${cls} gar-wire" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)} (no 3D model available)" style="--src:url('${garSilSrc(v)}')${edge}"><span class="gar-wire-fill"></span><span class="gar-wire-edge"></span><span class="gar-wire-scan"></span></div>`;
 }
-/* small visual: side panels, manage list, form preview (3D models show a snapshot once one exists) */
+function garGhostHTML(v, cls){
+  return `<div class="${cls} gar-ghost" role="img" aria-label="${escapeHtml(v.vehicle)} (loading a 3D model)" style="--src:url('${garSilSrc(v)}')"><span></span></div>`;
+}
+/* small visual: side panels, manage list, form preview */
 function garVisualHTML(v, cls, opts){
   const a = garAssetFor(v, opts);
   if(a && a.kind === "render") return `<img class="${cls} gar-render" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.kind === "model" && garSnapshots[a.url]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  if(a && a.thumb) return `<img class="${cls} gar-thumbimg" src="${escapeHtml(a.thumb)}" alt="${escapeHtml(v.vehicle)}" draggable="false" referrerpolicy="no-referrer">`;
+  if(a || garAutoWaiting(v)) return garGhostHTML(v, cls);
   return garWireHTML(v, cls);
 }
 /* the main stage */
@@ -8155,11 +8341,23 @@ function garShowcaseHTML(v, opts){
     return `<div class="gar-show kind-model">
       <div class="gar-contact" aria-hidden="true"></div>
       <div class="gar-model gar-model-3d">
-        ${garWireHTML(v, "gar-mv-wait")}
+        ${a.thumb ? `<img class="gar-mv-wait gar-thumbimg" src="${escapeHtml(a.thumb)}" alt="" draggable="false" referrerpolicy="no-referrer">` : garGhostHTML(v, "gar-mv-wait")}
         <model-viewer class="gar-mv" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="3D model of ${escapeHtml(v.vehicle)}"
           camera-orbit="${escapeHtml(a.orbit || "-35deg 76deg auto")}" camera-controls disable-zoom disable-pan interaction-prompt="none"
           auto-rotate auto-rotate-delay="0" rotation-per-second="14deg" environment-image="neutral" tone-mapping="aces" exposure="1.05"
           shadow-intensity="1.1" shadow-softness="0.85" interpolation-decay="120" loading="eager" reveal="auto"></model-viewer>
+      </div>
+    </div>`;
+  }
+  if(a && a.kind === "sketchfab"){
+    return `<div class="gar-show kind-sketch">
+      <div class="gar-contact" aria-hidden="true"></div>
+      <div class="gar-model gar-model-sf">
+        <div class="gar-sf-frame">
+          ${a.thumb ? `<img class="gar-sf-thumb" src="${escapeHtml(a.thumb)}" alt="" draggable="false" referrerpolicy="no-referrer">` : ""}
+          <iframe class="gar-sf" data-sf="${escapeHtml(a.uid)}" title="3D model of ${escapeHtml(v.vehicle)}" src="${garSfEmbedUrl(a.uid)}"
+            allow="autoplay; fullscreen; xr-spatial-tracking" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
       </div>
     </div>`;
   }
@@ -8170,6 +8368,9 @@ function garShowcaseHTML(v, opts){
       <div class="gar-model">${img}<div class="gar-sheen" aria-hidden="true" style="--src:url('${escapeHtml(a.url)}')"></div></div>
       <div class="gar-reflect" aria-hidden="true"><img class="gar-render" src="${escapeHtml(a.url)}" alt="" draggable="false"></div>
     </div>`;
+  }
+  if(garAutoWaiting(v)){
+    return `<div class="gar-show kind-ghost"><div class="gar-contact" aria-hidden="true"></div><div class="gar-model">${garGhostHTML(v, "")}</div></div>`;
   }
   return `<div class="gar-show kind-wire">
     <div class="gar-contact" aria-hidden="true"></div>
@@ -8189,6 +8390,9 @@ function wireGarAssets(container, onFail){
   container.querySelectorAll("img.gar-render[data-asset]").forEach(img=>{
     img.addEventListener("error", ()=>fail(img.dataset.asset), {once:true});
   });
+  container.querySelectorAll("img.gar-thumbimg").forEach(img=>{
+    img.addEventListener("error", ()=>{ img.hidden = true; }, {once:true});
+  });
   container.querySelectorAll("model-viewer.gar-mv").forEach(mv=>{
     const url = mv.dataset.asset;
     const show = mv.closest(".gar-show");
@@ -8200,6 +8404,11 @@ function wireGarAssets(container, onFail){
       }, {once:true});
       mv.addEventListener("error", ()=>fail(url), {once:true});
     }).catch(()=>fail(url));
+  });
+  container.querySelectorAll("iframe.gar-sf").forEach(fr=>{
+    const show = fr.closest(".gar-show");
+    /* the page loads first, then the model streams in; fade the live viewer over the still */
+    fr.addEventListener("load", ()=>{ setTimeout(()=>{ if(show) show.classList.add("loaded"); }, 1800); }, {once:true});
   });
 }
 
@@ -8287,10 +8496,17 @@ function hydrateGarageFull(scope){
     $g("#gar-name").textContent = v.vehicle;
     $g("#gar-specs").innerHTML = garSpecs(v).map(s=>`<span>${escapeHtml(s)}</span>`).join("") || `<span class="dim">Add details with Customize</span>`;
     car.innerHTML = garShowcaseHTML(v);
-    if(asset && asset.kind === "model"){ st.textContent = "Loading 3D model…"; st.classList.add("on"); }
+    if(asset && (asset.kind === "model" || asset.kind === "sketchfab")){ st.textContent = "Loading 3D model…"; st.classList.add("on"); }
+    else if(!asset && garAutoWaiting(v)){ st.textContent = `Finding a 3D ${v.vehicle}…`; st.classList.add("on"); }
     wireGarAssets(car, ()=>{ lastDir = 0; render(); });
     const mv = car.querySelector("model-viewer");
     if(mv) mv.addEventListener("load", ()=>{ st.classList.remove("on"); setTimeout(()=>{ if(alive) refreshPanels(); }, 600); }, {once:true});
+    const sf = car.querySelector("iframe.gar-sf");
+    if(sf) sf.addEventListener("load", ()=>{ setTimeout(()=>st.classList.remove("on"), 1800); }, {once:true});
+    /* look up real 3D models for this vehicle and its neighbours (once each; remembered) */
+    const shown = v;
+    garEnsureModel(v, ()=>{ if(alive && vehicles()[garageSelectedIndex] === shown){ lastDir = 0; render(); } });
+    [1,-1,2,-2].forEach(off=>{ const w = list[((garageSelectedIndex + off) % n + n) % n]; if(w && w !== v) garEnsureModel(w, ()=>{ if(alive) refreshPanels(); }); });
     car.classList.remove("enter-left","enter-right"); void car.offsetWidth;
     if(lastDir) car.classList.add(lastDir > 0 ? "enter-right" : "enter-left");
     /* neighbours on the glass panels: next on the right, previous on the left, then one further each way */
@@ -8386,7 +8602,7 @@ function hydrateGarageFull(scope){
         <div class="gar-photo-pick">
           <div class="gar-photo-preview" id="gar-photo-preview"></div>
           <div class="gar-photo-btns">
-            <label class="gar-field gar-url"><span>3D model or render</span><input type="text" id="gar-f-asset" placeholder="models/vehicles/my-car.glb  or  https://…/car.svg" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
+            <label class="gar-field gar-url"><span>3D model</span><input type="text" id="gar-f-asset" placeholder="Automatic — or paste a Sketchfab link" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
             <p class="gar-hint" id="gar-asset-hint"></p>
           </div>
         </div>
@@ -8414,12 +8630,19 @@ function hydrateGarageFull(scope){
       preview.innerHTML = garVisualHTML(fake, "gar-preview-holo");
       wireGarAssets(preview, drawPreview);
       const own = fake.asset, a = garAssetFor(fake), m = garRegistryMatch(fake), hint = sheet.querySelector("#gar-asset-hint");
-      if(own && !garAssetKind(own)) hint.textContent = "Use a .glb or .gltf 3D model, or an .svg / .png render.";
-      else if(own && garAssetFailed[own]) hint.textContent = "That asset didn't load — the wireframe will be shown instead.";
-      else if(a && a.kind === "model") hint.textContent = own ? "3D model — it'll spin on the pedestal (drag to rotate)." : `3D model from the garage library (${m ? m.name + (m.years ? `, ${m.years[0]}–${m.years[1]}` : "") : "matched"}).`;
-      else if(a && a.kind === "render") hint.textContent = "Studio render — shown on the pedestal.";
-      else if(m && m.asset && garAssetFailed[m.asset]) hint.textContent = `Mapped to ${m.asset}, but that file isn't in the repo yet — the holographic wireframe is shown until it's added.`;
-      else hint.textContent = "No 3D model for this vehicle yet, so the holographic wireframe is shown. Add a .glb file path or link above, or a VEHICLE_MODELS entry in the code.";
+      if(own && !garAssetKind(own)) hint.textContent = "Paste a Sketchfab model link, or a .glb / .gltf model or .svg / .png render.";
+      else if(own && (garAssetFailed[own] || garAssetFailed["sf:"+garSketchfabUid(own)])) hint.textContent = "That model didn't load — leave this empty to pick one automatically.";
+      else if(own && garSketchfabUid(own)) hint.textContent = "Sketchfab model — it'll spin on the pedestal.";
+      else if(own && a && a.kind === "model") hint.textContent = "3D model — it'll spin on the pedestal (drag to rotate).";
+      else if(own && a && a.kind === "render") hint.textContent = "Studio render — shown on the pedestal.";
+      else if(m && a && !a.auto) hint.textContent = `3D model from the garage library (${m.name}${m.years ? `, ${m.years[0]}–${m.years[1]}` : ""}).`;
+      else if(a && a.auto) hint.textContent = `${a.auto.standIn ? "No exact match yet — stand-in" : "Matched"}: “${a.auto.name}”${a.auto.author ? ` by ${a.auto.author}` : ""}. Leave empty to keep it automatic, or paste a Sketchfab link to choose a different one.`;
+      else if(nameInp.value.trim()) hint.textContent = "Leave empty — a 3D model of this vehicle is found automatically. Or paste a Sketchfab link to choose one.";
+      else hint.textContent = "A 3D model is found automatically from the vehicle and year.";
+      if(!own && nameInp.value.trim().length >= 3 && !a && garAutoWaiting(fake)){
+        const sig = garModelKey(fake);
+        garEnsureModel(fake, ()=>{ if(!sheet.hidden && garModelKey({vehicle:nameInp.value || "Vehicle", year:yearInp.value, type:typeSel.value}) === sig) drawPreview(); });
+      }
     }
     drawPreview();
     typeSel.addEventListener("change", drawPreview);
@@ -8447,8 +8670,8 @@ function hydrateGarageFull(scope){
       entry.mileage = sheet.querySelector("#gar-f-miles").value.trim();
       if(typeSel.value) entry.type = typeSel.value; else delete entry.type;
       const asset = assetInp.value.trim();
-      if(asset && !garAssetKind(asset)){ status.textContent = "Use a .glb or .gltf 3D model, or an .svg / .png render."; assetInp.focus(); return; }
-      if(asset){ entry.asset = asset; delete garAssetFailed[asset]; } else delete entry.asset;
+      if(asset && !garAssetKind(asset)){ status.textContent = "Paste a Sketchfab model link, or a .glb / .gltf model or .svg / .png render — or leave it empty."; assetInp.focus(); return; }
+      if(asset){ entry.asset = asset; delete garAssetFailed[asset]; const u = garSketchfabUid(asset); if(u) delete garAssetFailed["sf:"+u]; } else delete entry.asset;
       /* retire the old photo pipeline's fields */
       delete entry.imageUrl; delete entry.autoImage; delete entry.photoCutout;
       if(entry.photoId){ delete garagePhotos[entry.photoId]; delete entry.photoId; saveGaragePhotos(); }

@@ -91,6 +91,107 @@ async function stockMovers(env, cors, ctx){
   return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
 }
 
+/* ---- Garage: real 3D models of the user's vehicles, from Sketchfab ----
+   GET /garage/find?q=ford+ranger+2000  -> candidate models (search is public, no key needed)
+   GET /garage/glb/<uid>.glb             -> that model as a .glb file (needs SKETCHFAB_API_TOKEN)
+   With the token set, downloadable (Creative Commons) models come back with a "glb" link, which
+   Medulla shows in its own studio-lit viewer with a transparent background, right on the
+   pedestal. Without it, Medulla falls back to Sketchfab's embedded viewer. Search results are
+   cached for a day and model files for 30 days at Cloudflare's edge. */
+const SF_API = "https://api.sketchfab.com/v3";
+const SF_FIND_TTL = 86400;
+const SF_GLB_TTL = 30 * 86400;
+const SF_MAX_GLB_BYTES = 45 * 1024 * 1024;
+function sfLicense(l){
+  if(!l) return "";
+  if(typeof l === "string") return l;
+  return l.label || l.slug || "";
+}
+function sfThumb(t){
+  const imgs = (t && Array.isArray(t.images)) ? t.images.slice().sort((a,b)=>a.width-b.width) : [];
+  const pick = imgs.find(i=>i.width >= 480) || imgs[imgs.length-1];
+  return pick ? pick.url : "";
+}
+function sfNormalize(r, glbOk, base){
+  const glb = r.archives && r.archives.glb;
+  const canGlb = glbOk && r.isDownloadable && glb && (!glb.size || glb.size <= SF_MAX_GLB_BYTES);
+  return {
+    uid: r.uid, name: String(r.name||"").slice(0,140),
+    author: (r.user && (r.user.displayName || r.user.username)) || "",
+    authorUrl: (r.user && r.user.profileUrl) || "",
+    license: sfLicense(r.license),
+    likes: r.likeCount || 0, views: r.viewCount || 0, faces: r.faceCount || 0,
+    staff: !!r.staffpickedAt, downloadable: !!r.isDownloadable,
+    tags: (r.tags||[]).map(t=>t && (t.slug || t.name)).filter(Boolean).slice(0,20),
+    thumb: sfThumb(r.thumbnails),
+    glb: canGlb ? `${base}/garage/glb/${r.uid}.glb` : null,
+    glbSize: canGlb && glb.size ? glb.size : null,
+  };
+}
+async function sfSearch(params){
+  const res = await fetch(`${SF_API}/search?${params}`, {headers:{"Accept":"application/json"}});
+  if(!res.ok) throw new Error("search " + res.status);
+  const data = await res.json();
+  return Array.isArray(data.results) ? data.results : [];
+}
+async function garageFind(request, env, cors, ctx){
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  if(q.length < 2) return json({error:"bad_query"}, 400, cors);
+  const glbOk = !!env.SKETCHFAB_API_TOKEN;
+  const cache = caches.default;
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/find?v=2&glb=${glbOk?1:0}&q=${encodeURIComponent(q.toLowerCase())}`);
+  const hit = await cache.match(cacheKey);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const common = `type=models&categories=cars-vehicles&count=24&q=${encodeURIComponent(q)}`;
+  let lists;
+  try{
+    lists = await Promise.all([
+      sfSearch(common),
+      glbOk ? sfSearch(`${common}&downloadable=true`) : Promise.resolve([]),
+    ]);
+  }catch(e){
+    return json({error:"upstream_unreachable"}, 502, cors);
+  }
+  const seen = new Set(), results = [];
+  const base = url.origin;
+  for(const r of [...lists[1], ...lists[0]]){
+    if(!r || !r.uid || seen.has(r.uid)) continue;
+    seen.add(r.uid);
+    results.push(sfNormalize(r, glbOk, base));
+  }
+  const body = JSON.stringify({glb: glbOk, results});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":`public, max-age=${SF_FIND_TTL}`}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+async function garageGlb(uid, env, cors, ctx){
+  if(!/^[0-9a-f]{32}$/i.test(uid)) return json({error:"bad_uid"}, 400, cors);
+  if(!env.SKETCHFAB_API_TOKEN) return json({error:"glb_not_configured"}, 503, cors);
+  const cache = caches.default;
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/glb/${uid}.glb`);
+  const hit = await cache.match(cacheKey);
+  const glbHeaders = {...cors, "Content-Type":"model/gltf-binary", "Cache-Control":"public, max-age=604800"};
+  if(hit) return new Response(hit.body, {status:200, headers:glbHeaders});
+  let dl;
+  try{
+    const res = await fetch(`${SF_API}/models/${uid}/download`, {headers:{"Authorization":`Token ${env.SKETCHFAB_API_TOKEN}`}});
+    if(!res.ok) return json({error:"download_refused", status:res.status}, res.status === 401 ? 502 : 404, cors);
+    dl = await res.json();
+  }catch(e){
+    return json({error:"upstream_unreachable"}, 502, cors);
+  }
+  if(!dl || !dl.glb || !dl.glb.url) return json({error:"no_glb"}, 404, cors);
+  if(dl.glb.size && dl.glb.size > SF_MAX_GLB_BYTES) return json({error:"too_large"}, 413, cors);
+  let file;
+  try{ file = await fetch(dl.glb.url); }catch(e){ return json({error:"upstream_unreachable"}, 502, cors); }
+  if(!file.ok) return json({error:"upstream_error"}, 502, cors);
+  const buf = await file.arrayBuffer();
+  const toCache = new Response(buf, {headers:{"Content-Type":"model/gltf-binary", "Cache-Control":`public, max-age=${SF_GLB_TTL}`}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(buf, {status:200, headers:glbHeaders});
+}
+
 export default {
   async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
@@ -102,6 +203,16 @@ export default {
     if(path === "/stocks/movers"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockMovers(env, cors, ctx);
+    }
+    if(path === "/garage/find" || path.startsWith("/garage/glb/")){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      if(env.RATE_LIMITER){
+        const who = "garage:" + (request.headers.get("CF-Connecting-IP") || "unknown");
+        const { success } = await env.RATE_LIMITER.limit({ key: who });
+        if(!success) return json({error:"rate_limited"}, 429, cors);
+      }
+      if(path === "/garage/find") return garageFind(request, env, cors, ctx);
+      return garageGlb(path.slice("/garage/glb/".length).replace(/\.glb$/i, ""), env, cors, ctx);
     }
     if(request.method !== "POST") return json({error:"method_not_allowed"}, 405, cors);
     if(!env.GROQ_API_KEY) return json({error:"proxy_not_configured"}, 500, cors);

@@ -9,13 +9,16 @@ Files in this folder are shown on the Garage pedestal. Matching happens in `VEHI
 | 3D model | `.glb` (preferred), `.gltf` | Studio-lit WebGL viewer, slow turntable spin, drag to rotate |
 | Render | `.svg`, `.png`, `.webp` (transparent background) | Static studio render with shadow, reflection and light sweep |
 
-No file (or one that fails to load) → the holographic wireframe of the vehicle's body style.
+You normally don't need any files here: the Garage finds a realistic 3D model of each vehicle
+automatically on Sketchfab (year + make + model, see `garFindModel` in `index.html`). Use this
+folder only to override that pick with a model of your own. To pick a different Sketchfab model
+for one vehicle, paste its Sketchfab link into **Customize ▸ 3D model**.
 
 ## Expected files
 
 | File | Used for |
 | --- | --- |
-| `ford-ranger-1998-2011.glb` | Ford Ranger, model years 1998–2011 (covers a 2000 Ranger) |
+| (none required) | Vehicles are matched automatically |
 
 ## Adding a model
 

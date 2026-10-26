@@ -38,6 +38,25 @@ npx wrangler deploy
 
 The Worker caches the list for an hour, which keeps it inside the free tier's ~25 requests a day.
 
+## Real 3D models in the Garage (optional, one time — recommended)
+
+The Garage finds a 3D model of each vehicle automatically on Sketchfab. That works with no setup,
+but then the model is shown in Sketchfab's own embedded viewer (with its background, faded out at
+the edges). With a free Sketchfab API token, the Worker downloads Creative Commons models as
+`.glb` files instead, and Medulla renders them itself: transparent, studio-lit, sitting right on
+the pedestal like 3DTuning.
+
+1. Make a free account at https://sketchfab.com/signup
+2. Copy your API token from https://sketchfab.com/settings/password (bottom of the page, "API token")
+3. From this folder:
+
+```bash
+npx wrangler secret put SKETCHFAB_API_TOKEN   # paste the token
+npx wrangler deploy
+```
+
+Search results are cached for a day and model files for 30 days at Cloudflare's edge.
+
 ## Settings you might change
 
 - `ALLOWED_ORIGINS` in `wrangler.toml`: the sites allowed to use the proxy. If your site's
