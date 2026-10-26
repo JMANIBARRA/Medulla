@@ -1386,6 +1386,16 @@
   .gar-photo-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
   .gar-photo-btns label{cursor:pointer;}
   .gar-photo-btns .gar-url{flex:1 1 100%;margin-top:4px;}
+  .gar-swatches{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+  .gar-swatch{width:24px;height:24px;border-radius:50%;padding:0;border:1px solid rgba(255,255,255,.25);background:var(--c);cursor:pointer;position:relative;
+    box-shadow:inset 0 -6px 8px rgba(0,0,0,.25), inset 0 3px 5px rgba(255,255,255,.25);transition:transform .15s, box-shadow .15s;}
+  .gar-swatch:hover{transform:scale(1.1);}
+  .gar-swatch.on{box-shadow:0 0 0 2px #0b1a33, 0 0 0 4px #7cc4ff;}
+  .gar-swatch.orig{width:auto;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.06);color:#cfe4ff;font:inherit;font-size:11.5px;box-shadow:none;}
+  .gar-swatch.orig.on{box-shadow:0 0 0 2px #7cc4ff;}
+  .gar-swatch.custom{background:conic-gradient(from 0deg, #f33, #fd3, #3d5, #3cf, #36f, #c3f, #f33);}
+  .gar-swatch.custom.on{background:var(--c);}
+  .gar-swatch.custom input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0;}
   .gar-hint{width:100%;margin:2px 0 0;font-size:11.5px;color:var(--text-dim);}
   .gar-form-status{grid-column:1/-1;min-height:16px;font-size:12.5px;color:#ffb4c0;}
   .gar-sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px 18px;border-top:1px solid rgba(130,153,184,.12);}
@@ -8134,7 +8144,7 @@ const VEHICLE_MODELS = [
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
 const GAR_SF_STORE = NS + "garageModels";
-const GAR_SF_VERSION = 3;           /* bump to re-pick every vehicle's model after changing the scoring */
+const GAR_SF_VERSION = 5;           /* bump to re-pick every vehicle's model after changing the scoring */
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
@@ -8199,8 +8209,21 @@ function garAutoWaiting(v){
 
 /* ---- automatic model search ---- */
 const GAR_MAKES = new Set(("ford chevrolet chevy toyota honda nissan dodge ram jeep gmc bmw mercedes benz mercedes-benz audi volkswagen vw subaru mazda hyundai kia tesla lexus acura infiniti porsche ferrari lamborghini cadillac buick lincoln chrysler mitsubishi volvo jaguar land rover mini fiat alfa romeo pontiac oldsmobile saturn scion genesis rivian lucid polestar maserati bentley rolls royce mclaren aston martin bugatti lotus suzuki harley davidson yamaha kawasaki ducati triumph ktm indian aprilia").split(" "));
-const GAR_BAD_WORDS = /\b(low[\s-]?poly|lowpoly|toy|lego|minecraft|roblox|cartoon|chibi|voxel|papercraft|paper|rc|hot ?wheels|matchbox|keychain|wheel|wheels|rim|rims|tire|tyre|tires|engine|motor block|interior|cockpit|dashboard|seat|steering|headlight|taillight|bumper|door|hood|plate|license|frame|bracket|mount|holder|bar|bars|exhaust|muffler|helmet|part|parts|accessory|accessories|rack|grille|grill|mirror|spoiler|light|lights|lamp|logo|emblem|badge|sticker|decal|key|keys|fender|swingarm|fork|tank|chassis|skeleton|blueprint|crash(ed)?|wreck(ed)?|destroyed|burn(ed|t)|abandoned|rust(y|ed)?|derelict|junk|scrap|stance|drift|monster truck|lifted|kit|sketch|wip|test|scan|photogrammetry|diorama|scene|garage|parking|street|city|game ?ready ?pack|pack|collection|set)\b/;
-function garTokens(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter(t=>t && !/^(19|20)\d\d$/.test(t)); }
+const GAR_BAD_WORDS = /\b(low[\s-]?poly|lowpoly|toy|lego|minecraft|roblox|cartoon|chibi|voxel|papercraft|paper|rc|hot ?wheels|matchbox|keychain|wheel|wheels|rim|rims|tire|tyre|tires|engine|motor block|interior|cockpit|dashboard|seat|steering|headlight|taillight|bumper|door|hood|plate|license|frame|bracket|mount|holder|bar|bars|exhaust|muffler|helmet|part|parts|accessory|accessories|rack|grille|grill|mirror|spoiler|light|lights|lamp|logo|emblem|badge|sticker|decal|key|keys|fender|swingarm|fork|tank|chassis|skeleton|blueprint|crash(ed)?|wreck(ed)?|shipwreck|sunk|sunken|stranded|beached|weathered|old|broken|damaged|ruined?|destroyed|burn(ed|t)|abandoned|rust(y|ed)?|derelict|junk|scrap|stance|drift|monster truck|lifted|kit|sketch|wip|test|scan|photogrammetry|diorama|scene|garage|parking|street|city|game ?ready ?pack|pack|collection|set)\b/;
+function garTokens(s){
+  s = String(s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(jonboat|johnboat|john boat|jon boat)\b/g, "jon boat");   /* spellings of the same boat */
+  return s.split(" ").filter(t=>t && !/^(19|20)\d\d$/.test(t));
+}
+/* words that say what kind of vehicle it is, not which one: never enough on their own to match */
+/* modified builds: picked only when no stock version exists */
+const GAR_MODDED = /\b(lifted|lift|off ?road|offroad|roll ?bar|rollbar|roll cage|custom|customized|modified|mod|mods|tuned|tuning|widebody|wide body|body ?kit|pre ?runner|prerunner|baja|trophy truck|rally|race|racing|racecar|drift|stance|stanced|lowered|slammed|hot ?rod|rat ?rod|overland|overlanding|expedition|safari|snorkel|winch|monster|rock ?crawler|crawler|bagged|police|cop|sheriff|taxi|ambulance|fire|military|army|livery|zombie|apocalypse|armored|armoured|tow|wrecker)\b/;
+/* performance/off-road trims that look very different from the regular model */
+const GAR_TRIMS = /\b(raptor|trx|trd ?pro|tremor|zr2|rubicon|wildtrak|power ?wagon|amg|svt|shelby|hellcat|demon|srt|type ?r|nismo|sti|gt3|gt2|rs)\b/;
+const GAR_STOCK = /\b(stock|oem|factory|original|standard|base model)\b/;
+const GAR_GENERIC = new Set("boat truck car bike motorcycle motorbike pickup van suv sedan coupe vehicle".split(" "));
+/* tags that mark scans of real-world scenes (ground, debris, wrecks) rather than clean models */
+const GAR_BAD_TAGS = /\b(photogrammetry|3d ?scan|scan|scanned|realitycapture|reality capture|metashape|agisoft|polycam|lidar|drone|wreck|shipwreck|sunken|sunk|abandoned|derelict|ruin|ruins|rust|rusty|decay|low ?poly|lowpoly|toy|cartoon|stylized|game asset pack)\b/;
 function garYearsIn(name){
   const s = String(name||"");
   const out = [];
@@ -8216,13 +8239,23 @@ function garScoreModel(r, want, opts={}){
   const name = String(r.name||"").toLowerCase();
   const hay = name + " " + (r.tags||[]).join(" ").replace(/-/g, " ");
   if(GAR_BAD_WORDS.test(name)) return -Infinity;
+  if(GAR_BAD_TAGS.test((r.tags||[]).join(" ").replace(/-/g, " ").toLowerCase())) return -Infinity;
   if(r.faces && r.faces < 6000) return -Infinity;                 /* low-poly: not the realistic look */
   let score = 0;
+  {
+    const wantTxt = want.tokens.join(" ");
+    const hayN = hay.replace(/[^a-z0-9 ]+/g, " ");
+    if(GAR_MODDED.test(hayN) && !GAR_MODDED.test(wantTxt)) score -= GAR_MODDED.test(name.replace(/[^a-z0-9 ]+/g, " ")) ? 9 : 5;   /* prefer the stock vehicle */
+    if(GAR_TRIMS.test(name) && !GAR_TRIMS.test(wantTxt)) score -= 5;
+    if(GAR_STOCK.test(hayN)) score += 2;
+  }
   if(!opts.standIn){
     const nameToks = new Set(garTokens(name)), hayToks = new Set(garTokens(hay));
     const model = want.tokens.filter(t=>!GAR_MAKES.has(t));
     const make = want.tokens.filter(t=>GAR_MAKES.has(t));
-    if(model.length && !model.some(t=>nameToks.has(t))) return -Infinity;   /* must name the model */
+    /* every distinctive word must be in the model's name ("jon" for a Jon Boat — "boat" alone won't do) */
+    const key = model.filter(t=>!GAR_GENERIC.has(t));
+    if(key.length ? !key.every(t=>nameToks.has(t) || hayToks.has(t)) || !key.some(t=>nameToks.has(t)) : (model.length && !model.some(t=>nameToks.has(t)))) return -Infinity;
     model.forEach(t=>{ score += nameToks.has(t) ? 4 : hayToks.has(t) ? 1 : -2; });
     make.forEach(t=>{ score += nameToks.has(t) ? 2 : hayToks.has(t) ? 1 : 0; });
     const extra = [...nameToks].filter(t=>!want.tokens.includes(t) && !/^\d+$/.test(t) && t.length > 2 && !["the","and","car","truck","model","3d","pbr","free","with","high","realistic","pickup","sedan","coupe","suv","van"].includes(t));
@@ -8281,7 +8314,10 @@ const GAR_CLASS_WORDS = {
 };
 function garStandInQueries(v, cls){
   const toks = garTokens(v.vehicle), make = toks.find(t=>GAR_MAKES.has(t));
-  if(cls === "boat") return [toks.filter(t=>t !== "boat").concat("boat").join(" "), "boat"];
+  if(cls === "boat"){
+    if(toks.includes("jon")) return ["aluminum boat", "flat bottom boat", "aluminum fishing boat"];
+    return [toks.filter(t=>t !== "boat").concat("boat").join(" "), "boat"];
+  }
   if(cls === "moto"){
     const label = {sport:"sport bike", cruiser:"cruiser motorcycle", naked:"naked motorcycle"}[resolveVehicleType(v)] || "motorcycle";
     return [make ? `${make} ${label}` : null, label].filter(Boolean);
@@ -8307,26 +8343,25 @@ async function garFindModel(v){
       if(opts.standIn && cls && !GAR_CLASS_WORDS[cls].test(hay)) sc = -Infinity;   /* a stand-in must be the same kind of vehicle */
       if(!opts.standIn && cls === "boat" && !GAR_CLASS_WORDS.boat.test(hay)) sc -= 6;
       return {r, s:sc};
-    }).filter(x=>x.s > (opts.standIn ? 2 : 3)).sort((a,b)=>b.s-a.s).map(x=>x.r);
+    }).filter(x=>x.s > (opts.standIn ? 2 : 3)).sort((a,b)=>b.s-a.s);
   };
   let exact = [];
   if(base){
     const qs = year ? [`${base} ${year}`, base] : [base];
     if(cls === "boat" && !tokens.includes("boat")) qs.push(`${base} boat`);
+    if(tokens.includes("jon")) qs.push("john boat", "jonboat");
     exact = rank(await search(qs));
   }
-  /* 1. the actual vehicle, as a file Medulla can render cleanly on the pedestal */
-  let best = exact.find(r=>r.glb), standIn = false;
-  /* 2. a realistic one of the same kind (only when we know the kind), also as a clean file */
-  let stand = [];
+  /* the actual vehicle always wins: 1. as a clean file for the pedestal, 2. in Sketchfab's viewer.
+     Only when Sketchfab has no model of it at all: 3./4. the same kind of vehicle, labelled a stand-in */
+  /* a clean file is preferred, but not over a clearly better match (e.g. stock over lifted) */
+  const choose = list=>{ if(!list.length) return null; const g = list.find(x=>x.r.glb); return (g && g.s >= list[0].s - 4 ? g : list[0]).r; };
+  let best = choose(exact), standIn = false;
   if(!best && cls){
-    stand = rank(await search(garStandInQueries(v, cls)), {standIn:true});
-    const s = stand.find(r=>r.glb);
-    if(s && (!exact.length || glbMode)){ best = s; standIn = true; }
+    const stand = rank(await search(garStandInQueries(v, cls)), {standIn:true});
+    best = choose(stand);
+    standIn = !!best;
   }
-  /* 3. the actual vehicle in Sketchfab's embedded viewer; 4. a stand-in there */
-  if(!best && exact.length) best = exact[0];
-  if(!best && stand.length){ best = stand[0]; standIn = true; }
   if(!reached) throw new Error("offline");
   if(!best) return {none:true, ts:Date.now()};
   return {uid:best.uid, name:best.name, author:best.author, license:best.license, thumb:best.thumb, glb:best.glb || null, standIn, ts:Date.now()};
@@ -8427,6 +8462,44 @@ function garThumbHTML(v, cls, thumb){
   const g = garGhostHTML(v, cls);
   return thumb && garThumbClean[thumb] !== false ? g.replace('class="', `data-clean-thumb="${escapeHtml(thumb)}" class="`) : g;
 }
+/* ---- paint colour: recolours the body paint of 3D models (.glb) shown in Medulla's viewer ---- */
+const GAR_COLORS = [
+  ["White","#f2f3f5"],["Black","#0d0e10"],["Silver","#b9bdc3"],["Gray","#6b7078"],["Red","#b3131b"],["Dark Red","#5e0f14"],
+  ["Blue","#1f4fb5"],["Navy","#14254a"],["Green","#1f5b33"],["Yellow","#e8c11c"],["Orange","#e0631a"],["Brown","#5a3a24"],["Tan","#b59a72"],["Gold","#a8862f"],
+];
+const GAR_NOT_PAINT = /glass|window|windshield|windscreen|tire|tyre|rubber|chrome|metal_?rim|rim|wheel|interior|seat|dash|light|lamp|lens|reflector|grill|grille|plastic|trim|mirror|plate|license|logo|badge|emblem|decal|sticker|exhaust|engine|brake|disc|caliper|chassis|under|black|dark|shadow|mat_?black|leather|carpet|cloth|fabric|steering|gauge|screen|wiper|seal|mesh/i;
+const GAR_PAINT = /paint|body|carpaint|car_paint|exterior|shell|hull|livery|colou?r|bodywork|coachwork|primary|main/i;
+function garHexToLinear(hex){
+  const n = parseInt(String(hex).replace("#",""), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255].map(c=>{ c /= 255; return c <= 0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); });
+}
+function garPaintMaterials(mv){
+  const mats = (mv.model && mv.model.materials) || [];
+  const named = mats.filter(m=>GAR_PAINT.test(m.name||"") && !GAR_NOT_PAINT.test(m.name||""));
+  if(named.length) return named;
+  /* unnamed materials: the most strongly coloured opaque one is almost always the paint */
+  let best = null, bestSat = 0.22;
+  mats.forEach(m=>{
+    if(GAR_NOT_PAINT.test(m.name||"")) return;
+    try{ if(m.getAlphaMode && m.getAlphaMode() !== "OPAQUE") return; }catch(e){}
+    const c = m.pbrMetallicRoughness.baseColorFactor || [1,1,1,1];
+    const sat = Math.max(c[0],c[1],c[2]) - Math.min(c[0],c[1],c[2]);
+    if(sat > bestSat){ bestSat = sat; best = m; }
+  });
+  return best ? [best] : [];
+}
+function garApplyPaint(mv, hex){
+  if(!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
+  const rgb = garHexToLinear(hex);
+  const mats = garPaintMaterials(mv);
+  mats.forEach(m=>{
+    const pbr = m.pbrMetallicRoughness;
+    try{ const t = pbr.baseColorTexture; if(t && t.texture) t.setTexture(null); }catch(e){}
+    pbr.setBaseColorFactor([rgb[0], rgb[1], rgb[2], 1]);
+    try{ pbr.setMetallicFactor(0.35); pbr.setRoughnessFactor(0.28); }catch(e){}
+  });
+  return mats.length > 0;
+}
 function garSilSrc(v){ return garSmoothSrc(resolveVehicleType(v)); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
@@ -8440,7 +8513,7 @@ function garGhostHTML(v, cls){
 function garVisualHTML(v, cls, opts){
   const a = garAssetFor(v, opts);
   if(a && a.kind === "render") return `<img class="${cls} gar-render" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
-  if(a && a.kind === "model" && garSnapshots[a.url]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+  if(a && a.kind === "model" && garSnapshots[a.url + "|" + (v.color||"")]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url + "|" + (v.color||"")]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.thumb) return garThumbHTML(v, cls, a.thumb);
   if(a || garAutoWaiting(v)) return garGhostHTML(v, cls);
   return garWireHTML(v, cls);
@@ -8453,7 +8526,7 @@ function garShowcaseHTML(v, opts){
       <div class="gar-contact" aria-hidden="true"></div>
       <div class="gar-model gar-model-3d">
         ${garThumbHTML(v, "gar-mv-wait", a.thumb)}
-        <model-viewer class="gar-mv" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" alt="3D model of ${escapeHtml(v.vehicle)}"
+        <model-viewer class="gar-mv" src="${escapeHtml(a.url)}" data-asset="${escapeHtml(a.url)}" data-paint="${escapeHtml(v.color||"")}" alt="3D model of ${escapeHtml(v.vehicle)}"
           camera-orbit="${escapeHtml(a.orbit || "-35deg 76deg auto")}" camera-controls disable-zoom disable-pan interaction-prompt="none"
           auto-rotate auto-rotate-delay="0" rotation-per-second="14deg" environment-image="neutral" tone-mapping="aces" exposure="1.05"
           shadow-intensity="1.1" shadow-softness="0.85" interpolation-decay="120" loading="eager" reveal="auto"></model-viewer>
@@ -8516,9 +8589,12 @@ function wireGarAssets(container, onFail){
     const show = mv.closest(".gar-show");
     garLoadModelViewer().then(()=>{
       mv.addEventListener("load", ()=>{
+        const paint = mv.dataset.paint || "";
+        try{ garApplyPaint(mv, paint); }catch(e){}
         if(show) show.classList.add("loaded");
         /* a still frame for the side panels / thumbnails, taken once the first frame has drawn */
-        setTimeout(()=>{ try{ if(!garSnapshots[url]) garSnapshots[url] = mv.toDataURL("image/png"); }catch(e){} }, 400);
+        const key = url + "|" + paint;
+        setTimeout(()=>{ try{ if(!garSnapshots[key]) garSnapshots[key] = mv.toDataURL("image/png"); }catch(e){} }, 400);
       }, {once:true});
       mv.addEventListener("error", ()=>fail(url), {once:true});
     }).catch(()=>fail(url));
@@ -8730,6 +8806,13 @@ function hydrateGarageFull(scope){
         <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" placeholder="3.0L V6" value="${escapeHtml(v.engine||"")}"></label>
         <label class="gar-field"><span>Mileage</span><input type="text" id="gar-f-miles" inputmode="numeric" placeholder="275,000" value="${escapeHtml(v.mileage||"")}"></label>
         <label class="gar-field wide"><span>Body style</span><select id="gar-f-type">${typeOptions(v.type||"")}</select></label>
+        <div class="gar-field wide"><span>Paint color</span>
+          <div class="gar-swatches" id="gar-f-color" role="radiogroup" aria-label="Paint color">
+            <button type="button" class="gar-swatch orig${!v.color?" on":""}" data-color="" role="radio" aria-checked="${!v.color}" title="As modeled">As modeled</button>
+            ${GAR_COLORS.map(([n,h])=>`<button type="button" class="gar-swatch${(v.color||"").toLowerCase()===h?" on":""}" data-color="${h}" role="radio" aria-checked="${(v.color||"").toLowerCase()===h}" title="${n}" aria-label="${n}" style="--c:${h}"></button>`).join("")}
+            <label class="gar-swatch custom${v.color && !GAR_COLORS.some(c=>c[1]===(v.color||"").toLowerCase())?" on":""}" title="Custom color" style="--c:${escapeHtml(v.color && !GAR_COLORS.some(c=>c[1]===(v.color||"").toLowerCase()) ? v.color : "#7cc4ff")}"><input type="color" id="gar-f-color-custom" value="${escapeHtml(/^#[0-9a-f]{6}$/i.test(v.color||"") ? v.color : "#7cc4ff")}" aria-label="Custom color"></label>
+          </div>
+        </div>
         <div class="gar-form-status" id="gar-form-status"></div>
       </div>
       <div class="gar-sheet-foot">
@@ -8742,6 +8825,15 @@ function hydrateGarageFull(scope){
     const typeSel = sheet.querySelector("#gar-f-type");
     const assetInp = sheet.querySelector("#gar-f-asset");
     const yearInp = sheet.querySelector("#gar-f-year");
+    let pickedColor = /^#[0-9a-f]{6}$/i.test(v.color||"") ? v.color.toLowerCase() : "";
+    const swatches = sheet.querySelector("#gar-f-color");
+    const markSwatch = ()=>swatches.querySelectorAll(".gar-swatch").forEach(b=>{
+      const on = b.classList.contains("custom") ? !!pickedColor && !GAR_COLORS.some(c=>c[1]===pickedColor) : (b.dataset.color||"") === pickedColor;
+      b.classList.toggle("on", on); if(b.tagName === "BUTTON") b.setAttribute("aria-checked", String(on));
+    });
+    swatches.querySelectorAll("button.gar-swatch").forEach(b=>b.addEventListener("click", ()=>{ pickedColor = b.dataset.color || ""; markSwatch(); }));
+    const customInp = sheet.querySelector("#gar-f-color-custom");
+    customInp.addEventListener("input", ()=>{ pickedColor = customInp.value.toLowerCase(); customInp.parentElement.style.setProperty("--c", pickedColor); markSwatch(); });
     /* live preview + a one-line explanation of which asset will be used */
     function drawPreview(){
       const fake = {vehicle: nameInp.value || "Vehicle", year: yearInp.value, type: typeSel.value, asset: assetInp.value.trim()};
@@ -8787,6 +8879,7 @@ function hydrateGarageFull(scope){
       entry.engine = sheet.querySelector("#gar-f-engine").value.trim();
       entry.mileage = sheet.querySelector("#gar-f-miles").value.trim();
       if(typeSel.value) entry.type = typeSel.value; else delete entry.type;
+      if(pickedColor) entry.color = pickedColor; else delete entry.color;
       const asset = assetInp.value.trim();
       if(asset && !garAssetKind(asset)){ status.textContent = "Paste a Sketchfab model link, or a .glb / .gltf model or .svg / .png render — or leave it empty."; assetInp.focus(); return; }
       if(asset){ entry.asset = asset; delete garAssetFailed[asset]; const u = garSketchfabUid(asset); if(u) delete garAssetFailed["sf:"+u]; } else delete entry.asset;
