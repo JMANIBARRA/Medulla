@@ -516,6 +516,57 @@
     95%{opacity:.35;}
     96%{opacity:0;}
   }
+  /* ---------- city skyline weather scenes (see CITY_SKYLINES / renderCityScene) ----------
+     Layers sit at z-index:-1 inside an isolated scene so the existing readability scrim
+     (.weather-scene::before) still darkens them under the text. */
+  .weather-scene.wscene-city{isolation:isolate;overflow:hidden;background:none;filter:none;}
+  .wcity-layer{position:absolute;inset:0;z-index:-1;pointer-events:none;}
+  .wcity-photo{background-size:cover;background-position:center bottom;}
+  .wcity-sky{background:linear-gradient(180deg,#2f7fe0 0%,#6fb4f2 55%,#bfe0ff 100%);}
+  .wscene-city[data-tone="cloudy"] .wcity-sky{background:linear-gradient(180deg,#647d99 0%,#8ea3b9 60%,#b9c6d3 100%);}
+  .wscene-city.wcity-mostly[data-tone="cloudy"] .wcity-sky{background:linear-gradient(180deg,#4f86c6 0%,#86b2dc 60%,#c3d8ec 100%);}
+  .wscene-city[data-tone="fog"] .wcity-sky{background:linear-gradient(180deg,#9aa6b2 0%,#b9c2cb 60%,#d3d9de 100%);}
+  .wscene-city[data-tone="rain"] .wcity-sky{background:linear-gradient(180deg,#46566a 0%,#66778b 60%,#8a99a8 100%);}
+  .wscene-city[data-tone="snow"] .wcity-sky{background:linear-gradient(180deg,#9aa8b8 0%,#c3ccd6 60%,#e3e8ee 100%);}
+  .wscene-city[data-tone="storm"] .wcity-sky{background:linear-gradient(180deg,#151c28 0%,#2a3445 60%,#435064 100%);}
+  .wscene-city.wcity-night .wcity-sky{background:linear-gradient(180deg,#030816 0%,#0a1838 60%,#1b3263 100%);}
+  .wscene-city.wcity-night:not([data-tone="clear"]) .wcity-sky{background:linear-gradient(180deg,#060b16 0%,#121d30 60%,#25324a 100%);}
+  .wcity-stars{background-image:
+      radial-gradient(1.2px 1.2px at 12% 18%, #fff 50%, transparent), radial-gradient(1px 1px at 26% 8%, #fff 50%, transparent),
+      radial-gradient(1.4px 1.4px at 41% 22%, #fff 50%, transparent), radial-gradient(1px 1px at 57% 12%, #fff 50%, transparent),
+      radial-gradient(1.2px 1.2px at 69% 27%, #fff 50%, transparent), radial-gradient(1px 1px at 83% 9%, #fff 50%, transparent),
+      radial-gradient(1.3px 1.3px at 92% 31%, #fff 50%, transparent), radial-gradient(1px 1px at 6% 36%, #fff 50%, transparent),
+      radial-gradient(1px 1px at 35% 38%, #fff 50%, transparent), radial-gradient(1px 1px at 76% 40%, #fff 50%, transparent);opacity:.85;}
+  .wscene-city:not([data-tone="clear"]) .wcity-stars{opacity:.25;}
+  .wcity-orb::before{content:"";position:absolute;top:11%;left:36%;width:clamp(26px,13%,60px);aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle,#fffbe8 0 45%,#ffe7a3 60%,rgba(255,220,130,0) 72%);box-shadow:0 0 40px 18px rgba(255,226,150,.45);}
+  .wscene-city.wcity-night .wcity-orb::before{background:radial-gradient(circle at 38% 40%,#ffffff 0 30%,#e6ecf5 55%,rgba(220,230,245,0) 70%);box-shadow:0 0 30px 8px rgba(200,215,240,.3);}
+  .wscene-city:not([data-tone="clear"]):not(.wcity-mostly) .wcity-orb{opacity:.25;}
+  .wscene-city[data-tone="storm"] .wcity-orb, .wscene-city[data-tone="rain"] .wcity-orb, .wscene-city[data-tone="fog"] .wcity-orb{display:none;}
+  .db-weather .wcity-orb::before{left:auto;right:10%;top:12%;}
+  .wcity-clouds span{position:absolute;height:22%;width:42%;border-radius:999px;background:rgba(255,255,255,.6);filter:blur(10px);animation:wcity-drift 70s linear infinite;}
+  .wcity-clouds span:nth-child(1){top:8%;left:-10%;}
+  .wcity-clouds span:nth-child(2){top:20%;left:30%;width:36%;animation-duration:90s;animation-delay:-30s;}
+  .wcity-clouds span:nth-child(3){top:4%;left:62%;width:30%;animation-duration:80s;animation-delay:-55s;}
+  .wcity-clouds span:nth-child(4){top:30%;left:-30%;width:50%;animation-duration:110s;animation-delay:-70s;opacity:.7;}
+  .wscene-city.wcity-mostly .wcity-clouds span:nth-child(n+3){display:none;}
+  .wscene-city[data-tone="rain"] .wcity-clouds span, .wscene-city[data-tone="storm"] .wcity-clouds span{background:rgba(70,82,98,.85);}
+  .wscene-city.wcity-night .wcity-clouds span{background:rgba(70,84,110,.55);}
+  @keyframes wcity-drift{from{transform:translateX(0);}to{transform:translateX(160%);}}
+  .wcity-ground{display:flex;align-items:flex-end;}
+  .wcity-skyline{display:block;width:100%;height:auto;aspect-ratio:10/3;min-height:42%;}
+  /* the drawn scenes are evenly lit, so they need a much lighter readability scrim than photos */
+  .weather-scene.wscene-city::before{z-index:0;background:linear-gradient(to top, rgba(0,0,0,.6) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,.12) 100%);}
+  .wcity-rain{background-image:repeating-linear-gradient(105deg, rgba(210,225,245,.35) 0 1px, transparent 1px 9px);background-size:120px 120px;animation:wcity-rain .5s linear infinite;opacity:.7;}
+  @keyframes wcity-rain{from{background-position:0 0;}to{background-position:-30px 120px;}}
+  .wcity-snow{background-image:radial-gradient(2px 2px at 20% 30%, #fff 50%, transparent), radial-gradient(1.6px 1.6px at 60% 70%, #fff 50%, transparent), radial-gradient(2.2px 2.2px at 80% 20%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 40% 90%, #fff 50%, transparent);
+    background-size:90px 90px;animation:wcity-snow 6s linear infinite;opacity:.9;}
+  @keyframes wcity-snow{from{background-position:0 0;}to{background-position:30px 90px;}}
+  .wcity-fog{background:linear-gradient(180deg, rgba(220,226,232,0) 20%, rgba(220,226,232,.55) 65%, rgba(220,226,232,.75) 100%);}
+  .wscene-city[data-tone="storm"]::after{content:"";position:absolute;inset:0;background:#fff;opacity:0;animation:wscene-lightning 6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){
+    .wcity-clouds span, .wcity-rain, .wcity-snow{animation:none;}
+  }
   @media (prefers-reduced-motion: reduce){
     .weather-scene::after{animation:none !important;}
   }
@@ -12698,6 +12749,7 @@ async function fetchWeatherData(){
       isDay: cw.is_day !== 0,
       description: WEATHER_CODE_TEXT[cw.weather_code] || "mild",
       city: loc.city || "",
+      lat: loc.lat, lon: loc.lon,
       humidity: Math.round(cw.relative_humidity_2m),
       cloudCover: Math.round(cw.cloud_cover),
       windSpeed: Math.round(cw.wind_speed_10m),
@@ -12756,12 +12808,301 @@ function weatherScene(code, isDay){
   if([95,96,99].includes(code)) return "wscene-storm";
   return isDay ? "wscene-clouds" : "wscene-clouds-night";
 }
+/* ================= WEATHER BACKGROUND: CITY SKYLINES vs NATURAL FALLBACK =================
+   How the weather widgets pick a background:
+     1. The location is matched against CITY_SKYLINES below (by name/alias, or by being within
+        radiusKm of that city's downtown).
+     2. Match  -> "city" scene: a sky drawn for the current weather + day/night (sun, moon/stars,
+                  clouds, rain, snow, fog, lightning) with that city's skyline along the bottom
+                  (lit windows at night, a water reflection for waterfront cities). If the entry
+                  lists `photos`, those are used instead of the drawn skyline.
+     3. No match -> the original natural landscape photos (sky, marsh, palms; no buildings), so a
+                  small town never gets some other city's skyline.
+
+   ADDING A CITY — add an entry to CITY_SKYLINES:
+     key:      { name, aliases:[...lowercase names the location service might return],
+                 lat, lon, radiusKm (default 20), water:true|false, palms:true|false,
+                 skyline: [...building spec] | "generic",
+                 photos: { day:"skylines/x-day.jpg", night:"skylines/x-night.jpg" }  // optional }
+   Building spec, drawn left→right on a 1000-unit-wide strip (heights in the same units):
+     [x, width, height, top]   top: "" flat, "a" antenna, "aa" twin antennas, "s" spire,
+                               "p" pointed roof, "r" rounded, "t" stepped setbacks, "l" slanted,
+                               "c" crown, "o" open crown/lantern
+     { lm:"name", x, h, w }    a landmark shape (eiffel, needle, cn, shard, gherkin, burj, bigben,
+                               transamerica, skytree, tokyotower, wheel, obelisk, dome, palm)
+   "generic" draws a plausible skyline seeded from the city name — fine for big cities without
+   signature landmarks. Anything not listed falls back to the natural photos. */
+const CITY_SKYLINES = {
+  miami: { name:"Miami", aliases:["miami","miami beach","brickell","downtown miami","edgewater","wynwood","little havana","key biscayne"],
+    lat:25.7617, lon:-80.1918, water:true, palms:true,
+    skyline:[ {lm:"palm",x:40,h:95},{lm:"palm",x:75,h:80}, [110,46,120,"l"],[160,38,150,""],[202,52,175,"r"],[258,34,140,"c"],[296,58,205,"a"],[358,44,186,"t"],
+      [406,62,232,"r"],[472,40,198,"l"],[516,56,250,"a"],[576,46,214,""],[626,60,236,"c"],[690,38,168,"r"],[732,52,190,"l"],[788,44,150,""],[836,56,128,"r"],
+      {lm:"palm",x:905,h:100},{lm:"palm",x:945,h:84},{lm:"palm",x:975,h:92} ] },
+  newyork: { name:"New York", aliases:["new york","new york city","nyc","manhattan","brooklyn","queens","the bronx","bronx","staten island","jersey city","hoboken","long island city"],
+    lat:40.7128, lon:-74.0060, water:true,
+    skyline:[ [20,40,110,""],[64,34,140,"t"],[102,50,120,""],[156,44,170,"c"],[204,60,268,"s"],[268,40,150,""],[312,46,196,"t"],[362,36,130,"p"],
+      [402,52,236,"o"],[458,42,180,""],[505,48,300,"t"],[558,36,160,"a"],[598,60,214,""],[662,42,250,"s"],[708,52,176,"t"],[764,40,140,""],[808,56,190,"r"],[868,40,124,""],[912,46,156,"c"],[962,34,104,""] ] },
+  chicago: { name:"Chicago", aliases:["chicago","the loop","evanston","oak park"], lat:41.8781, lon:-87.6298, water:true,
+    skyline:[ [24,44,120,""],[72,40,150,"c"],[116,56,190,""],[176,40,160,"t"],[220,62,300,"aa"],[286,44,186,"r"],[334,48,212,""],[386,36,150,"p"],
+      [426,58,236,"t"],[488,40,170,""],[532,52,256,"s"],[588,46,190,""],[638,40,150,"c"],[682,56,270,"aa"],[742,42,176,"l"],[788,48,150,""],[840,40,124,"r"],[884,54,140,""],[942,40,108,""] ] },
+  losangeles: { name:"Los Angeles", aliases:["los angeles","la","downtown la","hollywood","koreatown","echo park","silver lake"],
+    lat:34.0522, lon:-118.2437, palms:true,
+    skyline:[ {lm:"palm",x:40,h:150},{lm:"palm",x:90,h:130}, [150,50,120,""],[206,42,150,"c"],[254,58,186,""],[318,46,170,"r"],[370,62,268,"r"],[438,48,214,""],
+      [492,56,240,"l"],[554,42,190,"c"],[602,60,226,""],[668,44,160,"t"],[718,50,140,""],[776,40,110,""], {lm:"palm",x:860,h:160},{lm:"palm",x:915,h:120},{lm:"palm",x:960,h:142} ] },
+  sanfrancisco: { name:"San Francisco", aliases:["san francisco","sf","soma","mission district","oakland"], lat:37.7749, lon:-122.4194, water:true,
+    skyline:[ [30,44,100,""],[80,40,130,"t"],[126,52,150,""],[184,38,124,"c"],[228,56,186,""],{lm:"transamerica",x:318,h:230,w:56},[364,48,170,""],[418,40,140,"r"],
+      [464,60,210,"t"],[530,46,180,""],[582,64,280,"r"],[652,44,196,"l"],[702,50,160,""],[758,40,134,"c"],[804,52,120,""],[862,40,100,""],[908,50,90,""] ] },
+  seattle: { name:"Seattle", aliases:["seattle","capitol hill","belltown","queen anne","ballard","bellevue"], lat:47.6062, lon:-122.3321, water:true,
+    skyline:[ [30,42,100,""],{lm:"needle",x:120,h:230}, [190,46,120,""],[242,40,150,"t"],[288,58,190,""],[352,46,170,"l"],[404,62,250,""],[472,44,206,"p"],
+      [522,56,226,"t"],[584,40,170,""],[630,52,196,"c"],[688,44,150,""],[738,58,140,"r"],[802,40,110,""],[848,52,96,""],[906,44,84,""] ] },
+  toronto: { name:"Toronto", aliases:["toronto","downtown toronto","mississauga","north york","scarborough","etobicoke"], lat:43.6532, lon:-79.3832, water:true,
+    skyline:[ [24,40,110,""],[70,52,150,""],[128,40,180,"c"],[174,56,214,""],{lm:"cn",x:300,h:300},[340,46,190,""],[392,60,240,"t"],[458,44,210,"l"],
+      [508,54,256,""],[568,42,200,"c"],[616,58,226,""],[680,40,176,"r"],[726,52,150,""],[784,44,130,""],[834,56,114,""],[896,44,96,""] ] },
+  london: { name:"London", aliases:["london","city of london","westminster","camden","greenwich","canary wharf","southwark"], lat:51.5074, lon:-0.1278, water:true,
+    skyline:[ {lm:"bigben",x:70,h:190}, [120,70,70,""],[196,40,96,""],{lm:"wheel",x:300,h:150},[372,44,110,""],[422,40,140,"l"],{lm:"gherkin",x:500,h:180,w:52},
+      [544,46,150,""],[596,40,186,"l"],[642,54,120,""],{lm:"shard",x:744,h:270,w:70},[790,46,130,""],[842,40,160,"p"],[888,52,110,""],[946,40,90,""] ] },
+  paris: { name:"Paris", aliases:["paris","montmartre","le marais","saint-germain","la defense","boulogne-billancourt"], lat:48.8566, lon:2.3522,
+    skyline:[ [20,60,60,"p"],[86,50,70,""],[142,64,64,"p"],[212,46,76,""],[264,56,60,"p"],{lm:"eiffel",x:420,h:280,w:160},[512,60,70,"p"],[578,52,62,""],
+      {lm:"dome",x:670,h:120,w:80},[724,56,64,"p"],[786,64,72,""],[856,52,60,"p"],[914,70,66,""] ] },
+  tokyo: { name:"Tokyo", aliases:["tokyo","shinjuku","shibuya","minato","chiyoda","chuo","taito","sumida","toshima"], lat:35.6762, lon:139.6503,
+    skyline:[ [20,46,120,""],[72,40,150,"a"],[118,58,180,""],{lm:"tokyotower",x:230,h:230,w:90},[290,46,170,"t"],[342,56,210,""],[404,40,186,"c"],[450,64,240,"l"],
+      [520,44,200,""],[570,52,226,"a"],[628,40,170,""],{lm:"skytree",x:740,h:300,w:46},[790,56,180,""],[852,44,150,"r"],[902,56,130,""],[962,34,100,""] ] },
+  dubai: { name:"Dubai", aliases:["dubai","downtown dubai","dubai marina","jumeirah","business bay"], lat:25.2048, lon:55.2708, water:true, palms:true,
+    skyline:[ {lm:"palm",x:30,h:90}, [70,40,140,"s"],[116,52,180,"r"],[174,40,206,"a"],[220,58,170,"l"],[284,44,230,"s"],[334,50,190,""],{lm:"burj",x:480,h:300,w:70},
+      [580,46,206,"r"],[632,56,236,"s"],[694,40,180,"l"],[740,52,210,"a"],[798,46,166,""],[850,58,150,"r"],[914,44,126,"s"],{lm:"palm",x:970,h:90} ] },
+  washington: { name:"Washington", aliases:["washington","washington dc","washington, d.c.","dc","district of columbia","arlington"], lat:38.9072, lon:-77.0369, water:true,
+    skyline:[ [30,90,60,""],[130,70,70,""],[210,80,56,""],{lm:"obelisk",x:420,h:260,w:26},[500,60,64,""],{lm:"dome",x:640,h:150,w:150},[740,70,60,""],[820,80,70,""],[910,70,54,""] ] },
+  boston:{name:"Boston",aliases:["boston","cambridge","back bay","south boston"],lat:42.3601,lon:-71.0589,water:true,skyline:"generic"},
+  houston:{name:"Houston",aliases:["houston"],lat:29.7604,lon:-95.3698,skyline:"generic"},
+  dallas:{name:"Dallas",aliases:["dallas"],lat:32.7767,lon:-96.7970,skyline:"generic"},
+  atlanta:{name:"Atlanta",aliases:["atlanta","midtown atlanta"],lat:33.7490,lon:-84.3880,skyline:"generic"},
+  philadelphia:{name:"Philadelphia",aliases:["philadelphia","philly"],lat:39.9526,lon:-75.1652,water:true,skyline:"generic"},
+  denver:{name:"Denver",aliases:["denver"],lat:39.7392,lon:-104.9903,skyline:"generic"},
+  phoenix:{name:"Phoenix",aliases:["phoenix"],lat:33.4484,lon:-112.0740,skyline:"generic",palms:true},
+  lasvegas:{name:"Las Vegas",aliases:["las vegas","paradise","the strip"],lat:36.1699,lon:-115.1398,skyline:"generic",palms:true},
+  orlando:{name:"Orlando",aliases:["orlando"],lat:28.5383,lon:-81.3792,skyline:"generic",palms:true,water:true},
+  tampa:{name:"Tampa",aliases:["tampa"],lat:27.9506,lon:-82.4572,skyline:"generic",palms:true,water:true},
+  fortlauderdale:{name:"Fort Lauderdale",aliases:["fort lauderdale"],lat:26.1224,lon:-80.1373,radiusKm:10,skyline:"generic",palms:true,water:true},
+  sandiego:{name:"San Diego",aliases:["san diego"],lat:32.7157,lon:-117.1611,skyline:"generic",palms:true,water:true},
+  charlotte:{name:"Charlotte",aliases:["charlotte"],lat:35.2271,lon:-80.8431,skyline:"generic"},
+  austin:{name:"Austin",aliases:["austin"],lat:30.2672,lon:-97.7431,skyline:"generic",water:true},
+  nashville:{name:"Nashville",aliases:["nashville"],lat:36.1627,lon:-86.7816,skyline:"generic",water:true},
+  minneapolis:{name:"Minneapolis",aliases:["minneapolis","saint paul","st paul"],lat:44.9778,lon:-93.2650,skyline:"generic"},
+  detroit:{name:"Detroit",aliases:["detroit"],lat:42.3314,lon:-83.0458,skyline:"generic",water:true},
+  pittsburgh:{name:"Pittsburgh",aliases:["pittsburgh"],lat:40.4406,lon:-79.9959,skyline:"generic",water:true},
+  neworleans:{name:"New Orleans",aliases:["new orleans"],lat:29.9511,lon:-90.0715,skyline:"generic",water:true},
+  hongkong:{name:"Hong Kong",aliases:["hong kong","kowloon","central"],lat:22.3193,lon:114.1694,skyline:"generic",water:true},
+  singapore:{name:"Singapore",aliases:["singapore"],lat:1.3521,lon:103.8198,skyline:"generic",water:true},
+  sydney:{name:"Sydney",aliases:["sydney"],lat:-33.8688,lon:151.2093,skyline:"generic",water:true},
+};
+
+function normalizePlaceName(s){
+  return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();
+}
+function kmBetween(lat1, lon1, lat2, lon2){
+  const R = 6371, toR = Math.PI/180;
+  const dLat = (lat2-lat1)*toR, dLon = (lon2-lon1)*toR;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*toR)*Math.cos(lat2*toR)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+/* place = {city, lat, lon}; returns the CITY_SKYLINES entry (with its key) or null for "use the
+   natural fallback". Name matches win; otherwise the nearest listed city within its radius. */
+function resolveCitySkyline(place){
+  if(!place) return null;
+  const name = normalizePlaceName(place.city);
+  if(name){
+    for(const [key, c] of Object.entries(CITY_SKYLINES)){
+      if(normalizePlaceName(c.name)===name || (c.aliases||[]).some(a=>normalizePlaceName(a)===name)) return {key, ...c};
+    }
+  }
+  if(isFinite(place.lat) && isFinite(place.lon)){
+    let best = null, bestKm = Infinity;
+    for(const [key, c] of Object.entries(CITY_SKYLINES)){
+      const km = kmBetween(place.lat, place.lon, c.lat, c.lon);
+      if(km <= (c.radiusKm || 20) && km < bestKm){ best = {key, ...c}; bestKm = km; }
+    }
+    return best;
+  }
+  return null;
+}
+
+/* ---- skyline drawing ---- */
+function skyRand(seedStr){
+  let h = 2166136261;
+  for(const ch of String(seedStr)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return ()=>{ h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0; return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+}
+function genericSkyline(seed){
+  const rnd = skyRand(seed), out = [];
+  const tops = ["","","","a","s","t","r","c","l","p"];
+  let x = 10;
+  while(x < 990){
+    const w = 30 + rnd()*36;
+    const centre = 1 - Math.abs((x + w/2) - 520) / 560;   /* taller towards the middle */
+    const h = 60 + centre*centre*190*(0.55 + rnd()*0.6);
+    out.push([Math.round(x), Math.round(w), Math.round(h), tops[Math.floor(rnd()*tops.length)]]);
+    x += w + 3 + rnd()*10;
+  }
+  return out;
+}
+const SKY_BASE = 240; /* skyline baseline in the 1000x300 drawing; below it is water or ground */
+function skyBuildingPath(x, w, h, top){
+  const b = SKY_BASE, t = b - h, r = x + w, m = x + w/2;
+  switch(top){
+    case "a":  return `M${x} ${b}V${t}H${r}V${b}Z M${m-1.5} ${t}V${t-h*.22}h3V${t}Z`;
+    case "aa": return `M${x} ${b}V${t}H${r}V${b}Z M${x+w*.28-1.5} ${t}V${t-h*.2}h3V${t}Z M${x+w*.72-1.5} ${t}V${t-h*.2}h3V${t}Z`;
+    case "s":  return `M${x} ${b}V${t}H${r}V${b}Z M${m-w*.18} ${t}L${m} ${t-h*.3}L${m+w*.18} ${t}Z`;
+    case "p":  return `M${x} ${b}V${t}L${m} ${t-w*.42}L${r} ${t}V${b}Z`;
+    case "r":  return `M${x} ${b}V${t}A${w/2} ${w*.38} 0 0 1 ${r} ${t}V${b}Z`;
+    case "t":  return `M${x} ${b}V${t+h*.3}H${x+w*.12}V${t+h*.12}H${x+w*.26}V${t}H${r-w*.26}V${t+h*.12}H${r-w*.12}V${t+h*.3}H${r}V${b}Z M${m-1.5} ${t}V${t-h*.14}h3V${t}Z`;
+    case "l":  return `M${x} ${b}V${t+w*.35}L${r} ${t}V${b}Z`;
+    case "c":  return `M${x} ${b}V${t}H${r}V${b}Z M${x+w*.25} ${t}V${t-h*.07}H${r-w*.25}V${t}Z`;
+    case "o":  return `M${x} ${b}V${t}H${r}V${b}Z M${x+w*.2} ${t}V${t-h*.06}H${r-w*.2}V${t}Z M${x+w*.32} ${t-h*.06}L${m} ${t-h*.2}L${r-w*.32} ${t-h*.06}Z M${m-1.2} ${t-h*.2}V${t-h*.3}h2.4V${t-h*.2}Z`;
+    default:   return `M${x} ${b}V${t}H${r}V${b}Z`;
+  }
+}
+function skyLandmarkPath(l){
+  const b = SKY_BASE, x = l.x, h = l.h, w = l.w || 40;
+  switch(l.lm){
+    case "eiffel": { const t = b-h;
+      return `M${x-w/2} ${b}C${x-w*.2} ${b-h*.25} ${x-w*.08} ${b-h*.55} ${x-5} ${t+h*.1}L${x-2} ${t}h4L${x+5} ${t+h*.1}C${x+w*.08} ${b-h*.55} ${x+w*.2} ${b-h*.25} ${x+w/2} ${b}H${x+w*.22}C${x+w*.12} ${b-h*.12} ${x-w*.12} ${b-h*.12} ${x-w*.22} ${b}Z M${x-w*.3} ${b-h*.27}h${w*.6}v5h-${w*.6}Z M${x-w*.17} ${b-h*.55}h${w*.34}v4h-${w*.34}Z`; }
+    case "needle": { const t = b-h;
+      return `M${x-4} ${b}L${x-2} ${t+h*.3}h4L${x+4} ${b}Z M${x-12} ${b}L${x-2} ${t+h*.45}h1Z M${x+12} ${b}L${x+2} ${t+h*.45}h-1Z M${x-26} ${t+h*.24}Q${x} ${t+h*.36} ${x+26} ${t+h*.24}L${x+16} ${t+h*.17}H${x-16}Z M${x-10} ${t+h*.17}L${x} ${t+h*.07}L${x+10} ${t+h*.17}Z M${x-1.2} ${t+h*.07}V${t}h2.4V${t+h*.07}Z`; }
+    case "cn": { const t = b-h;
+      return `M${x-9} ${b}L${x-3} ${t+h*.35}h6L${x+9} ${b}Z M${x-13} ${t+h*.36}h26l-4 ${h*.06}h-18Z M${x-5} ${t+h*.25}h10v${h*.1}h-10Z M${x-2} ${t+h*.25}L${x} ${t}L${x+2} ${t+h*.25}Z`; }
+    case "shard": return `M${x-w/2} ${b}L${x-3} ${b-h}L${x+2} ${b-h*.93}L${x+w/2} ${b}Z`;
+    case "gherkin": return `M${x-w*.4} ${b}C${x-w*.62} ${b-h*.5} ${x-w*.32} ${b-h*.95} ${x} ${b-h}C${x+w*.32} ${b-h*.95} ${x+w*.62} ${b-h*.5} ${x+w*.4} ${b}Z`;
+    case "burj": { const t = b-h;
+      return `M${x-w/2} ${b}V${b-h*.12}H${x-w*.36}V${b-h*.3}H${x-w*.24}V${b-h*.5}H${x-w*.14}V${b-h*.68}H${x-w*.07}V${t+h*.12}L${x} ${t}L${x+w*.07} ${t+h*.12}V${b-h*.62}H${x+w*.16}V${b-h*.42}H${x+w*.26}V${b-h*.22}H${x+w*.4}V${b-h*.08}H${x+w/2}V${b}Z`; }
+    case "bigben": { const t = b-h;
+      return `M${x-11} ${b}V${t+h*.32}h22V${b}Z M${x-13} ${t+h*.32}V${t+h*.18}h26v${h*.14}Z M${x-11} ${t+h*.18}L${x} ${t}L${x+11} ${t+h*.18}Z`; }
+    case "transamerica": return `M${x-w/2} ${b}L${x} ${b-h}L${x+w/2} ${b}Z M${x-w*.28} ${b-h*.45}h-6v8h6Z M${x+w*.28} ${b-h*.45}h6v8h-6Z`;
+    case "skytree": { const t = b-h;
+      return `M${x-w/2} ${b}L${x-4} ${t+h*.32}h8L${x+w/2} ${b}Z M${x-9} ${t+h*.36}h18v-6h-18Z M${x-7} ${t+h*.22}h14v-5h-14Z M${x-2} ${t+h*.2}L${x-1} ${t}h2L${x+2} ${t+h*.2}Z`; }
+    case "tokyotower": { const t = b-h;
+      return `M${x-w/2} ${b}C${x-w*.2} ${b-h*.3} ${x-6} ${b-h*.6} ${x-2} ${t}h4C${x+6} ${b-h*.6} ${x+w*.2} ${b-h*.3} ${x+w/2} ${b}H${x+w*.24}C${x+w*.1} ${b-h*.1} ${x-w*.1} ${b-h*.1} ${x-w*.24} ${b}Z M${x-w*.26} ${b-h*.3}h${w*.52}v6h-${w*.52}Z M${x-w*.12} ${b-h*.6}h${w*.24}v5h-${w*.24}Z`; }
+    case "wheel": { const r = h/2, cy = b - r - 4;
+      return `M${x} ${cy-r}A${r} ${r} 0 1 1 ${x-0.01} ${cy-r}Z M${x} ${cy-r+5}A${r-5} ${r-5} 0 1 0 ${x+0.01} ${cy-r+5}Z M${x-1.5} ${cy}L${x-r*.5} ${b}h4L${x} ${cy+6}L${x+r*.5-4} ${b}h4L${x+1.5} ${cy}Z`; }
+    case "obelisk": return `M${x-w/2} ${b}L${x-w*.36} ${b-h*.92}L${x} ${b-h}L${x+w*.36} ${b-h*.92}L${x+w/2} ${b}Z`;
+    case "dome": { const r = w/2, base = b - h*.45;
+      return `M${x-w*.7} ${b}V${base}H${x+w*.7}V${b}Z M${x-r} ${base}A${r} ${r*.9} 0 0 1 ${x+r} ${base}Z M${x-2} ${base-r*.9}V${b-h}h4V${base-r*.9}Z`; }
+    case "palm": { const top = b - h;
+      return `M${x-2} ${b}Q${x-6} ${b-h*.5} ${x-1} ${top}h3Q${x-2} ${b-h*.5} ${x+3} ${b}Z`
+        + ` M${x} ${top}q-22 -4 -34 12q16 -16 34 -9Z M${x} ${top}q22 -4 34 12q-16 -16 -34 -9Z M${x} ${top}q-14 -16 -28 -14q16 2 28 16Z M${x} ${top}q14 -16 28 -14q-16 2 -28 16Z M${x} ${top}q-2 -18 6 -26q-6 10 -4 26Z`; }
+    default: return "";
+  }
+}
+/* windows: a seeded scatter of small lit rectangles inside each plain building block */
+function skyWindows(spec, rnd){
+  let out = "";
+  for(const s of spec){
+    if(!Array.isArray(s)) continue;
+    const [x, w, h] = s;
+    for(let wy = SKY_BASE - h + 8; wy < SKY_BASE - 6; wy += 9){
+      for(let wx = x + 4; wx < x + w - 5; wx += 7){
+        if(rnd() < 0.32) out += `M${wx} ${wy}h3v4h-3Z`;
+      }
+    }
+  }
+  return out;
+}
+const skylineSvgCache = {};
+function buildSkylineSVG(city, mood){
+  const cacheKey = city.key + "|" + mood.tone + "|" + (mood.night ? "n" : "d");
+  if(skylineSvgCache[cacheKey]) return skylineSvgCache[cacheKey];
+  const spec = Array.isArray(city.skyline) ? city.skyline : genericSkyline(city.key);
+  const rnd = skyRand(city.key);
+  const back = genericSkyline(city.key + "-back").map(([x,w,h,t])=>[x, w, Math.round(h*0.62), t]);
+  const front = spec.map(s=>Array.isArray(s) ? skyBuildingPath(...s) : skyLandmarkPath(s)).join(" ");
+  const palette = mood.night
+    ? {back:"#0d1b33", front:"#060d1c", front2:"#0b1730", win:"#ffd68a", water1:"#081429", water2:"#030812"}
+    : ({clear:{back:"#5f86b4", front:"#1d3a63", front2:"#2c5486", water1:"#3f78b8", water2:"#1c3f6e"},
+        cloudy:{back:"#7f8fa3", front:"#344559", front2:"#46586e", water1:"#58718d", water2:"#2c3d52"},
+        fog:{back:"#b4bdc6", front:"#7d8a98", front2:"#8e9aa7", water1:"#9eabb7", water2:"#7d8b98"},
+        rain:{back:"#6f7d8e", front:"#2b3949", front2:"#3a4a5d", water1:"#4d6178", water2:"#253545"},
+        snow:{back:"#a7b3c1", front:"#4f6076", front2:"#62748b", water1:"#8095ab", water2:"#4c5f75"},
+        storm:{back:"#3e4a5c", front:"#151e2b", front2:"#222d3d", water1:"#2c3a4c", water2:"#111923"}})[mood.tone] || {};
+  const id = "sk" + Math.random().toString(36).slice(2,8);
+  const windows = mood.night ? `<path d="${skyWindows(spec, rnd)}" fill="${palette.win}" opacity=".85"/>` : "";
+  const ground = city.water
+    ? `<rect x="0" y="${SKY_BASE}" width="1000" height="${300-SKY_BASE}" fill="url(#${id}w)"/>
+       <g opacity="${mood.night ? .35 : .22}" transform="translate(0 ${SKY_BASE*2}) scale(1 -1)" clip-path="url(#${id}c)"><use href="#${id}f"/>${windows ? `<path d="${skyWindows(spec, skyRand(city.key))}" fill="${palette.win}" opacity=".8"/>` : ""}</g>
+       <path d="M60 ${SKY_BASE+14}h90M300 ${SKY_BASE+26}h140M620 ${SKY_BASE+18}h110M820 ${SKY_BASE+36}h120M180 ${SKY_BASE+44}h80" stroke="${mood.night ? "#ffd68a" : "#ffffff"}" stroke-opacity="${mood.night ? .25 : .18}" stroke-width="1.5"/>`
+    : `<rect x="0" y="${SKY_BASE}" width="1000" height="${300-SKY_BASE}" fill="${palette.front}"/>`;
+  const svg = `<svg class="wcity-skyline" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${palette.water1}"/><stop offset="1" stop-color="${palette.water2}"/></linearGradient>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${palette.front2}"/><stop offset="1" stop-color="${palette.front}"/></linearGradient>
+      <clipPath id="${id}c"><rect x="0" y="${SKY_BASE}" width="1000" height="${300-SKY_BASE}"/></clipPath>
+    </defs>
+    <path d="${back.map(s=>skyBuildingPath(...s)).join(" ")}" fill="${palette.back}" opacity="${mood.tone==="fog" ? .5 : .75}"/>
+    <path id="${id}f" d="${front}" fill="url(#${id}g)"/>
+    ${windows}
+    ${ground}
+  </svg>`;
+  skylineSvgCache[cacheKey] = svg;
+  return svg;
+}
+
+/* ---- sky + scene assembly ---- */
+function weatherTone(code){
+  if(code === 0) return "clear";
+  if(code === 45 || code === 48) return "fog";
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "rain";
+  if([71,73,75,77,85,86].includes(code)) return "snow";
+  if([95,96,99].includes(code)) return "storm";
+  if(code === 1) return "clear"; /* mostly clear: sun/moon with a couple of clouds */
+  return "cloudy";
+}
+function cityScenePhoto(city, night){
+  if(!city.photos) return null;
+  return (night ? city.photos.night : city.photos.day) || city.photos.day || city.photos.night || null;
+}
+function renderCityScene(sceneEl, city, code, isDay){
+  const tone = weatherTone(code), night = !isDay;
+  const photo = cityScenePhoto(city, night);
+  const key = `${city.key}|${tone}|${night}|${photo||""}`;
+  if(sceneEl.dataset.cityScene === key) return; /* already showing this exact scene */
+  sceneEl.dataset.cityScene = key;
+  sceneEl.dataset.tone = tone;
+  sceneEl.classList.toggle("wcity-night", night);
+  sceneEl.classList.toggle("wcity-mostly", code === 1 || code === 2);
+  if(photo){
+    sceneEl.innerHTML = `<div class="wcity-layer wcity-photo" style="background-image:url('${String(photo).replace(/'/g,"%27")}')"></div>`;
+    return;
+  }
+  const clouds = tone==="clear" && code===0 ? "" : `<div class="wcity-clouds"><span></span><span></span><span></span><span></span></div>`;
+  sceneEl.innerHTML = `
+    <div class="wcity-layer wcity-sky"></div>
+    ${night ? `<div class="wcity-layer wcity-stars"></div>` : ""}
+    <div class="wcity-layer wcity-orb"></div>
+    ${clouds ? `<div class="wcity-layer">${clouds}</div>` : ""}
+    <div class="wcity-layer wcity-ground">${buildSkylineSVG(city, {tone, night})}</div>
+    ${tone==="rain" || tone==="storm" ? `<div class="wcity-layer wcity-rain"></div>` : ""}
+    ${tone==="snow" ? `<div class="wcity-layer wcity-snow"></div>` : ""}
+    ${tone==="fog" ? `<div class="wcity-layer wcity-fog"></div>` : ""}`;
+}
+
 const WSCENE_CLASSES = ["wscene-clear-day","wscene-clear-night","wscene-clouds","wscene-clouds-night","wscene-fog","wscene-rain","wscene-snow","wscene-storm"];
-function applyWeatherScene(sceneEl, code, isDay){
+/* place = {city, lat, lon} of the weather location. A listed major city gets its skyline scene;
+   anything else (or no place at all) gets the natural landscape photo for the conditions. */
+function applyWeatherScene(sceneEl, code, isDay, place){
   if(!sceneEl) return;
   sceneEl.classList.remove(...WSCENE_CLASSES);
+  const city = resolveCitySkyline(place);
+  if(city){
+    sceneEl.classList.add("wscene-city");
+    sceneEl.title = `${city.name} skyline`;
+    renderCityScene(sceneEl, city, code, isDay);
+    return;
+  }
+  if(sceneEl.classList.contains("wscene-city")){
+    sceneEl.classList.remove("wscene-city","wcity-night","wcity-mostly");
+    sceneEl.innerHTML = ""; delete sceneEl.dataset.cityScene; delete sceneEl.dataset.tone; sceneEl.removeAttribute("title");
+  }
   sceneEl.classList.add(weatherScene(code, isDay));
 }
+function weatherPlace(data){ return data ? {city:data.city, lat:data.lat, lon:data.lon} : null; }
 /* standard UV index bands used by most weather services */
 function uvCategory(uv){
   if(uv == null) return "";
@@ -12781,7 +13122,7 @@ function hydrateWeatherMini(scope){
     const sceneEl = scope.querySelector("#weather-mini-scene");
     if(!el2) return;
     if(!data){ el2.textContent = "Weather unavailable right now."; return; }
-    applyWeatherScene(sceneEl, data.code, data.isDay);
+    applyWeatherScene(sceneEl, data.code, data.isDay, weatherPlace(data));
     const today = data.forecast[0];
     el2.innerHTML = `
       <div class="weather-mini-panel">
@@ -12808,7 +13149,7 @@ function hydrateWeatherFull(scope){
     const sceneEl = scope.querySelector("#weather-full-scene");
     if(!cityEl2) return;
     if(!data){ cityEl2.textContent = "Weather unavailable right now."; return; }
-    applyWeatherScene(sceneEl, data.code, data.isDay);
+    applyWeatherScene(sceneEl, data.code, data.isDay, weatherPlace(data));
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric"});
     const timeStr = now.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"});
@@ -15624,7 +15965,7 @@ async function renderDbWeather(){
     $("#db-fc-days").innerHTML = `<div class="db-dim" style="grid-column:1/-1;font-size:13px;">Forecast unavailable right now.</div>`;
     return;
   }
-  applyWeatherScene($("#db-weather-scene"), data.code, data.isDay);
+  applyWeatherScene($("#db-weather-scene"), data.code, data.isDay, weatherPlace(data));
   const today = data.forecast[0];
   info.innerHTML = `
     <div class="db-weather-temp">${data.temp}°F</div>
