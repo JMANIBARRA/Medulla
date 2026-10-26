@@ -1270,6 +1270,10 @@
   @keyframes gar-spin{to{transform:rotate(360deg);}}
   .gar-credit{position:absolute;right:22px;bottom:16px;z-index:3;max-width:46%;font-size:10.5px;color:rgba(169,188,214,.75);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gar-credit:hover{color:#cfe4ff;text-decoration:underline;}
+  .gar-repick{position:absolute;left:22px;bottom:12px;z-index:3;padding:5px 11px;border-radius:999px;border:1px solid rgba(124,196,255,.28);
+    background:rgba(10,24,48,.55);color:#a9bcd6;font:inherit;font-size:11px;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+  .gar-repick:hover{color:#e6f4ff;border-color:rgba(124,196,255,.7);background:rgba(20,50,95,.7);}
+  .gar-repick[hidden]{display:none;}
   .gar-auto-row{flex:1 1 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#a9bcd6;margin-top:2px;}
   /* ---- holographic wireframe fallback: faint grid-filled body, bright traced outline, scan line ---- */
   .gar-wire{position:relative;display:block;width:100%;aspect-ratio:3.25/1;}
@@ -8144,11 +8148,17 @@ const VEHICLE_MODELS = [
 ];
 const GAR_MV_URL = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
 const GAR_SF_STORE = NS + "garageModels";
-const GAR_SF_VERSION = 8;           /* bump to re-pick every vehicle's model after changing the scoring */
+const GAR_SF_VERSION = 9;           /* bump to re-pick every vehicle's model after changing the scoring */
 const garAssetFailed = {};          /* asset url / "sf:<uid>" -> true after a load failure (this session) */
 const garSnapshots = {};            /* 3D asset url -> PNG snapshot, for side panels and thumbnails */
 let garAutoModels = (()=>{ const m = loadJSON(GAR_SF_STORE, {}); return (m && typeof m === "object" && m.v === GAR_SF_VERSION) ? m : {v:GAR_SF_VERSION}; })();
 const garAutoPending = {};          /* key -> Promise */
+/* models the person turned down with "Wrong model?": key -> [uid, …], never picked again for that vehicle */
+const GAR_REJECT_STORE = NS + "garageRejected";
+let garRejected = (()=>{ const m = loadJSON(GAR_REJECT_STORE, {}); return (m && typeof m === "object") ? m : {}; })();
+function garRejectedFor(v){ return (garRejected[garModelKey(v)] || []).slice(-20); }
+/* exploded / disassembled showcase models: parts spread apart, never one whole vehicle */
+const GAR_EXPLODED = /\b(exploded|explode|disassembled|disassembly|dismantled|teardown|tear ?down|breakdown|cutaway|cut ?away|x-?ray|unassembled|parts? ?layout)\b/i;
 function garAssetKind(url){
   const u = String(url||"").split(/[?#]/)[0].toLowerCase();
   if(garSketchfabUid(url)) return "sketchfab";
@@ -8238,8 +8248,8 @@ function garYearsIn(name){
 function garScoreModel(r, want, opts={}){
   const name = String(r.name||"").toLowerCase();
   const hay = name + " " + (r.tags||[]).join(" ").replace(/-/g, " ");
-  if(GAR_BAD_WORDS.test(name)) return -Infinity;
-  if(GAR_BAD_TAGS.test((r.tags||[]).join(" ").replace(/-/g, " ").toLowerCase())) return -Infinity;
+  if(GAR_BAD_WORDS.test(name) || GAR_EXPLODED.test(name)) return -Infinity;
+  if(GAR_BAD_TAGS.test((r.tags||[]).join(" ").replace(/-/g, " ").toLowerCase()) || GAR_EXPLODED.test((r.tags||[]).join(" ").replace(/-/g, " "))) return -Infinity;
   if(r.faces && r.faces < 6000) return -Infinity;                 /* low-poly: not the realistic look */
   let score = 0;
   {
@@ -8338,6 +8348,8 @@ async function garPickViaWorker(v){
   const also = toks.includes("jon") ? ["john boat", "jonboat"] : [];
   const params = new URLSearchParams({vehicle:String(v.vehicle||"").trim(), year:String(garYear(v)||""), kind,
     make: toks.find(t=>GAR_MAKES.has(t)) || "", standin: cls ? garStandInQueries(v, cls).join("|") : "", also: also.join("|")});
+  const rejected = garRejectedFor(v);
+  if(rejected.length) params.set("exclude", rejected.join("|"));
   let res;
   try{ res = await fetch(`${MEDULLA_AI_PROXY_URL}/garage/pick?${params}`); }catch(e){ return null; }
   /* the judge is there but busy (rate limits): try again shortly rather than guess with keyword rules */
@@ -8347,6 +8359,8 @@ async function garPickViaWorker(v){
   if(!d || !d.judged) return null;
   const p = d.pick;
   if(!p || !p.uid) return {none:true, judged:true, ts:Date.now()};
+  /* an older Worker can still hand back an exploded view or a model you turned down: use the in-browser rules then */
+  if(GAR_EXPLODED.test(String(p.name||"")) || rejected.includes(String(p.uid).toLowerCase())) return null;
   return {uid:p.uid, name:p.name, author:p.author, license:p.license, thumb:p.thumb, glb:p.glb || null, standIn:!!p.standIn, judged:true, ts:Date.now()};
 }
 let garPickQueue = Promise.resolve();
@@ -8361,8 +8375,9 @@ async function garFindModel(v){
   const cls = garVehicleClass(v);
   let reached = false, glbMode = false;
   const search = qs=>Promise.all(qs.map(q=>garSearchModels(q).then(r=>{ reached = true; if(r.some(x=>x && x.glb)) glbMode = true; return r; }).catch(()=>[])));
+  const rejected = new Set(garRejectedFor(v));
   const rank = (lists, opts={})=>{
-    const seen = new Set(), all = [];
+    const seen = new Set(rejected), all = [];
     lists.flat().forEach(r=>{ if(r && r.uid && !seen.has(r.uid)){ seen.add(r.uid); all.push(r); } });
     return all.map(r=>{
       let sc = garScoreModel(r, want, opts);
@@ -8426,6 +8441,18 @@ function garEnsureModel(v, onDone){
 }
 /* re-pick: drop the stored choice so the next search can find a different model */
 function garForgetModel(v){ delete garAutoModels[garModelKey(v)]; saveJSON(GAR_SF_STORE, garAutoModels); }
+/* "Wrong model?": never show this model for this vehicle again, and look for the next best one */
+function garRejectModel(v){
+  const key = garModelKey(v), rec = garAutoModels[key];
+  if(rec && rec.uid){
+    const list = garRejected[key] || (garRejected[key] = []);
+    const uid = String(rec.uid).toLowerCase();
+    if(!list.includes(uid)) list.push(uid);
+    saveJSON(GAR_REJECT_STORE, garRejected);
+  }
+  delete garRecheckTried[key];
+  garForgetModel(v);
+}
 
 function garSfEmbedUrl(uid){
   const p = "autostart=1&autospin=0.16&preload=1&transparent=1&camera=0&dnt=1&scrollwheel=0&double_click=0&ui_theme=dark&ui_color=7cc4ff" +
@@ -8629,8 +8656,17 @@ function wireGarAssets(container, onFail){
   container.querySelectorAll("model-viewer.gar-mv").forEach(mv=>{
     const url = mv.dataset.asset;
     const show = mv.closest(".gar-show");
+    /* a .glb that stalls (slow download, broken file) mustn't leave "Loading 3D model…" up forever:
+       after 25 s without progress, or 75 s in all, it counts as failed and the next option is shown */
+    let stall = null, done = false;
+    const giveUp = ()=>{ if(done || !mv.isConnected) return; done = true; fail(url); };
+    const arm = ()=>{ clearTimeout(stall); stall = setTimeout(giveUp, 25000); };
+    arm();
+    const cap = setTimeout(giveUp, 75000);
+    mv.addEventListener("progress", e=>{ if(!done && e.detail && e.detail.totalProgress < 1) arm(); });
     garLoadModelViewer().then(()=>{
       mv.addEventListener("load", ()=>{
+        done = true; clearTimeout(stall); clearTimeout(cap);
         const paint = mv.dataset.paint || "";
         try{ garApplyPaint(mv, paint); }catch(e){}
         /* some models are exported standing on their tail (length along the up axis): lay them down */
@@ -8643,8 +8679,8 @@ function wireGarAssets(container, onFail){
         const key = url + "|" + paint;
         setTimeout(()=>{ try{ if(!garSnapshots[key]) garSnapshots[key] = mv.toDataURL("image/png"); }catch(e){} }, 400);
       }, {once:true});
-      mv.addEventListener("error", ()=>fail(url), {once:true});
-    }).catch(()=>fail(url));
+      mv.addEventListener("error", ()=>{ done = true; clearTimeout(stall); clearTimeout(cap); fail(url); }, {once:true});
+    }).catch(()=>{ done = true; clearTimeout(stall); clearTimeout(cap); fail(url); });
   });
   container.querySelectorAll("iframe.gar-sf").forEach(fr=>{
     const show = fr.closest(".gar-show");
@@ -8681,6 +8717,7 @@ function garageFullHTML(){
     </div>
     <div class="gar-status" id="gar-status" aria-live="polite"></div>
     <a class="gar-credit" id="gar-credit" target="_blank" rel="noopener noreferrer"></a>
+    <button type="button" class="gar-repick" id="gar-repick" hidden title="Hide this model and find a different one">Wrong model? Find another</button>
     <div class="gar-browse" id="gar-browse"><span>Scroll to browse vehicles</span></div>
     <div class="gar-dots" id="gar-dots"></div>
     <div class="gar-actions">
@@ -8720,7 +8757,7 @@ function hydrateGarageFull(scope){
     root.classList.toggle("single", n === 1);
     const car = $g("#gar-car"), side = $g("#gar-side");
     if(!n){
-      $g("#gar-status").textContent = ""; $g("#gar-status").classList.remove("on"); $g("#gar-credit").hidden = true;
+      $g("#gar-status").textContent = ""; $g("#gar-status").classList.remove("on"); $g("#gar-credit").hidden = true; $g("#gar-repick").hidden = true;
       $g("#gar-name").textContent = "Your garage is empty";
       $g("#gar-specs").innerHTML = `<span>Add your first vehicle to park it here</span>`;
       car.innerHTML = ""; side.innerHTML = ""; $g("#gar-dots").innerHTML = "";
@@ -8740,7 +8777,12 @@ function hydrateGarageFull(scope){
     if(asset && (asset.kind === "model" || asset.kind === "sketchfab")){ st.textContent = "Loading 3D model…"; st.classList.add("on"); }
     else if(!asset && garAutoWaiting(v)){ st.textContent = `Finding a 3D ${v.vehicle}…`; st.classList.add("on"); }
     wireGarAssets(car, ()=>{ lastDir = 0; render(); });
+    $g("#gar-repick").hidden = !(asset && asset.auto);
     const mv = car.querySelector("model-viewer");
+    if(mv) mv.addEventListener("progress", e=>{
+      const p = e.detail && e.detail.totalProgress;
+      if(st.classList.contains("on") && p > 0 && p < 1) st.textContent = `Loading 3D model… ${Math.round(p*100)}%`;
+    });
     if(mv) mv.addEventListener("load", ()=>{ st.classList.remove("on"); setTimeout(()=>{ if(alive) refreshPanels(); }, 600); }, {once:true});
     const sf = car.querySelector("iframe.gar-sf");
     if(sf) sf.addEventListener("load", ()=>{ setTimeout(()=>st.classList.remove("on"), 1800); }, {once:true});
@@ -8997,6 +9039,12 @@ function hydrateGarageFull(scope){
   $g("#gar-customize").addEventListener("click", ()=>{ if(vehicles().length) openForm(garageSelectedIndex); else openForm(null); });
   $g("#gar-manage").addEventListener("click", openManage);
   $g("#gar-add").addEventListener("click", ()=>openForm(null));
+  $g("#gar-repick").addEventListener("click", ()=>{
+    const v = vehicles()[garageSelectedIndex];
+    if(!v) return;
+    garRejectModel(v);
+    lastDir = 0; render();
+  });
 
   /* ---------- the door: one-shot reveal, removed once it has lifted out of view ---------- */
   const door = $g("#garage-door"), doorScene = $g("#garage-door-scene");

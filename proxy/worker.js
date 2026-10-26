@@ -200,7 +200,7 @@ async function garageGlb(uid, env, cors, ctx){
    GET /garage/pick?vehicle=Ford%20Mustang&year=1999&kind=car&standin=ford%20muscle%20car|muscle%20car
    -> {judged:true, glb:bool, pick:{...candidate, standIn, reason}|null} */
 const PICK_TTL = 7 * 86400;
-const JUNK = /\b(low ?poly|lowpoly|toy|lego|minecraft|roblox|voxel|papercraft|keychain|hot ?wheels)\b/i;
+const JUNK = /\b(low ?poly|lowpoly|toy|lego|minecraft|roblox|voxel|papercraft|keychain|hot ?wheels|exploded|explode|disassembled|disassembly|dismantled|teardown|tear ?down|breakdown|cutaway|cut ?away|x-?ray|unassembled|parts? ?layout|blueprint)\b/i;
 async function groqJSON(env, model, messages, maxTokens){
   const send = ()=>fetch("https://api.groq.com/openai/v1/chat/completions", {
     method:"POST",
@@ -239,7 +239,7 @@ async function judgeText(env, want, cands, standIn){
     : `Choose models that ARE this exact vehicle: same make and model, and a generation that was actually sold in ${want.year || "that year"}. Use your knowledge of model generations: e.g. a 1999 Ford Mustang is the SN95 generation (1994-2004), so a "2011 Mustang" or "Mustang GT 2018" is WRONG; a 2000 Ford Ranger is the 1998-2011 generation, so a 2019+ Ranger or a T6 Ranger is WRONG. If a name gives no year, judge by generation hints (codes like SN95, E46, C5; styling words) and accept only if it plausibly matches. Kawasaki "Z400" means the motorcycle. A "jon boat" (john boat) is a small open flat-bottom aluminum boat, never a ship, tug, trawler or cabin boat.`;
   const prompt = `Vehicle: ${JSON.stringify(want.vehicle)}${want.year ? `, model year ${want.year}` : ""}${want.kind ? `, kind: ${want.kind}` : ""}.
 ${rules}
-Reject anything that is: a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer dl:1 when two are equally good.
+Reject anything that is: an exploded, disassembled, cutaway or x-ray view (parts spread apart), more than one vehicle, a part or accessory (frames, brackets, plates, wheels, engines, racks, interiors), a scene/diorama/scan, a toy/cartoon/low-poly model, a wreck/rusty/abandoned/sunken vehicle, or a modified build (lifted, off-road kit, roll bar, race/rally, drift, stance, police/taxi/military, widebody, custom) unless the vehicle name asks for it. Prefer dl:1 when two are equally good.
 Candidates: ${JSON.stringify(list)}
 Answer with JSON only: {"ranked":[candidate i values, best first, ONLY acceptable ones, at most 5], "reason":"one short sentence"}`;
   const out = await groqJSON(env, DEFAULT_MODEL, [
@@ -256,7 +256,7 @@ async function judgeImages(env, want, shortlist, standIn){
     `These are preview images of 3D models (numbered 0-${withImg.length-1} in order). ${standIn
       ? `Which ones show a complete, stock, realistic ${want.kind || "vehicle"} of the same size class as a ${want.year||""} ${want.vehicle} (someone could mistake it for one at a glance)?`
       : `Which ones show a complete, stock (unmodified: not lifted, no roll bar or off-road kit, not a race car) ${want.year||""} ${want.vehicle} of the correct generation?`}
-Reject parts/accessories, scenes, wrecks, toys, and the wrong generation. Answer with JSON only: {"ok":[image numbers that pass, best first]}`}];
+Each must show exactly ONE whole, fully assembled vehicle. Reject exploded or disassembled views (body, bed, cab or chassis shown apart), several vehicles in one image, parts/accessories, scenes, wrecks, toys, and the wrong generation. Answer with JSON only: {"ok":[image numbers that pass, best first]}`}];
   withImg.forEach(c=>content.push({type:"image_url", image_url:{url:c.thumb}}));
   const out = await groqJSON(env, env.GARAGE_VISION_MODEL || "qwen/qwen3.8-27b", [{role:"user", content}], 600);
   const ok = (Array.isArray(out.ok) ? out.ok : []).map(Number).filter(i=>Number.isInteger(i) && i >= 0 && i < withImg.length);
@@ -296,19 +296,22 @@ async function garagePick(request, env, cors, ctx){
   };
   const standinQs = clean(url.searchParams.get("standin")).split("|").map(clean).filter(Boolean).slice(0, 3);
   const extraQs = clean(url.searchParams.get("also")).split("|").map(clean).filter(Boolean).slice(0, 3);
+  /* models the person rejected with "Wrong model?" in the app */
+  const exclude = String(url.searchParams.get("exclude")||"").toLowerCase().split("|").filter(u=>/^[0-9a-f]{32}$/.test(u)).slice(0, 20);
+  const notRejected = list=>list.filter(c=>!exclude.includes(String(c.uid).toLowerCase()));
   if(want.vehicle.length < 2) return json({error:"bad_query"}, 400, cors);
   if(!env.GROQ_API_KEY) return json({error:"judge_not_configured"}, 503, cors);
   const glbOk = !!env.SKETCHFAB_API_TOKEN;
   const cache = caches.default;
-  const cacheKey = new Request(`https://medulla-cache.internal/garage/pick?v=2&glb=${glbOk?1:0}&` + new URLSearchParams({vehicle:want.vehicle.toLowerCase(), year:want.year, kind:want.kind, s:standinQs.join("|"), a:extraQs.join("|")}));
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/pick?v=3&glb=${glbOk?1:0}&` + new URLSearchParams({vehicle:want.vehicle.toLowerCase(), year:want.year, kind:want.kind, s:standinQs.join("|"), a:extraQs.join("|"), x:exclude.slice().sort().join("|")}));
   const hit = await cache.match(cacheKey);
   if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
   const base = url.origin;
   let pick = null;
   try{
     const qs = [want.year ? `${want.vehicle} ${want.year}` : null, want.vehicle, ...extraQs].filter(Boolean);
-    pick = await pickFrom(env, want, await searchMany(qs, glbOk, base), false);
-    if(!pick && standinQs.length) pick = await pickFrom(env, want, await searchMany(standinQs, glbOk, base), true);
+    pick = await pickFrom(env, want, notRejected(await searchMany(qs, glbOk, base)), false);
+    if(!pick && standinQs.length) pick = await pickFrom(env, want, notRejected(await searchMany(standinQs, glbOk, base)), true);
   }catch(e){
     return json({error:"judge_failed", message:String(e && e.message || e).slice(0,120)}, 503, cors);
   }
