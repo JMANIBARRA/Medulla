@@ -3255,22 +3255,33 @@ const MEDULLA_AI_PROXY_URL = "https://medulla-ai.jjuanibarra.workers.dev";
 function cloudAiAvailable(){ return !!(groqApiKey || MEDULLA_AI_PROXY_URL); }
 /* every Groq chat request goes through here: straight to Groq with a personal key, otherwise via
    the proxy (same OpenAI-compatible request/response shape either way) */
-function groqChatRequest(payload){
+function groqProxyRequest(payload){
+  return fetch(MEDULLA_AI_PROXY_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+}
+async function groqChatRequest(payload){
   if(groqApiKey){
-    return fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
-      body: JSON.stringify(payload)
-    });
+    /* a personal key that's been revoked, mistyped or rate-limited shouldn't break chat when the
+       shared proxy is available — fall back to it instead of failing outright */
+    try{
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method:"POST",
+        headers:{"Content-Type":"application/json", "Authorization":`Bearer ${groqApiKey}`},
+        body: JSON.stringify(payload)
+      });
+      if(res.ok || !MEDULLA_AI_PROXY_URL) return res;
+      console.warn(`personal Groq key request failed (HTTP ${res.status}) — using the shared proxy instead`);
+    }catch(e){
+      if(!MEDULLA_AI_PROXY_URL) throw e;
+      console.warn("personal Groq key request failed — using the shared proxy instead", e);
+    }
+    return groqProxyRequest(payload);
   }
-  if(MEDULLA_AI_PROXY_URL){
-    return fetch(MEDULLA_AI_PROXY_URL, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-  }
-  return Promise.reject(new Error("no cloud AI configured"));
+  if(MEDULLA_AI_PROXY_URL) return groqProxyRequest(payload);
+  throw new Error("no cloud AI configured");
 }
 /* the access token itself is intentionally NOT persisted to localStorage — it's short-lived
    (~1hr) and re-requesting it each session via Google's own silent-refresh UX is simpler and
@@ -10837,7 +10848,7 @@ aiForm.addEventListener("submit", async (e)=>{
   const remote = cloudAiAvailable() ? await tryGroq(text) : await tryLocalLLM(text);
   if(remote){ presentAiReply(remote); }
   else{
-    presentAiReply(groqApiKey
+    presentAiReply(groqApiKey && !MEDULLA_AI_PROXY_URL
       ? "No local command matched, and the Groq request failed — check your API key in Settings or try again in a moment."
       : MEDULLA_AI_PROXY_URL
         ? "I couldn't reach my thinking service just now — give it a moment and try again."
