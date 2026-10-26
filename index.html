@@ -3599,7 +3599,7 @@ function dumpLocalState(){
    excluded either way — it's a public OAuth client ID, not a secret, per Google's own docs. */
 /* vehicle photos stay on the device they were added on: the synced record has a ~1MB cap that a
    few photos would exceed, which would stop everything else from syncing */
-const CLOUD_SYNC_EXCLUDED_KEYS = ["garagePhotos"].map(k=>NS+k);
+const CLOUD_SYNC_EXCLUDED_KEYS = ["garagePhotos","deviceLocation"].map(k=>NS+k);
 function dumpLocalStateForCloud(){
   const dump = dumpLocalState();
   CLOUD_SYNC_EXCLUDED_KEYS.forEach(k=> delete dump[k]);
@@ -9838,7 +9838,7 @@ $("#settings-btn").addEventListener("click", ()=>{
         cachedLocation = null; cachedWeatherData = null;
         $("#home-city-input").value = "";
         clearBtn.remove();
-        status.textContent = "Back to automatic (IP-based) location detection.";
+        status.textContent = "Back to automatic location (your device's location, or your internet connection's if you decline).";
       });
     }
   });
@@ -9849,7 +9849,7 @@ $("#settings-btn").addEventListener("click", ()=>{
     cachedLocation = null; cachedWeatherData = null;
     $("#home-city-input").value = "";
     homeCityClearBtn.remove();
-    $("#home-city-status").textContent = "Back to automatic (IP-based) location detection.";
+    $("#home-city-status").textContent = "Back to automatic location (your device's location, or your internet connection's if you decline).";
   });
   /* Bypasses geocodeCityName's network call entirely — see the matching block in
      hydrateWeatherFull for why this exists (a network/firewall block on the geocoding lookup,
@@ -9882,7 +9882,7 @@ $("#settings-btn").addEventListener("click", ()=>{
         cachedLocation = null; cachedWeatherData = null;
         $("#home-city-input").value = "";
         clearBtn.remove();
-        status.textContent = "Back to automatic (IP-based) location detection.";
+        status.textContent = "Back to automatic location (your device's location, or your internet connection's if you decline).";
       });
     }
   });
@@ -12805,9 +12805,8 @@ aiForm.addEventListener("submit", async (e)=>{
    to be a chatty assistant. */
 let lastAiInteractionTime = Date.now();
 
-/* Approximate location via IP (ipwho.is) — no browser geolocation permission prompt, which
-   would be a far bigger interruption than the feature it's meant to support. Cached for hours
-   since a location essentially never changes mid-session. */
+/* Fallback location via IP (ipwho.is etc.) — used when the browser's own location isn't
+   available or was declined (see fetchDeviceLocation). Cached for hours. */
 let cachedLocation = null, cachedLocationTime = 0;
 const LOCATION_CACHE_TTL = 6*60*60*1000;
 /* Tried in order, first one that succeeds wins — an IP-geolocation lookup is exactly the kind
@@ -12839,12 +12838,68 @@ const LOCATION_PROVIDERS = [
     return null;
   },
 ];
-/* homeLocationOverride (see Settings' "Home city" field) always wins over IP lookups when set —
-   it's the one path that doesn't depend on any third-party service being reachable at all, so
-   Weather keeps working even if every IP-geolocation provider above is blocked/down at once. */
+/* ---- device location (browser geolocation) ----
+   IP lookups name the internet provider's hub city (e.g. "Miami" for someone in Weston), so the
+   browser's own location is preferred: one permission prompt, then silent. The coordinates are
+   turned into a town name with BigDataCloud's free client-side reverse geocoder (OpenStreetMap's
+   Nominatim as backup), and remembered on this device for a few hours — not cloud-synced, since
+   another device may well be somewhere else. Declining the prompt just falls back to the IP
+   providers below. */
+const DEVICE_LOCATION_TTL = 3*60*60*1000;
+let deviceLocationAsked = false;
+async function reverseGeocodeTown(lat, lon){
+  try{
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+    if(r.ok){ const d = await r.json(); const name = d.city || d.locality; if(name) return name; }
+  }catch(e){}
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${lat}&lon=${lon}`, {headers:{"Accept-Language":"en"}});
+    if(r.ok){ const a = ((await r.json()).address) || {}; const name = a.city || a.town || a.village || a.suburb || a.municipality || a.county; if(name) return name; }
+  }catch(e){}
+  return null;
+}
+function getDevicePosition(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation || !window.isSecureContext) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({lat:pos.coords.latitude, lon:pos.coords.longitude}),
+      ()=>resolve(null),
+      {enableHighAccuracy:false, timeout:12000, maximumAge:30*60*1000}
+    );
+  });
+}
+async function fetchDeviceLocation(){
+  const saved = loadJSON(NS+"deviceLocation", null);
+  if(saved && saved.lat!=null && Date.now() - (saved.time||0) < DEVICE_LOCATION_TTL) return saved;
+  let state = "prompt";
+  try{ if(navigator.permissions) state = (await navigator.permissions.query({name:"geolocation"})).state; }catch(e){}
+  if(state === "denied") return null;
+  /* only one permission prompt per page load, however many widgets ask at once */
+  if(state === "prompt"){ if(deviceLocationAsked) return saved || null; deviceLocationAsked = true; }
+  const pos = await getDevicePosition();
+  if(!pos) return saved || null;
+  const town = await reverseGeocodeTown(pos.lat, pos.lon);
+  const loc = {city: town || (saved && kmBetween(saved.lat, saved.lon, pos.lat, pos.lon) < 5 ? saved.city : "Your location"), lat:pos.lat, lon:pos.lon, time:Date.now(), source:"device"};
+  saveJSON(NS+"deviceLocation", loc);
+  return loc;
+}
+/* homeLocationOverride (see Settings' "Home city" field) always wins when set — it's the one path
+   that doesn't depend on any third-party service. Then the device's own location, then IP. */
+let locationInFlight = null;
 async function fetchApproxLocation(){
   if(homeLocationOverride) return homeLocationOverride;
   if(cachedLocation && (Date.now()-cachedLocationTime) < LOCATION_CACHE_TTL) return cachedLocation;
+  if(locationInFlight) return locationInFlight;
+  locationInFlight = (async ()=>{
+    try{
+      const dev = await fetchDeviceLocation();
+      if(dev){ cachedLocation = dev; cachedLocationTime = Date.now(); return cachedLocation; }
+      return await fetchIpLocation();
+    }finally{ locationInFlight = null; }
+  })();
+  return locationInFlight;
+}
+async function fetchIpLocation(){
   for(const provider of LOCATION_PROVIDERS){
     try{
       const loc = await provider();
@@ -13360,7 +13415,7 @@ function hydrateWeatherFull(scope){
       editor.style.display = showing ? "none" : "flex";
       if(!showing){
         // answers "which city does it show up as" directly, rather than making that a guess — "None" is a real, distinct answer, not silence
-        currentEl.textContent = homeLocationOverride ? `Currently set to: ${homeLocationOverride.city||"(unnamed location)"}` : "Currently set to: None (using automatic IP-based detection)";
+        currentEl.textContent = homeLocationOverride ? `Currently set to: ${homeLocationOverride.city||"(unnamed location)"}` : "Currently set to: None (using your device's location)";
         cityInput.value = homeLocationOverride ? (homeLocationOverride.city||"") : "";
         cityInput.focus();
       }
@@ -13383,8 +13438,8 @@ function hydrateWeatherFull(scope){
       homeLocationOverride = null;
       localStorage.removeItem(NS+"homeLocation");
       cachedLocation = null; cachedWeatherData = null;
-      currentEl.textContent = "Currently set to: None (using automatic IP-based detection)";
-      status.textContent = "Back to automatic (IP-based) location.";
+      currentEl.textContent = "Currently set to: None (using your device's location)";
+      status.textContent = "Back to automatic location.";
       refresh();
     });
     /* Bypasses geocodeCityName's network call entirely — for anyone whose network blocks that
@@ -16139,6 +16194,8 @@ async function renderDbWeather(){
     return;
   }
   applyWeatherScene($("#db-weather-scene"), data.code, data.isDay, weatherPlace(data));
+  /* the world clock's "here" row was labelled before the location was known — rebuild it now */
+  const tzBox = $("#db-tz"); if(tzBox){ tzBox.innerHTML = ""; tickDashboard(); }
   const today = data.forecast[0];
   info.innerHTML = `
     <div class="db-weather-temp">${data.temp}°F</div>
