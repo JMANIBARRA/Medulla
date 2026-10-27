@@ -7823,7 +7823,10 @@ const GAR_MODELS = [
     [1966, 1970, "toyota_corolla_e10"],  [1971, 1974, "toyota_corolla_e20"],  [1975, 1979, "toyota_corolla_e30"],
     [1980, 1983, "toyota_corolla_e70"],  [1984, 1987, "toyota_corolla_e80"],  [1988, 1992, "toyota_corolla_e90"],
     [1993, 1997, "toyota_corolla_e100"], [1998, 2002, "toyota_corolla_e110"], [2003, 2008, "toyota_corolla_e120"],
-    [2009, 2013, "toyota_corolla_e140"], [2014, 2018, "toyota_corolla_e170"], [2019, 2099, "toyota_corolla_e210"],
+    [2009, 2013, "toyota_corolla_e140"], [2014, 2018, "toyota_corolla_e170"],
+    /* the 12th-gen drawing is the hatchback: only for a Corolla Hatchback / GR Corolla (or Body style Hatchback);
+       a 2019+ Corolla sedan uses the modern sedan drawing until it has its own */
+    [2019, 2099, "toyota_corolla_e210", {only:true, trim:/\b(hatch(back)?|gr)\b/, type:"hatchback"}],
   ]},
   {make:"Chevrolet", model:"Silverado EV", kind:"pickup_full", match:/\bsilverado\b.*\bev\b/, strict:true, gens:[[2024, 2099, "chevrolet_silverado_ev"]]},
   {make:"Chevrolet", model:"Silverado / C-K", kind:"pickup_full", match:/\b(silverado|cheyenne|c\/k|c-?10|k-?10|c-?1500|k-?1500)\b/, gens:[
@@ -7945,6 +7948,9 @@ function garModelFile(v){
       c = m.gens.filter(g=>g[0] === pick);
     }
     const opt = g=>g[3] || {};
+    const hit = g=>(opt(g).trim && opt(g).trim.test(n)) || (opt(g).type && v.type === opt(g).type);
+    c = c.filter(g=>!opt(g).only || hit(g));                       /* body-specific drawings only when asked for */
+    if(!c.length) continue;
     const trimOk = c.filter(g=>!opt(g).trim || opt(g).trim.test(n));
     if(trimOk.length) c = trimOk;
     const trimHit = c.filter(g=>opt(g).trim);
