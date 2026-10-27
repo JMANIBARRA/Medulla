@@ -7766,7 +7766,7 @@ const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
 const GAR_OTHER_TYPES = ["jonboat","boat","jetski","atv","snowmobile","rv","trailer","tractor"];
 /* bump when a drawing file changes, so browsers don't keep showing the old one */
-const GAR_ICON_V = "13";
+const GAR_ICON_V = "14";
 function garFileSrc(f, fill){ return `icons/vehicles/${f}${fill ? "-fill" : ""}.png?v=${GAR_ICON_V}`; }
 /* pickups: the drawing follows the truck's era (year), cab (body style / doors) and size (model) */
 const GAR_TRUCK_TYPES = new Set(["pickup","pickup_full","pickup_reg","pickup_ext","minitruck"]);
@@ -7900,7 +7900,16 @@ const GAR_MODELS = [
   {make:"Audi", model:"TT", match:/\btt(s|rs)?\b/, gens:[[2000, 2006, "audi_tt_mk1"]]},
   {make:"Audi", model:"R8", match:/\br8\b/, gens:[[2008, 2015, "audi_r8"]]},
   {make:"Audi", model:"A7", match:/\b(a7|s7|rs ?7)\b/, gens:[[2012, 2018, "audi_a7"]]},
-  {make:"Audi", model:"A3", match:/\b(a3|s3|rs ?3)\b/, gens:[[2015, 2020, "audi_a3_sedan"]]},
+  {make:"Audi", model:"A3", match:/\b(a3|s3|rs ?3)\b/, gens:[[2015, 2020, "audi_a3_sedan"]]},  /* ---- American muscle ---- */
+  {make:"Pontiac", model:"GTO", match:/\bgto\b/, gens:[[1964, 1967, "mus_gto_1964"]]},
+  {make:"Oldsmobile", model:"442", match:/\b(4-?4-?2|442)\b/, gens:[[1964, 1967, "mus_442_1966"]]},
+  {make:"Ford", model:"Mustang / Shelby", match:/\b(mustang|shelby|gt ?350|gt ?500)\b/, gens:[[1967, 1968, "mus_mustang_1967"], [2005, 2014, "mus_mustang_s197"]]},
+  {make:"Dodge", model:"Charger", match:/\bcharger\b/, gens:[[1968, 1970, "mus_charger_1968"]]},
+  {make:"Chevrolet", model:"Camaro", match:/\bcamaro\b/, gens:[[1967, 1969, "mus_camaro_1969"], [2016, 2024, "mus_camaro_6g"]]},
+  {make:"Plymouth", model:"Barracuda / 'Cuda", match:/\b(cuda|barracuda)\b/, gens:[[1970, 1974, "mus_cuda_1970"]]},
+  {make:"Chevrolet", model:"Chevelle", match:/\bchevelle\b/, gens:[[1968, 1972, "mus_chevelle_1970"]]},
+  {make:"Pontiac", model:"Firebird / Trans Am", match:/\b(firebird|trans ?am)\b/, gens:[[1970, 1981, "mus_transam_2g"]]},
+  {make:"Dodge", model:"Challenger", match:/\bchallenger\b/, gens:[[1970, 1974, "mus_challenger_1970"], [2008, 2023, "mus_challenger_lc"]]},
 ];
 /* SUVs / crossovers without their own drawings: by era and size */
 const GAR_BIG_SUV = /\b(tahoe|suburban|yukon|expedition|excursion|sequoia|land cruiser|escalade|navigator|armada|qx80|qx56|lx ?\d{3}|gx ?\d{3}|durango|telluride|palisade|pilot|traverse|atlas|grand wagoneer|wagoneer|4runner|blazer|bronco|ramcharger|trailblazer|explorer)\b/;
