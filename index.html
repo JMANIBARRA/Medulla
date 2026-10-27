@@ -7825,8 +7825,9 @@ const GAR_MODELS = [
     [1993, 1997, "toyota_corolla_e100"], [1998, 2002, "toyota_corolla_e110"], [2003, 2008, "toyota_corolla_e120"],
     [2009, 2013, "toyota_corolla_e140"], [2014, 2018, "toyota_corolla_e170"],
     /* the 12th-gen drawing is the hatchback: only for a Corolla Hatchback / GR Corolla (or Body style Hatchback);
-       a 2019+ Corolla sedan uses the modern sedan drawing until it has its own */
+       a 2019+ Corolla sedan uses the previous Corolla sedan until it has its own */
     [2019, 2099, "toyota_corolla_e210", {only:true, trim:/\b(hatch(back)?|gr)\b/, type:"hatchback"}],
+    [2019, 2099, "toyota_corolla_e170"],   /* stand-in for the 2019+ sedan: the closest Corolla sedan drawn */
   ]},
   {make:"Chevrolet", model:"Silverado EV", kind:"pickup_full", match:/\bsilverado\b.*\bev\b/, strict:true, gens:[[2024, 2099, "chevrolet_silverado_ev"]]},
   {make:"Chevrolet", model:"Silverado / C-K", kind:"pickup_full", match:/\b(silverado|cheyenne|c\/k|c-?10|k-?10|c-?1500|k-?1500)\b/, gens:[
@@ -7951,9 +7952,9 @@ function garModelFile(v){
     const hit = g=>(opt(g).trim && opt(g).trim.test(n)) || (opt(g).type && v.type === opt(g).type);
     c = c.filter(g=>!opt(g).only || hit(g));                       /* body-specific drawings only when asked for */
     if(!c.length) continue;
-    const trimOk = c.filter(g=>!opt(g).trim || opt(g).trim.test(n));
+    const trimOk = c.filter(g=>!opt(g).trim || hit(g));
     if(trimOk.length) c = trimOk;
-    const trimHit = c.filter(g=>opt(g).trim);
+    const trimHit = c.filter(g=>opt(g).trim && hit(g));
     if(trimHit.length) c = trimHit;
     const cabHit = cab ? c.filter(g=>opt(g).cab === cab) : [];
     if(cabHit.length) c = cabHit; else { const plain = c.filter(g=>!opt(g).cab); if(plain.length) c = plain; }
