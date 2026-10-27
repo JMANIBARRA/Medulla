@@ -8264,7 +8264,7 @@ function garPngResolve(v){
     const hex = String(v.color||"").toLowerCase();
     const named = ((GAR_COLORS.find(c=>c[1].toLowerCase() === hex)||[])[0]||"").toLowerCase();
     const finish = async (img, matched)=>(!matched && /^#[0-9a-f]{6}$/.test(hex)) ? (await garRepaint(img, hex) || img) : img;
-    const tryUrl = async u=>{ try{ return garTrimTransparent(await garLoadImg(`${MEDULLA_AI_PROXY_URL}/garage/img?u=${encodeURIComponent(u)}`)); }catch(e){ return null; } };
+    const tryUrl = async u=>{ try{ const im = await garLoadImg(`${MEDULLA_AI_PROXY_URL}/garage/img?u=${encodeURIComponent(u)}`); return garTrimTransparent(im) || garCutBackdrop(im); }catch(e){ return null; } };
     const saved = garPngPicks[id];
     if(saved && saved.u){ const t = await tryUrl(saved.u); if(t) return finish(t, saved.matched); delete garPngPicks[id]; }
     const rejected = new Set(garRejected[id] || []);
@@ -8274,6 +8274,7 @@ function garPngResolve(v){
     const passes = ddg ? [[`${base} ${named} png`, ddg, true], [`${base} png`, "", false]] : [[`${base} png`, "", !hex]];
     for(const [q, col, matched] of passes){
       let list; try{ list = await garPngSearch(q, col); }catch(e){ list = []; }
+      console.info(`[Garage] "${q}"${col ? " (" + col + ")" : ""}: ${list.length} results`);
       list = list.filter(r=>r && r.img && !rejected.has(r.img) && !GAR_PNG_BAD.test(r.title||"")
         && (!r.w || !r.h || (r.w / r.h > 1.1 && r.w / r.h < 4.2 && r.w >= 300))
         && (!want.length || want.some(t=>String(r.title||"").toLowerCase().includes(t))));
@@ -8282,6 +8283,7 @@ function garPngResolve(v){
         if(t){ garPngPicks[id] = {u:r.img, matched}; saveJSON(GAR_PNG_STORE, garPngPicks); return finish(t, matched); }
       }
     }
+    console.info(`[Garage] no usable picture for "${base}"`);
     return false;
   }).catch(()=>false).then(out=>{ garPngDone[id] = out || false; return garPngDone[id]; }).finally(()=>{ delete garPngJobs[id]; });
 }

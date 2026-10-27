@@ -295,14 +295,40 @@ async function garagePng(request, env, cors, ctx){
   const color = String(url.searchParams.get("color")||"").replace(/[^A-Za-z]/g, "").slice(0, 12);
   if(q.length < 2) return json({error:"bad_query"}, 400, cors);
   const cache = caches.default;
-  const cacheKey = new Request(`https://medulla-cache.internal/garage/png?v=1&c=${color}&q=${encodeURIComponent(q.toLowerCase())}`);
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/png?v=2&c=${color}&q=${encodeURIComponent(q.toLowerCase())}`);
   const hit = await cache.match(cacheKey);
   if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
   const H = {"User-Agent":BROWSER_UA, "Accept-Language":"en-US,en;q=0.9"};
+  let results = await bingPng(q, color, H).catch(()=>[]), engine = "bing";
+  if(!results.length){ results = await ddgPng(q, color, H).catch(()=>[]); engine = "ddg"; }
+  if(!results.length) return json({error:"search_unavailable"}, 503, cors);
+  const body = JSON.stringify({engine, results});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=86400"}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+/* Bing image search, transparent images only (and the colour, when given) */
+async function bingPng(q, color, H){
+  const qft = "+filterui:photo-transparent" + (color ? "+filterui:color2-FGcls_" + color.toUpperCase() : "");
+  const res = await fetch(`https://www.bing.com/images/async?q=${encodeURIComponent(q)}&first=0&count=35&adlt=moderate&mmasync=1&qft=${encodeURIComponent(qft)}`,
+    {headers:{...H, "Accept":"text/html", "Referer":"https://www.bing.com/images/search"}});
+  if(!res.ok) return [];
+  const html = await res.text();
+  const out = [];
+  for(const m of html.matchAll(/\sm="(\{[^"]+\})"/g)){
+    try{
+      const j = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'"));
+      if(j.murl) out.push({img:j.murl, thumb:j.turl || "", w:0, h:0, title:String(j.t || "").slice(0, 140), src:j.purl || ""});
+    }catch(e){}
+    if(out.length >= 40) break;
+  }
+  return out;
+}
+async function ddgPng(q, color, H){
   let page = "";
   try{ page = await (await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`, {headers:H})).text(); }catch(e){}
   const vqd = (page.match(/vqd=["']?([\d-]+)["']?/) || [])[1];
-  if(!vqd) return json({error:"search_unavailable"}, 503, cors);
+  if(!vqd) return [];
   const f = `,,${color ? "color:" + color : ""},type:transparent,,`;
   let d = null;
   try{
@@ -310,13 +336,9 @@ async function garagePng(request, env, cors, ctx){
       {headers:{...H, "Accept":"application/json", "Referer":"https://duckduckgo.com/"}});
     if(res.ok) d = await res.json();
   }catch(e){}
-  if(!d) return json({error:"search_unavailable"}, 503, cors);
-  const results = (Array.isArray(d.results) ? d.results : []).slice(0, 40).filter(r=>r && r.image)
+  if(!d) return [];
+  return (Array.isArray(d.results) ? d.results : []).slice(0, 40).filter(r=>r && r.image)
     .map(r=>({img:r.image, thumb:r.thumbnail || "", w:r.width || 0, h:r.height || 0, title:String(r.title||"").slice(0, 140), src:r.url || ""}));
-  const body = JSON.stringify({results});
-  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=86400"}});
-  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
-  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
 }
 async function garageImg(request, env, cors){
   let target;
