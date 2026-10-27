@@ -8223,7 +8223,8 @@ function garAssetFor(v, opts={}){
 const GAR_PNG_STORE = NS + "garagePng";
 let garPngPicks = (()=>{ const m = loadJSON(GAR_PNG_STORE, {}); return (m && typeof m === "object") ? m : {}; })();
 const garPngDone = {}, garPngJobs = {}, garPngVeh = {};
-const GAR_PNG_BAD = /\b(toy|lego|cartoon|clip ?art|drawing|vector|icon|logo|emblem|wheel|rim|tire|tyre|engine|interior|seat|bumper|grille|headlight|taillight|parts?|kit|lifted|wreck|rust|silhouette|outline|sketch|coloring|blueprint|exploded|keychain|sticker|decal)\b/i;
+/* only titles that are clearly something else: PNG sites call real photos "clipart"/"vector" all the time */
+const GAR_PNG_BAD = /\b(toy|lego|cartoon|logo|emblem|wheels?|rims?|tires?|tyres?|engine|interior|seats?|bumper|grille|headlights?|taillights?|lifted|wreck(ed)?|rusty|silhouette|outline|sketch|coloring|blueprint|exploded|keychain|sticker|decal)\b/i;
 const GAR_DDG_COLOR = {white:"White", black:"Black", silver:"Gray", gray:"Gray", red:"Red", "dark red":"Red", blue:"Blue", navy:"Blue",
   green:"Green", yellow:"Yellow", orange:"Orange", brown:"Brown", tan:"Brown", gold:"Yellow"};
 function garPngId(v){ return garModelKey(v) + "|" + String(v.color||"").toLowerCase(); }
@@ -8272,13 +8273,14 @@ function garPngResolve(v){
     const want = garTokens(name).filter(t=>!GAR_GENERIC.has(t) && !GAR_MAKES.has(t));
     const ddg = GAR_DDG_COLOR[named] || "";
     const passes = ddg ? [[`${base} ${named} png`, ddg, true], [`${base} png`, "", false]] : [[`${base} png`, "", !hex]];
+    if(year) passes.push([`${name} png`, "", !hex]);   /* last try without the year */
     for(const [q, col, matched] of passes){
       let list; try{ list = await garPngSearch(q, col); }catch(e){ list = []; }
       console.info(`[Garage] "${q}"${col ? " (" + col + ")" : ""}: ${list.length} results`);
       list = list.filter(r=>r && r.img && !rejected.has(r.img) && !GAR_PNG_BAD.test(r.title||"")
         && (!r.w || !r.h || (r.w / r.h > 1.1 && r.w / r.h < 4.2 && r.w >= 300))
         && (!want.length || want.some(t=>String(r.title||"").toLowerCase().includes(t))));
-      for(const r of list.slice(0, 8)){
+      for(const r of list.slice(0, 12)){
         const t = await tryUrl(r.img);
         if(t){ garPngPicks[id] = {u:r.img, matched}; saveJSON(GAR_PNG_STORE, garPngPicks); return finish(t, matched); }
       }
