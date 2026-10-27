@@ -7965,10 +7965,10 @@ const GAR_LEN_FT = {micro:12, sedan:15.5, hatchback:14, universal:16, liftback:1
 const GAR_STAGE_FT = 25;     /* the stage's full width, in feet (big trucks just fit) */
 /* mask size for a vehicle's drawing inside a box of the given width/height ratio */
 function garDrawSize(v, boxAspect){
-  const f = garDrawFor(v), a = GAR_ASPECT[f] || 2.6;
-  const ft = GAR_LEN_FT[resolveVehicleType(v)] || 15.5;
-  let w = Math.min(1, ft / GAR_STAGE_FT);
-  if(w * boxAspect / a > 1) w = a / boxAspect;                    /* never taller than the box */
+  /* every vehicle about the same visual size, big in the middle: equal area, within the box */
+  const a = GAR_ASPECT[garDrawFor(v)] || 2.6;
+  let w = Math.min(.96, Math.sqrt(.30 * a));
+  if(w / a > .96 / boxAspect) w = .96 * a / boxAspect;
   return `${(w*100).toFixed(1)}% auto`;
 }
 function garDrawFor(v){
