@@ -2104,6 +2104,30 @@
   .db-main.flow-mode{align-items:start;}
   .db-main.flow-mode > .db-panel{min-width:0;}
   .db-panel{container-type:inline-size;}
+  /* ---- floating windows (desktop-style): every panel positioned freely in px, see dbWin* ---- */
+  .db-main.win-mode{display:block;}
+  .db-main.win-mode > .db-panel{position:absolute;margin:0;overflow:hidden;box-sizing:border-box;}
+  .db-main.win-mode > .db-panel.db-win-moving{box-shadow:0 34px 70px -18px rgba(0,0,0,.85), 0 0 46px -12px var(--accent);border-color:var(--db-edge-strong);transform:scale(1.008);transition:transform .12s, box-shadow .12s;}
+  .db-main.win-mode > .db-panel.db-win-moving, .db-main.win-mode > .db-panel.db-win-moving *{user-select:none;cursor:grabbing !important;}
+  .db-main.win-mode > .db-panel.db-win-sizing{box-shadow:0 0 0 1px var(--db-edge-strong), 0 24px 50px -20px rgba(0,0,0,.8);}
+  .db-win-h{position:absolute;z-index:30;touch-action:none;display:none;}
+  .db-main.win-mode .db-win-h{display:block;}
+  .db-win-h.n,.db-win-h.s{left:24px;right:24px;height:7px;cursor:ns-resize;}
+  .db-win-h.n{top:0;} .db-win-h.s{bottom:0;}
+  .db-win-h.e,.db-win-h.w{top:24px;bottom:24px;width:7px;cursor:ew-resize;}
+  .db-win-h.e{right:0;} .db-win-h.w{left:0;}
+  .db-win-h.nw,.db-win-h.ne,.db-win-h.sw,.db-win-h.se{width:24px;height:24px;}   /* big enough to reach past the rounded corner */
+  .db-win-h.nw{left:0;top:0;cursor:nwse-resize;} .db-win-h.se{right:0;bottom:0;cursor:nwse-resize;}
+  .db-win-h.ne{right:0;top:0;cursor:nesw-resize;} .db-win-h.sw{left:0;bottom:0;cursor:nesw-resize;}
+  .db-win-h.se::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:8px;border-right:2px solid var(--accent);border-bottom:2px solid var(--accent);border-radius:0 0 3px 0;opacity:0;transition:opacity .15s;}
+  .db-main.win-mode > .db-panel:hover > .db-win-h.se::after{opacity:.55;}
+  .db-win-h:hover{background:color-mix(in srgb, var(--accent) 16%, transparent);border-radius:6px;}
+  .db-win-grip{position:absolute;top:5px;left:50%;width:38px;height:4px;margin-left:-19px;border-radius:3px;background:var(--accent);opacity:0;z-index:31;touch-action:none;cursor:grab;display:none;transition:opacity .15s;}
+  .db-win-grip::before{content:"";position:absolute;inset:-8px -12px;}
+  .db-main.win-mode .db-win-grip{display:block;}
+  .db-main.win-mode > .db-panel:hover > .db-win-grip{opacity:.45;}
+  .db-guide{position:absolute;z-index:9999;pointer-events:none;background:var(--accent);opacity:.7;box-shadow:0 0 8px var(--accent);}
+  .db-guide.v{width:1px;} .db-guide.h{height:1px;}
   .db-panel{
     position:relative;border-radius:16px;background:var(--db-panel);border:1px solid var(--db-edge);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 16px 40px -20px rgba(0,0,0,.7), 0 0 30px -18px var(--accent);
@@ -2307,7 +2331,13 @@
   .db-edit-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--db-edge);background:rgba(12,26,48,.6);color:#c3d4ea;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
   .db-edit-btn svg{width:18px;height:18px;}
   .db-edit-btn:hover{color:#fff;border-color:var(--accent);}
-  .db-main.flow-mode ~ * .db-edit-btn, body:not(.db-can-edit) .db-edit-btn{display:none;}
+  body:not(.db-can-edit) .db-edit-btn{display:none;}
+  /* in window mode the panels move by their top area / resize by their edges directly; the edit
+     overlay is only for hiding panels, so it doesn't block them */
+  .db-main.win-mode .db-edit-ui{background:transparent;cursor:default;pointer-events:none;}
+  .db-main.win-mode .db-edit-ui .x{pointer-events:auto;}
+  .db-main.win-mode .db-edit-ui .rz{display:none;}
+  .db-editbar label.snap{display:flex;align-items:center;gap:6px;font-size:13px;color:#c9d7ea;}
   .db-edit-ui{display:none;}
   .db-editing .db-edit-ui{
     display:block;position:absolute;inset:0;z-index:20;border-radius:inherit;cursor:grab;touch-action:none;
@@ -17887,11 +17917,15 @@ function dbCompact(items, pinned){
   }
 }
 let dbLayout = null;
-function dbLayoutMode(){ return window.innerWidth >= DB_GRID_MIN_WIDTH ? "grid" : "flow"; }
+/* "window": free-floating desktop windows (wide enough screens); "flow": stacked (phones) */
+const DB_WIN_MIN_WIDTH = 900;
+function dbLayoutMode(){ return window.innerWidth >= DB_WIN_MIN_WIDTH ? "window" : "flow"; }
 function applyDbLayout(){
   const main = document.getElementById("db-main");
   if(!main || !dbLayout) return;
   const mode = dbLayoutMode();
+  if(mode==="window" && dbWinApply(main)){ document.body.classList.add("db-can-edit"); return; }
+  main.classList.remove("win-mode");
   main.classList.toggle("grid-mode", mode==="grid");
   main.classList.toggle("flow-mode", mode==="flow");
   document.body.classList.toggle("db-can-edit", mode==="grid");
@@ -17924,7 +17958,7 @@ function setDbEditing(on){
 function renderDbEditbar(){
   const bar = document.getElementById("db-editbar");
   if(!bar) return;
-  bar.innerHTML = `<span class="hint">Drag panels to move · drag a corner to resize</span>`
+  bar.innerHTML = `<span class="hint">Drag a window by its top · resize from any edge or corner</span><label class="snap"><input type="checkbox" id="db-snap"${dbWin.snap ? " checked" : ""}> Snap &amp; guides</label>`
     + dbLayout.hidden.map(id=>`<button type="button" class="add" data-add="${id}">+ ${DB_PANELS[id].label}</button>`).join("")
     + `<button type="button" data-act="reset">Reset layout</button><button type="button" class="done" data-act="done">Done</button>`;
   bar.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click", ()=>{
@@ -17933,12 +17967,16 @@ function renderDbEditbar(){
     Object.assign(it, {w:p.w, h:p.h, x:0, y:Math.max(0, ...dbVisibleItems(dbLayout).filter(i=>i!==it).map(i=>i.y+i.h))});
     dbClampItem(id, it);
     dbCompact(dbVisibleItems(dbLayout));
+    delete dbWin.items[id]; dbWinSave();
     dbSaveLayout(); applyDbLayout(); renderDbEditbar();
     if(id==="world") startDbGlobe();
   }));
   bar.querySelector('[data-act="reset"]').addEventListener("click", ()=>{
-    dbLayout = dbDefaultLayout(); dbSaveLayout(); applyDbLayout(); renderDbEditbar(); startDbGlobe();
+    dbLayout = dbDefaultLayout(); dbSaveLayout();
+    dbWin.items = {}; dbWinSave();                       /* re-measured from the default arrangement */
+    applyDbLayout(); renderDbEditbar(); startDbGlobe();
   });
+  bar.querySelector("#db-snap").addEventListener("change", e=>{ dbWin.snap = e.target.checked; dbWinSave(); });
   bar.querySelector('[data-act="done"]').addEventListener("click", ()=>setDbEditing(false));
 }
 function wireDbLayout(){
@@ -17969,7 +18007,241 @@ function wireDbLayout(){
     if(e.key==="Escape" && document.getElementById("dashboard").classList.contains("db-editing")) setDbEditing(false);
   });
   window.addEventListener("resize", applyDbLayout);
+  dbWinWire(main);
   applyDbLayout();
+}
+/* ================= DASHBOARD WINDOWS =================
+   Each .db-panel is an independent window: {x, y, w, h, z} in px inside #db-main, saved to
+   localStorage. Drag by the top area (or the grip pill on touch), resize from any edge/corner,
+   click to bring to front. The first time (or after Reset), positions are measured from the
+   original grid arrangement so the starting layout looks exactly like before. */
+const DB_WIN_STORE = NS + "dashWindows";
+const DB_WIN_DRAG_ZONE = 42;                 /* px from a window's top that start a move */
+const DB_WIN_MIN = {w:180, h:96};
+const DB_WIN_INTERACTIVE = "button, a, input, textarea, select, option, label, [contenteditable], canvas, iframe, video, audio, .db-tile, .val, [role=slider], .db-search, .db-edit-ui .x, #ai-dock";
+let dbWin = (()=>{
+  const w = loadJSON(DB_WIN_STORE, null);
+  if(!(w && w.v === 1 && w.items)) return {v:1, items:{}, snap:true, top:10};
+  /* a layout measured while hidden (everything stacked at 0,0) isn't a real layout */
+  const its = Object.values(w.items);
+  if(its.length > 1 && its.every(i=>!i.x && !i.y)) w.items = {};
+  return w;
+})();
+function dbWinSave(){ saveJSON(DB_WIN_STORE, dbWin); }
+function dbWinPanels(main){ return [...main.querySelectorAll(":scope > .db-panel[data-panel]")]; }
+function dbWinMin(id){
+  const p = DB_PANELS[id] || {};
+  return {w: Math.max(DB_WIN_MIN.w, (p.minW||2) * 60), h: Math.max(DB_WIN_MIN.h, (p.minH||5) * (DB_ROW + DB_GAP) - DB_GAP)};
+}
+/* lay the panels out with the old grid once and read off where they landed */
+function dbWinMeasureDefaults(main, ids){
+  main.classList.remove("win-mode", "flow-mode"); main.classList.add("grid-mode");
+  const vis = dbVisibleItems(dbLayout);
+  dbWinPanels(main).forEach(el=>{
+    const id = el.dataset.panel, it = dbLayout.items[id];
+    if(!it || dbLayout.hidden.includes(id)) return;
+    Object.assign(el.style, {position:"", left:"", top:"", width:"", height:"", zIndex:""});
+    el.style.gridColumn = `${it.x+1} / span ${it.w}`; el.style.gridRow = `${it.y+1} / span ${it.h}`;
+  });
+  ids.forEach(id=>{
+    const el = main.querySelector(`:scope > .db-panel[data-panel="${id}"]`);
+    if(!el || el.style.display === "none") return;
+    dbWin.items[id] = {x:el.offsetLeft, y:el.offsetTop, w:el.offsetWidth, h:el.offsetHeight, z:++dbWin.top};
+  });
+  main.classList.remove("grid-mode");
+  void vis;
+}
+/* keep every window reachable: inside the dashboard's width, never above the top, not wider than the area */
+function dbWinClamp(main, id, it){
+  const min = dbWinMin(id), W = main.clientWidth;
+  it.w = Math.max(min.w, Math.min(it.w, W - 8));
+  it.h = Math.max(min.h, it.h);
+  const p = DB_PANELS[id]; if(p && p.maxH) it.h = Math.min(it.h, p.maxH * (DB_ROW + DB_GAP) + 40);
+  it.x = Math.max(0, Math.min(it.x, W - it.w));
+  it.y = Math.max(0, it.y);
+}
+function dbWinApply(main){
+  /* can't measure or clamp while the dashboard is hidden (sign-in screen, canvas view): wait */
+  if(!main.clientWidth) return false;
+  const panels = dbWinPanels(main);
+  const missing = panels.map(el=>el.dataset.panel).filter(id=>!dbLayout.hidden.includes(id) && !dbWin.items[id]);
+  if(missing.length){
+    dbWinMeasureDefaults(main, missing);
+    /* a re-shown panel goes on top of everything, near the top-left */
+    if(Object.keys(dbWin.items).length > missing.length) missing.forEach(id=>{ const it = dbWin.items[id]; if(it){ it.x = 20; it.y = main.scrollTop + 20; } });
+    dbWinSave();
+  }
+  main.classList.remove("grid-mode", "flow-mode");
+  main.classList.add("win-mode");
+  panels.forEach(el=>{
+    const id = el.dataset.panel, it = dbWin.items[id];
+    if(dbLayout.hidden.includes(id) || !it){ el.style.display = "none"; return; }
+    el.style.display = "";
+    dbWinClamp(main, id, it);
+    Object.assign(el.style, {gridColumn:"", gridRow:"", order:"", left:it.x+"px", top:it.y+"px", width:it.w+"px", height:it.h+"px", zIndex:String(it.z||1)});
+  });
+  return true;
+}
+function dbWinFront(id){
+  const it = dbWin.items[id];
+  if(!it || it.z === dbWin.top) return;
+  it.z = ++dbWin.top;
+  /* keep z values small: renumber when they grow */
+  if(dbWin.top > 500){
+    const order = Object.entries(dbWin.items).sort((a,b)=>(a[1].z||0)-(b[1].z||0));
+    order.forEach(([,v],i)=>v.z = i+1); dbWin.top = order.length;
+  }
+  const main = document.getElementById("db-main");
+  dbWinPanels(main).forEach(el=>{ const v = dbWin.items[el.dataset.panel]; if(v) el.style.zIndex = String(v.z||1); });
+}
+/* snap: to an 8px grid and to other windows' edges / centres, with guide lines */
+function dbWinSnap(main, id, box, edges){
+  const guides = [];
+  if(!dbWin.snap) return guides;
+  const T = 8, others = Object.entries(dbWin.items).filter(([k])=>k!==id && !dbLayout.hidden.includes(k)).map(([,v])=>v);
+  const xs = [0, main.clientWidth], ys = [0];
+  others.forEach(o=>{ xs.push(o.x, o.x+o.w, o.x+o.w/2); ys.push(o.y, o.y+o.h, o.y+o.h/2); });
+  const near = (v, list)=>{ let best = null; list.forEach(t=>{ const d = Math.abs(t - v); if(d <= T && (!best || d < best.d)) best = {t, d}; }); return best; };
+  /* which edges move: "move" moves all of them together */
+  const tryAxis = (axis)=>{
+    const list = axis === "x" ? xs : ys, pos = axis === "x" ? "x" : "y", size = axis === "x" ? "w" : "h";
+    const cands = [];
+    if(edges.move || edges[axis === "x" ? "w" : "n"]) cands.push({edge:"start", v:box[pos]});
+    if(edges.move || edges[axis === "x" ? "e" : "s"]) cands.push({edge:"end", v:box[pos]+box[size]});
+    if(edges.move) cands.push({edge:"mid", v:box[pos]+box[size]/2});
+    let hit = null;
+    cands.forEach(c=>{ const n = near(c.v, list); if(n && (!hit || n.d < hit.d)) hit = {...c, ...n}; });
+    if(hit){
+      const delta = hit.t - hit.v;
+      if(edges.move) box[pos] += delta;
+      else if(hit.edge === "start"){ box[pos] += delta; box[size] -= delta; }
+      else box[size] += delta;
+      guides.push({axis, at:hit.t});
+    } else {
+      const g = v=>Math.round(v / 8) * 8;
+      if(edges.move) box[pos] = g(box[pos]);
+      else { if(cands.some(c=>c.edge==="start")){ const nv = g(box[pos]); box[size] += box[pos]-nv; box[pos] = nv; } if(cands.some(c=>c.edge==="end")) box[size] = g(box[pos]+box[size]) - box[pos]; }
+    }
+  };
+  tryAxis("x"); tryAxis("y");
+  return guides;
+}
+function dbWinShowGuides(main, guides){
+  main.querySelectorAll(":scope > .db-guide").forEach(g=>g.remove());
+  guides.forEach(g=>{
+    const d = document.createElement("div");
+    d.className = "db-guide " + (g.axis === "x" ? "v" : "h");
+    if(g.axis === "x") Object.assign(d.style, {left:g.at+"px", top:"0", height:main.scrollHeight+"px"});
+    else Object.assign(d.style, {top:g.at+"px", left:"0", width:main.clientWidth+"px"});
+    main.appendChild(d);
+  });
+}
+function dbWinStart(e, main, el, kind){
+  const id = el.dataset.panel, it = dbWin.items[id];
+  if(!it) return;
+  e.preventDefault();
+  dbWinFront(id);
+  const sx = e.clientX, sy = e.clientY, s0 = {...it}, scroll0 = main.scrollTop, min = dbWinMin(id);
+  const edges = kind === "move" ? {move:true} : {n:kind.includes("n"), s:kind.includes("s"), e:kind.includes("e"), w:kind.includes("w")};
+  let started = kind !== "move", frame = 0, lastEv = null;
+  const pid = e.pointerId;
+  try{ el.setPointerCapture && el.setPointerCapture(pid); }catch(err){}
+  const step = ()=>{
+    frame = 0;
+    const ev = lastEv;
+    const mr = main.getBoundingClientRect();
+    if(ev.clientY > mr.bottom - 40) main.scrollTop += 12; else if(ev.clientY < mr.top + 30 && main.scrollTop > 0) main.scrollTop -= 12;
+    const dx = ev.clientX - sx, dy = ev.clientY - sy + (main.scrollTop - scroll0);
+    const b = {...s0};
+    if(edges.move){ b.x += dx; b.y += dy; }
+    else {
+      if(edges.e) b.w = s0.w + dx;
+      if(edges.s) b.h = s0.h + dy;
+      if(edges.w){ b.w = s0.w - dx; b.x = s0.x + dx; }
+      if(edges.n){ b.h = s0.h - dy; b.y = s0.y + dy; }
+    }
+    const guides = ev.altKey ? [] : dbWinSnap(main, id, b, edges);
+    /* minimum size, keeping the opposite edge still */
+    if(b.w < min.w){ if(edges.w) b.x -= (min.w - b.w); b.w = min.w; }
+    if(b.h < min.h){ if(edges.n) b.y -= (min.h - b.h); b.h = min.h; }
+    /* inside the dashboard area */
+    const W = main.clientWidth;
+    if(edges.move){ b.x = Math.max(0, Math.min(b.x, W - b.w)); b.y = Math.max(0, b.y); }
+    else {
+      if(b.x < 0){ b.w += b.x; b.x = 0; }
+      if(b.y < 0){ b.h += b.y; b.y = 0; }
+      if(b.x + b.w > W) b.w = W - b.x;
+    }
+    Object.assign(it, {x:Math.round(b.x), y:Math.round(b.y), w:Math.round(b.w), h:Math.round(b.h)});
+    Object.assign(el.style, {left:it.x+"px", top:it.y+"px", width:it.w+"px", height:it.h+"px"});
+    dbWinShowGuides(main, guides);
+  };
+  const onMove = ev=>{
+    if(ev.pointerId !== pid) return;
+    if(!started){
+      if(Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+      started = true;
+    }
+    el.classList.add(edges.move ? "db-win-moving" : "db-win-sizing");
+    lastEv = ev;
+    if(!frame) frame = requestAnimationFrame(step);
+  };
+  const onUp = ev=>{
+    if(ev.pointerId !== pid) return;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    if(frame){ cancelAnimationFrame(frame); if(lastEv) step(); }
+    dbWinShowGuides(main, []);
+    el.classList.remove("db-win-moving", "db-win-sizing");
+    if(started){
+      /* a drag shouldn't also count as a click that opens the widget */
+      el.dataset.winDragged = "1"; setTimeout(()=>{ delete el.dataset.winDragged; }, 0);
+      dbWinSave();
+    } else dbWinSave();
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+}
+function dbWinWire(main){
+  dbWinPanels(main).forEach(el=>{
+    if(el.querySelector(":scope > .db-win-grip")) return;
+    const grip = document.createElement("div");
+    grip.className = "db-win-grip"; grip.title = "Drag to move";
+    el.appendChild(grip);
+    ["n","s","e","w","nw","ne","sw","se"].forEach(k=>{
+      const h = document.createElement("div");
+      h.className = "db-win-h " + k;
+      h.addEventListener("pointerdown", e=>{ if(e.button !== 0 || !main.classList.contains("win-mode")) return; e.stopPropagation(); dbWinStart(e, main, el, k); });
+      el.appendChild(h);
+    });
+    grip.addEventListener("pointerdown", e=>{ if(e.button !== 0 || !main.classList.contains("win-mode")) return; e.stopPropagation(); dbWinStart(e, main, el, "move"); });
+    el.addEventListener("pointerdown", e=>{
+      if(!main.classList.contains("win-mode") || e.button !== 0) return;
+      dbWinFront(el.dataset.panel);
+      if(e.target.closest(".db-win-h, .db-win-grip")) return;
+      if(e.target.closest(DB_WIN_INTERACTIVE)) return;
+      if(e.pointerType === "touch") return;            /* touch: the grip pill moves it; the body scrolls */
+      const r = el.getBoundingClientRect();
+      if(e.clientY - r.top > DB_WIN_DRAG_ZONE) return; /* only the top area moves a window */
+      dbWinStart(e, main, el, "move");
+    });
+    /* swallow the click that ends a drag */
+    el.addEventListener("click", e=>{ if(el.dataset.winDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
+    /* hint that the top area is draggable */
+    el.addEventListener("pointermove", e=>{
+      if(!main.classList.contains("win-mode") || el.classList.contains("db-win-moving")) return;
+      const r = el.getBoundingClientRect();
+      const top = e.clientY - r.top <= DB_WIN_DRAG_ZONE && !e.target.closest(DB_WIN_INTERACTIVE) && !e.target.closest(".db-win-h");
+      el.style.cursor = top ? "grab" : "";
+    });
+  });
+  /* window resized: pull everything back into reach */
+  window.addEventListener("resize", ()=>{ if(main.classList.contains("win-mode")) dbWinSave(); });
+  /* the dashboard becomes visible (after sign-in, or switching back from the canvas): lay out then */
+  let wasW = main.clientWidth;
+  if(window.ResizeObserver) new ResizeObserver(()=>{ const w = main.clientWidth; if(w && w !== wasW) applyDbLayout(); wasW = w; }).observe(main);
 }
 function startDbDrag(e, panel, kind){
   e.preventDefault();
