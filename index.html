@@ -7766,7 +7766,7 @@ const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
 const GAR_OTHER_TYPES = ["jonboat","boat","jetski","atv","snowmobile","rv","trailer","tractor"];
 /* bump when a drawing file changes, so browsers don't keep showing the old one */
-const GAR_ICON_V = "11";
+const GAR_ICON_V = "12";
 function garFileSrc(f, fill){ return `icons/vehicles/${f}${fill ? "-fill" : ""}.png?v=${GAR_ICON_V}`; }
 /* pickups: the drawing follows the truck's era (year), cab (body style / doors) and size (model) */
 const GAR_TRUCK_TYPES = new Set(["pickup","pickup_full","pickup_reg","pickup_ext","minitruck"]);
@@ -7850,7 +7850,41 @@ const GAR_MODELS = [
     [2022, 2099, "toyota_tundra_2024_trd", {trim:/\b(trd|off-?road)\b/}],
     [2022, 2099, "toyota_tundra_2022"],
   ]},
+  {make:"Toyota", model:"Tacoma", match:/\btacoma\b/, gens:[
+    [1995, 2004, "toyota_tacoma_1g_reg"], [2001, 2004, "toyota_tacoma_1g_double", {cab:"crew"}],
+    [2005, 2011, "toyota_tacoma_2g_double"], [2005, 2015, "toyota_tacoma_2g_access", {cab:"ext"}], [2005, 2015, "toyota_tacoma_2g_access", {cab:"reg"}],
+    [2012, 2015, "toyota_tacoma_2g_facelift"],
+    [2016, 2023, "toyota_tacoma_3g_trdpro", {trim:/\btrd ?pro\b/}], [2016, 2019, "toyota_tacoma_3g"], [2020, 2023, "toyota_tacoma_3g_refresh"],
+    [2024, 2099, "toyota_tacoma_4g_trailhunter", {trim:/\btrailhunter\b/}], [2024, 2099, "toyota_tacoma_4g_hybrid", {trim:/\b(hybrid|i-?force ?max)\b/}],
+    [2024, 2099, "toyota_tacoma_4g"],
+  ]},
+  /* no drawing yet for the 1st gen (1973-79) */
+  {make:"Honda", model:"Civic", match:/\bcivic\b/, gens:[
+    [1980, 1983, "honda_civic_2g"], [1984, 1987, "honda_civic_3g"], [1988, 1991, "honda_civic_4g"], [1992, 1995, "honda_civic_5g"],
+    [1996, 2000, "honda_civic_6g"], [2001, 2005, "honda_civic_7g"], [2006, 2011, "honda_civic_8g"], [2012, 2015, "honda_civic_9g"],
+    [2016, 2021, "honda_civic_10g"], [2023, 2099, "honda_civic_typer_fl5", {trim:/\btype ?r\b/}], [2022, 2099, "honda_civic_11g"],
+  ]},
+  /* no drawings yet for the 1st, 3rd, 4th, 10th and 11th gens */
+  {make:"Honda", model:"Accord", match:/\baccord\b/, gens:[
+    [1982, 1985, "honda_accord_2g"], [1994, 1997, "honda_accord_5g"], [1998, 2002, "honda_accord_6g"],
+    [2003, 2007, "honda_accord_7g"], [2008, 2012, "honda_accord_8g"], [2013, 2017, "honda_accord_9g"],
+  ]},
 ];
+/* SUVs / crossovers without their own drawings: by era and size */
+const GAR_BIG_SUV = /\b(tahoe|suburban|yukon|expedition|excursion|sequoia|land cruiser|escalade|navigator|armada|qx80|qx56|lx ?\d{3}|gx ?\d{3}|durango|telluride|palisade|pilot|traverse|atlas|grand wagoneer|wagoneer|4runner|blazer|bronco|ramcharger|trailblazer|explorer)\b/;
+function garSuvFile(v, type){
+  const y = garYear(v), n = String(v.vehicle||"").toLowerCase();
+  if(!y) return null;
+  const big = GAR_BIG_SUV.test(n), cross = type === "crossover";
+  if(y < 1979) return "suv_1970";
+  if(y < 1984) return "suv_1979";
+  if(y < 1991) return "suv_1985";
+  if(y < 1998) return big ? "suv_1998" : "suv_1993";
+  if(y < 2007) return cross ? "suv_2002" : big ? "suv_1998" : "suv_1993";
+  if(y < 2015) return big ? "suv_2007_full" : "suv_2012_cross";
+  if(y < 2020) return big ? "suv_2020_large" : "suv_2015_compact";
+  return GAR_EV.test(n) ? "suv_ev" : big ? "suv_2020_large" : "suv_2023_compact";
+}
 /* cab from Body style, else from Doors: "reg" | "ext" | "crew" | "" */
 function garCabOf(v){
   const t = v.type || "";
@@ -7865,8 +7899,8 @@ function garModelFile(v){
     if(!m.match.test(n)) continue;
     let c = y ? m.gens.filter(g=>y >= g[0] && y <= g[1]) : [];
     if(!c.length){
-      if(y && m.strict) continue;                                   /* e.g. an old "Lightning" isn't the EV */
-      const pick = !y || y > m.gens[m.gens.length-1][1] ? Math.max(...m.gens.map(g=>g[0])) : Math.min(...m.gens.map(g=>g[0]));
+      if(y) continue;                                               /* no drawing for that generation */
+      const pick = Math.max(...m.gens.map(g=>g[0]));                /* no year: the newest */
       c = m.gens.filter(g=>g[0] === pick);
     }
     const opt = g=>g[3] || {};
@@ -7886,6 +7920,7 @@ function garDrawFor(v){
   const t = resolveVehicleType(v);
   if(GAR_TRUCK_TYPES.has(t)) return garTruckFile(v, t);
   if(t === "sedan") return garSedanFile(v);
+  if(t === "suv" || t === "crossover") return garSuvFile(v, t) || GAR_LINE[t];
   return GAR_LINE[t] || "sedan";
 }
 function garLineSrc(type, fill){ return `icons/vehicles/${GAR_LINE[type] || "sedan"}${fill ? "-fill" : ""}.png?v=${GAR_ICON_V}`; }
