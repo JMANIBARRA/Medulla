@@ -285,6 +285,51 @@ async function pickFrom(env, want, cands, standIn){
   const pick = (!top.glb && glbAlt) ? glbAlt : top;
   return {...pick, standIn, reason};
 }
+/* ---- /garage/png: a "<vehicle> png" image search (DuckDuckGo, transparent images only, no key) ----
+   GET /garage/png?q=2000%20ford%20ranger%20png&color=Red -> {results:[{img, thumb, w, h, title, src}]}
+   GET /garage/img?u=<image url> -> that image, with CORS so the page can cut and recolour it */
+const BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+async function garagePng(request, env, cors, ctx){
+  const url = new URL(request.url);
+  const q = String(url.searchParams.get("q")||"").replace(/\s+/g, " ").trim().slice(0, 100);
+  const color = String(url.searchParams.get("color")||"").replace(/[^A-Za-z]/g, "").slice(0, 12);
+  if(q.length < 2) return json({error:"bad_query"}, 400, cors);
+  const cache = caches.default;
+  const cacheKey = new Request(`https://medulla-cache.internal/garage/png?v=1&c=${color}&q=${encodeURIComponent(q.toLowerCase())}`);
+  const hit = await cache.match(cacheKey);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const H = {"User-Agent":BROWSER_UA, "Accept-Language":"en-US,en;q=0.9"};
+  let page = "";
+  try{ page = await (await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`, {headers:H})).text(); }catch(e){}
+  const vqd = (page.match(/vqd=["']?([\d-]+)["']?/) || [])[1];
+  if(!vqd) return json({error:"search_unavailable"}, 503, cors);
+  const f = `,,${color ? "color:" + color : ""},type:transparent,,`;
+  let d = null;
+  try{
+    const res = await fetch(`https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}&f=${encodeURIComponent(f)}&p=1`,
+      {headers:{...H, "Accept":"application/json", "Referer":"https://duckduckgo.com/"}});
+    if(res.ok) d = await res.json();
+  }catch(e){}
+  if(!d) return json({error:"search_unavailable"}, 503, cors);
+  const results = (Array.isArray(d.results) ? d.results : []).slice(0, 40).filter(r=>r && r.image)
+    .map(r=>({img:r.image, thumb:r.thumbnail || "", w:r.width || 0, h:r.height || 0, title:String(r.title||"").slice(0, 140), src:r.url || ""}));
+  const body = JSON.stringify({results});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=86400"}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, toCache)); else await cache.put(cacheKey, toCache);
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+async function garageImg(request, env, cors){
+  let target;
+  try{ target = new URL(new URL(request.url).searchParams.get("u") || ""); }catch(e){ return json({error:"bad_url"}, 400, cors); }
+  if(!/^https?:$/.test(target.protocol)) return json({error:"bad_url"}, 400, cors);
+  let res;
+  try{ res = await fetch(target.toString(), {headers:{"User-Agent":BROWSER_UA, "Accept":"image/*"}, cf:{cacheTtl:604800, cacheEverything:true}}); }
+  catch(e){ return json({error:"unreachable"}, 502, cors); }
+  const type = res.headers.get("Content-Type") || "";
+  if(!res.ok || !/^image\//i.test(type)) return json({error:"not_image"}, 404, cors);
+  if(Number(res.headers.get("Content-Length") || 0) > 10e6) return json({error:"too_large"}, 413, cors);
+  return new Response(res.body, {status:200, headers:{...cors, "Content-Type":type, "Cache-Control":"public, max-age=604800"}});
+}
 async function garagePick(request, env, cors, ctx){
   const url = new URL(request.url);
   const clean = s=>String(s||"").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -333,7 +378,11 @@ export default {
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockMovers(env, cors, ctx);
     }
-    if(path === "/garage/find" || path === "/garage/pick" || path.startsWith("/garage/glb/")){
+    if(path === "/garage/img"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return garageImg(request, env, cors);
+    }
+    if(path === "/garage/find" || path === "/garage/pick" || path === "/garage/png" || path.startsWith("/garage/glb/")){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       if(env.RATE_LIMITER){
         const who = "garage:" + (request.headers.get("CF-Connecting-IP") || "unknown");
@@ -342,6 +391,7 @@ export default {
       }
       if(path === "/garage/find") return garageFind(request, env, cors, ctx);
       if(path === "/garage/pick") return garagePick(request, env, cors, ctx);
+      if(path === "/garage/png") return garagePng(request, env, cors, ctx);
       return garageGlb(path.slice("/garage/glb/".length).replace(/\.glb$/i, ""), env, cors, ctx);
     }
     if(request.method !== "POST") return json({error:"method_not_allowed"}, 405, cors);
