@@ -7751,7 +7751,7 @@ const VEHICLE_TYPE_LABELS = {
   campervan:"Campervan",
   bus:"Bus",
   cruiser:"Cruiser", naked:"Naked Bike", sport:"Sport Bike", moto:"Motorcycle",
-  offroad:"Off-Road / Jeep", pickup_full:"Full-size Pickup", pickup_reg:"Pickup — Regular Cab", pickup_ext:"Pickup — Extended Cab", minitruck:"Mini Truck",
+  offroad:"Off-Road / Jeep", pickup_full:"Full-size Pickup", pickup_reg:"Pickup — Regular Cab", pickup_ext:"Pickup — Extended Cab", minitruck:"Mini Truck (90s compact pickup)",
   touring:"Touring Bike", scooter:"Scooter", dirtbike:"Dirt Bike",
   boat:"Boat", jonboat:"Jon Boat / Skiff", jetski:"Jet Ski", atv:"ATV / Quad", snowmobile:"Snowmobile", rv:"Motorhome / RV", trailer:"Travel Trailer", tractor:"Tractor",
 };
@@ -7865,9 +7865,9 @@ function classifyVehicleIcon(text){
   if(has("gold ?wing","electra glide","road glide","street glide","road king","touring")) return "touring";
   if(has("wrangler","jeep","bronco","gladiator","land cruiser fj","fj cruiser","defender","g-?wagon")) return "offroad";
   if(has("f-?150","f-?250","f-?350","silverado","sierra","ram","ram 1500","tundra","titan")) return "pickup_full";
-  if(has("kei","kei truck","mini ?truck","hijet","carry","acty","sambar","minicab")) return "minitruck";
-  if(has("ranger","s-?10","sonoma","dakota","b-?series","b ?\\d{4}","hardbody","d21","courier","luv")) return "pickup_ext";
-  if(has("tacoma","colorado","canyon","frontier","maverick","ridgeline","hilux","santa cruz")) return "pickup";
+  if(has("mini ?truck","hardbody","d21","toyota pickup","hilux","s-?10","sonoma","b-?series","b ?\\d{4}","courier","luv","t-?100","mighty max","d-?50","p-?up")) return "minitruck";
+  if(has("ranger","dakota")) return "pickup_ext";
+  if(has("tacoma","colorado","canyon","frontier","maverick","ridgeline","santa cruz")) return "pickup";
   const isMoto = MOTO_MODEL_WORDS.some(k=>t.includes(k)) || MOTO_ONLY_BRANDS.some(k=>t.includes(k)) || NAKED_WORDS.some(k=>t.includes(k));
   if(isMoto){
     if(SPORT_WORDS.some(k=>t.includes(k))) return "sport";
