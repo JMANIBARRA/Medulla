@@ -8231,7 +8231,33 @@ const garPngDone = {}, garPngJobs = {}, garPngVeh = {};
 const GAR_PNG_BAD = /\b(toy|lego|cartoon|logo|emblem|wheels?|rims?|tires?|tyres?|engine|interior|seats?|bumper|grille|headlights?|taillights?|lifted|wreck(ed)?|rusty|silhouette|outline|sketch|coloring|blueprint|exploded|keychain|sticker|decal)\b/i;
 const GAR_DDG_COLOR = {white:"White", black:"Black", silver:"Gray", gray:"Gray", red:"Red", "dark red":"Red", blue:"Blue", navy:"Blue",
   green:"Green", yellow:"Yellow", orange:"Orange", brown:"Brown", tan:"Brown", gold:"Yellow"};
-function garPngId(v){ return garModelKey(v) + "|" + String(v.color||"").toLowerCase(); }
+function garPngId(v){ return "2|" + garModelKey(v) + "|" + String(v.color||"").toLowerCase(); }
+/* the factory (OEM) name of the chosen colour for this exact vehicle, e.g. white on a Kawasaki Z400 ->
+   its real white colour scheme, so the image search finds that scheme rather than any white-ish one */
+const GAR_OEM_STORE = NS + "garageOemColors";
+let garOem = (()=>{ const m = loadJSON(GAR_OEM_STORE, {}); return (m && typeof m === "object") ? m : {}; })();
+async function garOemColor(v, named){
+  if(!named || !cloudAiAvailable()) return "";
+  const key = garModelKey(v) + "|" + named;
+  if(key in garOem) return garOem[key];
+  const year = garYear(v), name = String(v.vehicle||"").trim();
+  let out = "";
+  try{
+    const res = await groqChatRequest({model:"llama-3.3-70b-versatile", temperature:0, max_tokens:80, messages:[
+      {role:"system", content:"You know vehicle manufacturers' official factory (OEM) paint colours and colour schemes by model year. Answer with JSON only."},
+      {role:"user", content:`Vehicle: ${year ? year + " " : ""}${name}. The owner chose the colour "${named}". Give the official factory colour or colour-scheme name this vehicle was actually sold in that best matches "${named}". For two-tone or multi-colour schemes (common on motorcycles) give the full scheme name as the manufacturer lists it. If you are not sure, answer "${named}". JSON: {"oem":"..."}`}]});
+    if(res && res.ok){
+      const d = await res.json();
+      const t = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || "";
+      const m = t.match(/\{[\s\S]*?\}/);
+      const j = m ? JSON.parse(m[0]) : null;
+      out = String(j && j.oem || "").replace(/[^\w\s\/&+'-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 70);
+    }
+  }catch(e){}
+  if(out.toLowerCase() === named.toLowerCase()) out = "";
+  garOem[key] = out; saveJSON(GAR_OEM_STORE, garOem);
+  return out;
+}
 function garLoadImg(src){ return new Promise((res, rej)=>{ const im = new Image(); im.crossOrigin = "anonymous"; im.onload = ()=>res(im); im.onerror = rej; im.src = src; }); }
 /* really transparent (not a fake checkerboard), one subject: crop to it; else null */
 function garTrimTransparent(im){
@@ -8277,6 +8303,8 @@ function garPngResolve(v){
     const want = garTokens(name).filter(t=>!GAR_GENERIC.has(t) && !GAR_MAKES.has(t));
     const ddg = GAR_DDG_COLOR[named] || "";
     const passes = ddg ? [[`${base} ${named} png`, ddg, true], [`${base} png`, "", false]] : [[`${base} png`, "", !hex]];
+    const oem = await garOemColor(v, named);
+    if(oem){ console.info(`[Garage] ${base}: factory colour "${oem}"`); passes.unshift([`${base} ${oem.replace(/\//g, " ")} png`, "", true]); }
     if(year) passes.push([`${name} png`, "", !hex]);   /* last try without the year */
     for(const [q, col, matched] of passes){
       let list; try{ list = await garPngSearch(q, col); }catch(e){ list = []; }
