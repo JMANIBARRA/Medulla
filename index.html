@@ -1780,6 +1780,45 @@
   .btn:hover{border-color:var(--accent-teal);color:var(--accent-teal);box-shadow:0 0 10px -3px var(--accent-teal);}
   .btn.primary{background:var(--accent-amber);color:var(--bg-deep);border-color:var(--accent-amber);font-weight:700;}
   .btn.primary:hover{color:var(--bg-deep);box-shadow:0 0 12px -1px var(--accent-amber);}
+  .sp-hub{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;min-height:340px;}
+  @media (max-width:640px){ .sp-hub{grid-template-columns:1fr;} }
+  .sp-col{display:flex;flex-direction:column;min-width:0;}
+  .sp-h{font-size:13px;font-weight:600;margin:0 0 10px;color:var(--text,#e6eef8);letter-spacing:0;text-transform:none;}
+  .sp-h span{color:var(--text-dim);font-weight:500;}
+  .sp-teams{display:flex;flex-direction:column;gap:8px;}
+  .sp-team{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);}
+  .sp-badge{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(0,0,0,.35);overflow:hidden;font-weight:700;font-size:13px;}
+  .sp-badge img{width:24px;height:24px;object-fit:contain;}
+  .sp-team-name{flex:1;font-size:13px;font-weight:500;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);display:flex;flex-direction:column;}
+  .sp-team-name em{font-style:normal;font-size:10px;opacity:.7;}
+  .sp-x{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:rgba(0,0,0,.25);color:#fff;font-size:10px;cursor:pointer;flex:none;}
+  .sp-x:hover{background:rgba(0,0,0,.5);}
+  .sp-add{margin-top:auto;padding-top:18px;}
+  .sp-add-row{display:flex;gap:8px;}
+  .sp-add-row input{flex:1;min-width:0;}
+  .sp-follow{padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.35);background:linear-gradient(180deg,#e9eef4,#b9c4d0);color:#14202e;font-weight:600;cursor:pointer;}
+  .sp-add-note{font-size:11px;color:#ff9b9b;min-height:14px;margin-top:4px;}
+  .sp-key{text-align:center;font-size:11px;}
+  .sp-key a{color:var(--text-dim)!important;text-decoration:underline;}
+  .sp-games{display:flex;flex-direction:column;gap:8px;}
+  .sp-game{border-radius:10px;border:1px solid rgba(255,255,255,.12);padding:9px 12px 8px;}
+  .sp-game-head{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600;margin-bottom:6px;}
+  .sp-status{color:var(--text-dim);font-weight:500;white-space:nowrap;}
+  .sp-status.live{color:#ff6b6b;}
+  .sp-row{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:8px;padding:3px 0;font-size:13px;}
+  .sp-row img{width:22px;height:22px;object-fit:contain;}
+  .sp-row .sp-pts{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .sp-row.dim{opacity:.55;}
+  .sp-news{display:flex;flex-direction:column;}
+  .sp-item{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);}
+  .sp-item:last-child{border-bottom:0;}
+  .sp-item-logo img{width:26px;height:26px;object-fit:contain;}
+  .sp-item-body{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .sp-item-body b{font-size:12.5px;font-weight:600;line-height:1.3;}
+  .sp-item-body span{font-size:10.5px;color:var(--text-dim);}
+  .sp-more{align-self:end;font-size:10.5px;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:inherit;text-decoration:none;white-space:nowrap;}
+  .sp-more:hover{background:rgba(255,255,255,.18);}
+  .sp-dim{font-size:12px;color:var(--text-dim);}
   .list-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-soft);font-family:var(--font-mono);font-size:clamp(10px,calc(var(--w, 270px) * 0.032),14px);}
   .chrono-face{width:100%;display:flex;align-items:center;justify-content:center;}
   .chrono-face.analog{aspect-ratio:1;max-width:220px;margin:0 auto;}
@@ -2667,7 +2706,7 @@ const WIDGET_DEFS = [
   {id:"claudeprojects", title:"Projects", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Notes pad plus a sandbox area for snippets and file paths."},
   {id:"networth", title:"Assets", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Embeds a local app (iframe) for balances and card due dates."},
   {id:"scratchpad", title:"Scratchpad", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Multi-page free-form notebook, autosaved."},
-  {id:"sports", title:"Sports", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
+  {id:"sports", title:"My Sports Hub", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
   {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
   {id:"calendar", title:"Calendar", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Today's date and whatever events you've added for it — click through to a full month view to browse other days and add events."},
   {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
@@ -6257,20 +6296,23 @@ function renderFull(id){
   if(id==="market") return marketFullHTML();
   if(id==="sports"){
     return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Followed Teams</h3>
-        <div id="sport-follow-list"></div>
-        <div style="display:flex;gap:6px;margin-top:10px;">
-          <input id="sport-add-input" type="text" placeholder="Team name e.g. Miami Heat" style="flex:1;"/>
-          <button class="btn" id="sport-add-btn">Follow</button>
+    <div class="sp-hub">
+      <div class="sp-col">
+        <h3 class="sp-h">Followed Teams <span id="sp-count"></span></h3>
+        <div id="sport-follow-list" class="sp-teams"></div>
+        <div class="sp-add">
+          <h3 class="sp-h">Add Another Team</h3>
+          <div class="sp-add-row"><input id="sport-add-input" type="text" autocomplete="off"/><button type="button" class="sp-follow" id="sport-add-btn">Follow</button></div>
+          <div class="sp-add-note" id="sport-add-note"></div>
+          <div id="sport-key-setup" class="sp-key"></div>
         </div>
       </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Scoreboard & News</h3>
-        <div id="sport-events" style="font-size:12px;color:var(--text-dim);line-height:1.7;">Loading…</div>
+      <div class="sp-col">
+        <h3 class="sp-h">Live Scores &amp; News Feed</h3>
+        <div id="sp-games" class="sp-games"><div class="sp-dim">Loading scores…</div></div>
+        <h3 class="sp-h" style="margin-top:14px;">Latest News</h3>
+        <div id="sp-news" class="sp-news"><div class="sp-dim">Loading news…</div></div>
       </div>
-      <div id="sport-key-setup" style="grid-column:1/-1;margin-top:4px;"></div>
     </div>`;
   }
   if(id==="weather"){
@@ -7617,18 +7659,6 @@ async function fetchPopularScores(){
   return popularScoresPromise;
 }
 
-function renderFollowList(container){
-  container.innerHTML = sportsData.teams.map((t,i)=>`
-    <div class="list-row"><span>${t}</span><button class="hbtn" data-i="${i}">✕</button></div>
-  `).join("") || `<div style="color:var(--text-dim);">No teams followed yet.</div>`;
-  $$("[data-i]",container).forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      sportsData.teams.splice(Number(btn.dataset.i),1);
-      saveJSON(NS+"sports", sportsData);
-      renderFollowList(container);
-    });
-  });
-}
 
 /* 5 minutes instead of 1 — the actual fix for "Scores unavailable" isn't a personal API key,
    it's this app not hammering the shared free demo key 6-leagues-every-60-seconds in the first
@@ -7687,7 +7717,7 @@ function hydrateSportsMini(scope){
    Twelve Data setup, for the ~30 requests/minute demo-key ceiling shared across everyone using it. */
 function renderSportsDbKeySetup(container){
   if(!container) return;
-  container.innerHTML = `<a href="#" id="sport-key-toggle" style="font-size:11px;color:var(--accent-teal);">${sportsDbApiKey ? "Change your TheSportsDB key" : "Add your own free TheSportsDB key (avoids the shared demo key's rate limit)"}</a>
+  container.innerHTML = `<a href="#" id="sport-key-toggle" style="font-size:11px;color:var(--accent-teal);">Manage API Key Settings</a>
     <div id="sport-key-row" style="display:none;margin-top:6px;"></div>`;
   container.querySelector("#sport-key-toggle").addEventListener("click", (e)=>{
     e.preventDefault();
@@ -7699,41 +7729,169 @@ function renderSportsDbKeySetup(container){
     onSave:(val)=>{ sportsDbApiKey = val; saveJSON(NS+"sportsDbApiKey", sportsDbApiKey); loadEvents(modalBody); renderSportsDbKeySetup(container); },
   });
 }
+/* ================= MY SPORTS HUB (full view) =================
+   ESPN's public site API: team colours + logos, real live game status ("4th 2:15"), and team news.
+   Fetched straight from ESPN; if the browser blocks that, through the Medulla Worker (/espn). */
+const SP_LEAGUES = [
+  {sport:"basketball", league:"nba", label:"NBA"}, {sport:"football", league:"nfl", label:"NFL"},
+  {sport:"baseball", league:"mlb", label:"MLB"}, {sport:"hockey", league:"nhl", label:"NHL"},
+  {sport:"basketball", league:"wnba", label:"WNBA"}, {sport:"soccer", league:"usa.1", label:"MLS"},
+  {sport:"soccer", league:"eng.1", label:"Premier League"}, {sport:"football", league:"college-football", label:"NCAAF"},
+  {sport:"basketball", league:"mens-college-basketball", label:"NCAAM"},
+];
+let spViaWorker = false;
+async function espnGet(path){
+  const direct = ()=>fetch("https://site.api.espn.com" + path).then(r=>{ if(!r.ok) throw new Error("espn " + r.status); return r.json(); });
+  const viaWorker = ()=>fetch(`${MEDULLA_AI_PROXY_URL}/espn?p=${encodeURIComponent(path)}`).then(r=>{ if(!r.ok) throw new Error("worker " + r.status); return r.json(); });
+  if(spViaWorker && MEDULLA_AI_PROXY_URL) return viaWorker();
+  try{ return await direct(); }
+  catch(e){ if(!MEDULLA_AI_PROXY_URL) throw e; spViaWorker = true; return viaWorker(); }
+}
+const SP_TEAMS_STORE = NS + "sportsTeamsEspn";
+let spTeamIndex = loadJSON(SP_TEAMS_STORE, null);
+async function spLoadTeamIndex(){
+  if(spTeamIndex && spTeamIndex.v === 1 && Date.now() - spTeamIndex.ts < 7*86400000) return spTeamIndex.teams;
+  const teams = [];
+  for(const lg of SP_LEAGUES){
+    try{
+      const d = await espnGet(`/apis/site/v2/sports/${lg.sport}/${lg.league}/teams?limit=500`);
+      const list = (((d.sports||[])[0]||{}).leagues||[])[0];
+      ((list && list.teams) || []).forEach(({team:t})=>{
+        if(!t) return;
+        teams.push({id:t.id, sport:lg.sport, league:lg.league, label:lg.label, name:t.displayName, short:t.shortDisplayName || t.name,
+          abbr:t.abbreviation, color:t.color || "33475b", alt:t.alternateColor || "1f2a36", logo:(t.logos && t.logos[0] && t.logos[0].href) || ""});
+      });
+    }catch(e){}
+  }
+  if(teams.length){ spTeamIndex = {v:1, ts:Date.now(), teams}; saveJSON(SP_TEAMS_STORE, spTeamIndex); }
+  return teams.length ? teams : ((spTeamIndex && spTeamIndex.teams) || []);
+}
+/* "miami heat", "heat", "MIA heat" -> the best team; pro leagues before college */
+function spFindTeam(teams, name){
+  const q = String(name||"").toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+  if(!q) return null;
+  const norm = s=>String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+  return teams.find(t=>norm(t.name) === q) || teams.find(t=>norm(t.short) === q) ||
+    teams.find(t=>norm(t.name).endsWith(" " + q)) || teams.find(t=>q.split(" ").every(w=>norm(t.name).includes(w))) || null;
+}
+function spHex(c, a){ c = String(c||"33475b").replace("#",""); const n = parseInt(c.length === 3 ? c.split("").map(x=>x+x).join("") : c, 16) || 0;
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function spAgo(iso){
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+  if(m < 60) return `${m || 1} min ago`; const h = Math.round(m/60);
+  if(h < 24) return `${h} hour${h===1?"":"s"} ago`; const d = Math.round(h/24); return `${d} day${d===1?"":"s"} ago`;
+}
+function renderFollowList(container){
+  if(!container) return;
+  const teams = (spTeamIndex && spTeamIndex.teams) || [];
+  const cnt = document.getElementById("sp-count"); if(cnt) cnt.textContent = `(${sportsData.teams.length})`;
+  container.innerHTML = sportsData.teams.map((name,i)=>{
+    const t = spFindTeam(teams, name);
+    const bg = t ? `linear-gradient(100deg, ${spHex(t.color,.95)} 0%, ${spHex(t.color,.55)} 55%, ${spHex(t.alt,.35)} 100%)` : "rgba(255,255,255,.05)";
+    return `<div class="sp-team" style="background:${bg}">
+      <span class="sp-badge">${t && t.logo ? `<img src="${escapeHtml(t.logo)}" alt="">` : escapeHtml((name[0]||"?").toUpperCase())}</span>
+      <span class="sp-team-name">${escapeHtml(t ? t.name : name)}${t ? `<em>${escapeHtml(t.label)}</em>` : ""}</span>
+      <button type="button" class="sp-x" data-i="${i}" title="Unfollow" aria-label="Unfollow ${escapeHtml(name)}">✕</button>
+    </div>`;
+  }).join("") || `<div class="sp-dim">No teams followed yet.</div>`;
+  container.querySelectorAll("[data-i]").forEach(btn=>btn.addEventListener("click", ()=>{
+    sportsData.teams.splice(Number(btn.dataset.i), 1);
+    saveJSON(NS+"sports", sportsData);
+    renderFollowList(container);
+    const scope = container.closest(".sp-hub"); if(scope) spLoadFeed(scope.parentElement);
+  }));
+}
+/* a team's game to show: today's (live first), else its most recent result, else its next game */
+async function spTeamGame(t){
+  try{
+    const sb = await espnGet(`/apis/site/v2/sports/${t.sport}/${t.league}/scoreboard`);
+    const ev = (sb.events||[]).find(e=>((e.competitions||[])[0]||{}).competitors?.some(c=>c.team && String(c.team.id) === String(t.id)));
+    if(ev) return {t, ev};
+  }catch(e){}
+  try{
+    const sc = await espnGet(`/apis/site/v2/sports/${t.sport}/${t.league}/teams/${t.id}/schedule`);
+    const evs = sc.events || [];
+    const done = evs.filter(e=>{ const st = (((e.competitions||[])[0]||{}).status||{}).type || {}; return st.completed; });
+    const next = evs.filter(e=>new Date(e.date) > Date.now());
+    const ev = done.length ? done[done.length-1] : next[0];
+    if(ev) return {t, ev};
+  }catch(e){}
+  return null;
+}
+function spScore(c){ const s = c && c.score; return s == null ? "" : (typeof s === "object" ? (s.displayValue ?? s.value ?? "") : s); }
+function spGameHTML({t, ev}){
+  const comp = (ev.competitions||[])[0] || {};
+  const st = (comp.status || ev.status || {}).type || {};
+  const cs = (comp.competitors||[]).slice().sort((a,b)=>(a.homeAway === "away" ? -1 : 1) - (b.homeAway === "away" ? -1 : 1));
+  if(cs.length < 2) return "";
+  const live = st.state === "in", pre = st.state === "pre";
+  const status = live ? (st.shortDetail || "Live") : pre ? new Date(ev.date).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"}) : (st.shortDetail || "Final");
+  const nm = c=>(c.team && (c.team.shortDisplayName || c.team.name)) || "";
+  const logo = c=>{ const tm = c.team || {}; return tm.logo || (tm.logos && tm.logos[0] && tm.logos[0].href) || ""; };
+  const sA = Number(spScore(cs[0])), sB = Number(spScore(cs[1]));
+  const lead = !pre && !isNaN(sA) && !isNaN(sB) && sA !== sB ? (sA > sB ? 0 : 1) : -1;
+  const row = (c, i)=>`<div class="sp-row${lead >= 0 && lead !== i ? " dim" : ""}">${logo(c) ? `<img src="${escapeHtml(logo(c))}" alt="">` : "<span></span>"}<b>${escapeHtml(nm(c))}</b><span class="sp-pts">${pre ? "" : escapeHtml(String(spScore(c)))}</span></div>`;
+  const tint = `linear-gradient(120deg, ${spHex(t.color,.30)}, rgba(8,16,30,.85) 55%, ${spHex(t.alt,.22)})`;
+  return `<div class="sp-game" style="background:${tint}">
+    <div class="sp-game-head"><span>${escapeHtml(t.label)}: ${escapeHtml(nm(cs[1]))} vs. ${escapeHtml(nm(cs[0]))}</span><span class="sp-status${live ? " live" : ""}">${live ? "● " : ""}${escapeHtml(status)}</span></div>
+    ${row(cs[0],0)}${row(cs[1],1)}
+  </div>`;
+}
+async function spLoadFeed(scope){
+  const gamesEl = scope.querySelector("#sp-games"), newsEl = scope.querySelector("#sp-news");
+  if(!gamesEl) return;
+  let teams;
+  try{ teams = await spLoadTeamIndex(); }catch(e){ teams = []; }
+  renderFollowList(scope.querySelector("#sport-follow-list"));
+  const followed = sportsData.teams.map(n=>spFindTeam(teams, n)).filter(Boolean);
+  if(!teams.length){ gamesEl.innerHTML = newsEl.innerHTML = `<div class="sp-dim">Couldn't reach the sports service right now.</div>`; return; }
+  if(!followed.length){ gamesEl.innerHTML = `<div class="sp-dim">Follow a team to see its games here.</div>`; newsEl.innerHTML = ""; return; }
+  const games = (await Promise.all(followed.map(spTeamGame))).filter(Boolean);
+  const rank = g=>{ const s = ((((g.ev.competitions||[])[0]||{}).status||g.ev.status||{}).type||{}).state; return s === "in" ? 0 : s === "pre" ? 2 : 1; };
+  games.sort((a,b)=>rank(a)-rank(b) || Math.abs(new Date(a.ev.date) - Date.now()) - Math.abs(new Date(b.ev.date) - Date.now()));
+  if(!scope.querySelector("#sp-games")) return;
+  gamesEl.innerHTML = games.length ? games.map(spGameHTML).join("") : `<div class="sp-dim">No recent or upcoming games.</div>`;
+  /* news: each followed team's latest, merged newest first */
+  const lists = await Promise.all(followed.map(t=>espnGet(`/apis/site/v2/sports/${t.sport}/${t.league}/news?team=${t.id}&limit=4`)
+    .then(d=>(d.articles||[]).map(a=>({a, t}))).catch(()=>[])));
+  const seen = new Set(), items = [];
+  lists.flat().sort((x,y)=>new Date(y.a.published) - new Date(x.a.published)).forEach(x=>{ if(!seen.has(x.a.headline)){ seen.add(x.a.headline); items.push(x); } });
+  if(!scope.querySelector("#sp-news")) return;
+  newsEl.innerHTML = items.slice(0, 5).map(({a, t})=>{
+    const href = (a.links && a.links.web && a.links.web.href) || "#";
+    return `<div class="sp-item">
+      <span class="sp-item-logo">${t.logo ? `<img src="${escapeHtml(t.logo)}" alt="">` : ""}</span>
+      <div class="sp-item-body"><b>${escapeHtml(a.headline || "")}</b><span>${a.published ? spAgo(a.published) : ""}</span></div>
+      <a class="sp-more" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Read More</a>
+    </div>`;
+  }).join("") || `<div class="sp-dim">No news right now.</div>`;
+}
 function hydrateSportsFull(scope){
   renderFollowList(scope.querySelector("#sport-follow-list"));
   renderSportsDbKeySetup(scope.querySelector("#sport-key-setup"));
-  scope.querySelector("#sport-add-btn").addEventListener("click", ()=>{
-    const inp = scope.querySelector("#sport-add-input");
+  const inp = scope.querySelector("#sport-add-input"), note = scope.querySelector("#sport-add-note");
+  inp.placeholder = "Add Another Team";
+  const add = async ()=>{
     const name = inp.value.trim();
     if(!name) return;
-    sportsData.teams.push(name);
+    const teams = await spLoadTeamIndex().catch(()=>[]);
+    const t = spFindTeam(teams, name);
+    if(teams.length && !t){ note.textContent = `Couldn't find “${name}” — try the full name, e.g. Miami Heat.`; return; }
+    note.textContent = "";
+    const full = t ? t.name : name;
+    if(!sportsData.teams.some(x=>x.toLowerCase() === full.toLowerCase())) sportsData.teams.push(full);
     saveJSON(NS+"sports", sportsData);
-    inp.value="";
+    inp.value = "";
     renderFollowList(scope.querySelector("#sport-follow-list"));
-    loadEvents(scope);
-  });
-  loadEvents(scope);
-  const intervalId = setInterval(()=>loadEvents(scope), SPORTS_REFRESH_MS);
+    spLoadFeed(scope);
+  };
+  scope.querySelector("#sport-add-btn").addEventListener("click", add);
+  inp.addEventListener("keydown", e=>{ if(e.key === "Enter") add(); });
+  spLoadFeed(scope);
+  const intervalId = setInterval(()=>spLoadFeed(scope), 60000);   /* live games tick every minute */
   return function cleanup(){ clearInterval(intervalId); };
 }
-async function loadEvents(scope){
-  const box = scope.querySelector("#sport-events");
-  if(!box) return; /* modal already closed */
-  const popular = await fetchPopularScores();
-  const events = popular.map(p=>p.ev);
-
-  for(const name of sportsData.teams){
-    const team = await fetchTeam(name);
-    if(team){
-      const teamEvents = await fetchLastEvents(team.idTeam);
-      if(teamEvents.length) events.push(teamEvents[0]);
-    }
-    await new Promise(r=>setTimeout(r, 350));
-  }
-  const box2 = scope.querySelector("#sport-events");
-  if(!box2) return; /* modal closed while the fetch was in flight */
-  box2.innerHTML = renderSchedule(events);
-}
+async function loadEvents(scope){ if(scope && scope.querySelector && scope.querySelector("#sp-games")) return spLoadFeed(scope); }
 
 /* ================= GARAGE WIDGET ================= */
 /* 21 car body-style icons (cropped from a reference silhouette sheet, recolored to the

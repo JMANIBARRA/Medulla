@@ -400,6 +400,15 @@ export default {
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockMovers(env, cors, ctx);
     }
+    /* ESPN's public site API, for browsers that block it directly (Sports Hub) */
+    if(path === "/espn"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      const pth = new URL(request.url).searchParams.get("p") || "";
+      if(!/^\/apis\/site\/v2\/sports\/[a-z0-9.\-\/]+(\?[a-z0-9=&%.\-_]*)?$/i.test(pth)) return json({error:"bad_path"}, 400, cors);
+      let res;
+      try{ res = await fetch("https://site.api.espn.com" + pth, {cf:{cacheTtl:60, cacheEverything:true}}); }catch(e){ return json({error:"unreachable"}, 502, cors); }
+      return new Response(res.body, {status:res.status, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"public, max-age=60"}});
+    }
     if(path === "/garage/img"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return garageImg(request, env, cors);
