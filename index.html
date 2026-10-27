@@ -12640,6 +12640,11 @@ function tryLocalCommand(text){
       "All is forgiven, not that there was much to forgive.",
     ]));
   }
+  /* Everything below this point used to answer questions with canned, rule-based replies. Now
+     only small talk (above) is answered locally; questions go to the AI, which gets the dashboard's
+     live data as context. Commands that DO something (open/add/launch...) still run here. */
+  if(results.length) return results.join(" ");
+  if(!/^(?:please\s+)?(?:open|close|launch|show|hide|add|create|schedule|book|put|remind|set|start|stop|play|pause|resume|mute|unmute|go to|take me to|pin|unpin|minimize|maximize|delete|remove|clear|turn|switch|navigate|directions)\b/.test(t)) return null;
   /* Deliberately NOT giving bare "yes"/"no" a canned reply here, unlike the small talk above —
      those two words are far too likely to be answering something the LLM itself just asked
      ("would you like me to continue?" -> "yes"), and this layer has no way to know that context.
@@ -13349,12 +13354,43 @@ async function describeCloudAiFailure(res){
   if(d.includes("proxy_not_configured")) return "the server has no Groq key yet — run `npx wrangler secret put GROQ_API_KEY`";
   return `HTTP ${res.status}${detail ? ` (${detail})` : ""}`;
 }
+/* the dashboard's live data, handed to the AI so it can answer about it like a chatbot would */
+async function aiLiveContext(text){
+  const t = String(text||"").toLowerCase(), parts = [];
+  if(/weather|rain|storm|snow|umbrella|forecast|temperature|temp\b|hot|cold|warm|sunny|cloud|wind|humid|thunder|drizzle|shower|uv\b|outside/.test(t)){
+    try{
+      const loc = await fetchApproxLocation();
+      if(loc){
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weather_code,precipitation,wind_speed_10m,relative_humidity_2m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=3`);
+        const d = await r.json();
+        const now = Date.now(), H = d.hourly || {};
+        const hours = (H.time||[]).map((tm,i)=>({tm, i})).filter(x=>new Date(x.tm).getTime() > now - 3600000).slice(0, 24)
+          .map(({tm,i})=>`${new Date(tm).toLocaleTimeString("en-US",{hour:"numeric"})}: ${Math.round(H.temperature_2m[i])}°F, ${WEATHER_CODE_TEXT[H.weather_code[i]] || "code "+H.weather_code[i]}, ${H.precipitation_probability[i]}% chance of rain, ${H.precipitation[i]} in`).join("; ");
+        const D = d.daily || {};
+        const days = (D.time||[]).map((dt,i)=>`${dt}: high ${Math.round(D.temperature_2m_max[i])}°F, low ${Math.round(D.temperature_2m_min[i])}°F, ${WEATHER_CODE_TEXT[D.weather_code[i]] || ""}, ${D.precipitation_probability_max[i]}% max rain chance`).join("; ");
+        const c = d.current || {};
+        parts.push(`Live weather${loc.city ? ` for ${loc.city}` : ""}: now ${Math.round(c.temperature_2m)}°F, ${WEATHER_CODE_TEXT[c.weather_code] || ""}, humidity ${c.relative_humidity_2m}%, wind ${Math.round(c.wind_speed_10m)} mph. Next 24 hours, hour by hour: ${hours}. Next days: ${days}.`);
+      }
+    }catch(e){}
+  }
+  /* what's on the open widgets right now */
+  try{
+    document.querySelectorAll(".claustrum-widget[data-widget-id]").forEach(card=>{
+      const def = WIDGET_DEFS.find(w=>w.id === card.dataset.widgetId);
+      if(!def || def.id === "weather") return;
+      const reply = readWidgetContentReply(def);
+      if(reply && !/nothing showing on it right now/.test(reply)) parts.push(reply.slice(0, 600));
+    });
+  }catch(e){}
+  return parts.length ? `Live data from the user's dashboard (use it to answer; give specific times and numbers from it, don't say you can't see it):\n${parts.join("\n")}` : "";
+}
 async function tryGroq(text){
   if(!cloudAiAvailable()) return null;
   lastCloudAiError = "";
   try{
+    const live = await aiLiveContext(text);
     const messages = [
-      {role:"system", content: getAiSystemPrompt()},
+      {role:"system", content: getAiSystemPrompt() + (live ? "\n\n" + live : "")},
       ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
       {role:"user", content: text}
     ];
