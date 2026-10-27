@@ -7744,14 +7744,14 @@ const VEHICLE_TYPE_LABELS = {
   supercar:"Super Car",
   suv:"SUV",
   crossover:"Crossover",
-  pickup:"Pickup",
+  pickup:"Pickup — Crew Cab",
   van:"Van",
   minivan:"Minivan",
   minibus:"Minibus",
   campervan:"Campervan",
   bus:"Bus",
   cruiser:"Cruiser", naked:"Naked Bike", sport:"Sport Bike", moto:"Motorcycle",
-  offroad:"Off-Road / Jeep", pickup_full:"Full-size Pickup",
+  offroad:"Off-Road / Jeep", pickup_full:"Full-size Pickup", pickup_reg:"Pickup — Regular Cab", pickup_ext:"Pickup — Extended Cab", minitruck:"Mini Truck",
   touring:"Touring Bike", scooter:"Scooter", dirtbike:"Dirt Bike",
   boat:"Boat", jonboat:"Jon Boat / Skiff", jetski:"Jet Ski", atv:"ATV / Quad", snowmobile:"Snowmobile", rv:"Motorhome / RV", trailer:"Travel Trailer", tractor:"Tractor",
 };
@@ -7759,6 +7759,8 @@ const VEHICLE_TYPE_LABELS = {
 const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal:"universal", liftback:"liftback", coupe:"coupe",
   cabriolet:"cabriolet", roadster:"roadster", targa:"roadster", limousine:"limousine", musclecar:"musclecar", sportscar:"sportscar",
   supercar:"supercar", suv:"suv", crossover:"crossover", offroad:"offroad", pickup:"pickup", pickup_full:"pickup_full",
+  /* drawings still to come: these show the midsize pickup until then */
+  pickup_reg:"pickup", pickup_ext:"pickup", minitruck:"pickup",
   van:"van", minivan:"minivan", minibus:"van", campervan:"campervan", bus:"bus",
   cruiser:"cruiser", naked:"naked", sport:"sport", moto:"sport", touring:"touring", scooter:"scooter", dirtbike:"dirtbike",
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
@@ -7861,7 +7863,9 @@ function classifyVehicleIcon(text){
   if(has("gold ?wing","electra glide","road glide","street glide","road king","touring")) return "touring";
   if(has("wrangler","jeep","bronco","gladiator","land cruiser fj","fj cruiser","defender","g-?wagon")) return "offroad";
   if(has("f-?150","f-?250","f-?350","silverado","sierra","ram","ram 1500","tundra","titan")) return "pickup_full";
-  if(has("ranger","tacoma","colorado","canyon","frontier","maverick","ridgeline","s-?10","dakota","hilux","santa cruz")) return "pickup";
+  if(has("kei","kei truck","mini ?truck","hijet","carry","acty","sambar","minicab")) return "minitruck";
+  if(has("ranger","s-?10","sonoma","dakota","b-?series","b ?\\d{4}","hardbody","d21","courier","luv")) return "pickup_ext";
+  if(has("tacoma","colorado","canyon","frontier","maverick","ridgeline","hilux","santa cruz")) return "pickup";
   const isMoto = MOTO_MODEL_WORDS.some(k=>t.includes(k)) || MOTO_ONLY_BRANDS.some(k=>t.includes(k)) || NAKED_WORDS.some(k=>t.includes(k));
   if(isMoto){
     if(SPORT_WORDS.some(k=>t.includes(k))) return "sport";
@@ -7885,7 +7889,9 @@ function classifyVehicleIcon(text){
    that existed (or where the user never bothered picking one) fall back to the keyword guess. */
 function resolveVehicleType(v){
   if(v.type && (GAR_LINE[v.type] || VEHICLE_TYPE_ICONS[v.type] || VEHICLE_ICONS[v.type])) return v.type;
-  return classifyVehicleIcon(v.vehicle);
+  const t = classifyVehicleIcon(v.vehicle);
+  if((t === "pickup_ext" || t === "pickup_reg") && Number(v.doors) >= 4) return "pickup";
+  return t;
 }
 function vehicleIconMarkup(type){
   if(GAR_LINE[type]) return `<img src="${garLineSrc(type)}" alt="${escapeHtml(VEHICLE_TYPE_LABELS[type]||type)}" style="width:100%;height:100%;object-fit:contain;display:block;">`;
@@ -8099,7 +8105,7 @@ function garMileageLabel(m){
   if(n >= 10000) return `${Math.round(n/1000)}k mi`;
   return `${n.toLocaleString("en-US")} mi`;
 }
-function garSpecs(v){ return [v.year, v.drive, v.engine, garMileageLabel(v.mileage)].filter(Boolean); }
+function garSpecs(v){ return [v.year, v.doors ? `${v.doors}-door` : "", v.drive, v.engine, garMileageLabel(v.mileage)].filter(Boolean); }
 /* the vehicle's picture: its photo if it has one on this device, else the body-style silhouette
    rendered as a glowing hologram (the silhouette is used as a mask over a gradient) */
 function garIconSrc(type){
@@ -9199,8 +9205,8 @@ function hydrateGarageFull(scope){
   function typeOptions(selected){
     const opt = k=>`<option value="${k}"${k===selected?" selected":""}>${escapeHtml(VEHICLE_TYPE_LABELS[k] || k)}</option>`;
     return `<option value=""${!selected?" selected":""}>Auto-detect from name</option>
-      <optgroup label="Car">${VEHICLE_TYPE_ORDER.map(opt).join("")}</optgroup>
-      <optgroup label="Truck / Off-road">${["pickup_full","offroad"].map(opt).join("")}</optgroup>
+      <optgroup label="Car">${VEHICLE_TYPE_ORDER.filter(k=>k !== "pickup").map(opt).join("")}</optgroup>
+      <optgroup label="Truck / Off-road">${["pickup_reg","pickup_ext","pickup","pickup_full","minitruck","offroad"].map(opt).join("")}</optgroup>
       <optgroup label="Motorcycle">${GARAGE_MOTO_TYPES.map(opt).join("")}</optgroup>
       <optgroup label="Other">${GAR_OTHER_TYPES.map(opt).join("")}</optgroup>`;
   }
@@ -9227,6 +9233,7 @@ function hydrateGarageFull(scope){
         <label class="gar-field"><span>Drive</span><select id="gar-f-drive">${GAR_DRIVES.map(d=>`<option value="${d}"${(v.drive||"")===d?" selected":""}>${d || "—"}</option>`).join("")}</select></label>
         <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" value="${escapeHtml(v.engine||"")}"></label>
         <label class="gar-field"><span>Mileage</span><input type="text" id="gar-f-miles" inputmode="numeric" value="${escapeHtml(v.mileage||"")}"></label>
+        <label class="gar-field"><span>Doors <em class="dim">(optional)</em></span><select id="gar-f-doors">${["","2","3","4","5"].map(d=>`<option value="${d}"${String(v.doors||"")===d?" selected":""}>${d || "—"}</option>`).join("")}</select></label>
         <label class="gar-field wide"><span>Body style</span><select id="gar-f-type">${typeOptions(v.type||"")}</select></label>
         <div class="gar-field wide"><span>Paint color</span>
           <div class="gar-swatches" id="gar-f-color" role="radiogroup" aria-label="Paint color">
@@ -9321,6 +9328,8 @@ function hydrateGarageFull(scope){
       entry.drive = sheet.querySelector("#gar-f-drive").value;
       entry.engine = sheet.querySelector("#gar-f-engine").value.trim();
       entry.mileage = sheet.querySelector("#gar-f-miles").value.trim();
+      const doors = sheet.querySelector("#gar-f-doors").value;
+      if(doors) entry.doors = doors; else delete entry.doors;
       if(typeSel.value) entry.type = typeSel.value; else delete entry.type;
       if(pickedColor) entry.color = pickedColor; else delete entry.color;
       const asset = assetInp.value.trim();
