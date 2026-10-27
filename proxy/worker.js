@@ -10,7 +10,7 @@
    Groq's free tier has no billing attached unless you add it, so the worst case of abuse is the
    shared quota running out for a while, not a bill. */
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";   /* llama-3.3-70b-versatile was shut down by Groq on 2026-08-16 */
 const ALLOWED_MODELS = new Set([DEFAULT_MODEL]);
 const MAX_MESSAGES = 30;
 const MAX_CHARS_PER_MESSAGE = 8000;
@@ -205,7 +205,7 @@ async function groqJSON(env, model, messages, maxTokens){
   const send = ()=>fetch("https://api.groq.com/openai/v1/chat/completions", {
     method:"POST",
     headers:{"Content-Type":"application/json", "Authorization":`Bearer ${env.GROQ_API_KEY}`},
-    body: JSON.stringify({model, messages, temperature:0, max_tokens:maxTokens || 700, response_format:{type:"json_object"}}),
+    body: JSON.stringify({model, messages, temperature:0, max_tokens:Math.max(600, maxTokens || 700), reasoning_effort:"low", response_format:{type:"json_object"}}),
   });
   let res = await send();
   /* free-tier per-minute limits: wait as long as Groq asks (up to 20 s, twice) and try again */
@@ -443,6 +443,7 @@ export default {
       model: ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL,
       messages,
       max_tokens: Math.min(Number(body.max_tokens) || MAX_TOKENS_CAP, MAX_TOKENS_CAP),
+      reasoning_effort: "low",   /* gpt-oss thinks first: keep that short so replies aren't cut off */
     };
     if(typeof body.temperature === "number") payload.temperature = Math.max(0, Math.min(1.5, body.temperature));
 

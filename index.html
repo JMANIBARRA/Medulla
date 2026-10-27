@@ -3830,7 +3830,17 @@ const MEDULLA_AI_PROXY_URL = "https://medulla-ai.jjuanibarra.workers.dev";
 function cloudAiAvailable(){ return !!(groqApiKey || MEDULLA_AI_PROXY_URL); }
 /* every Groq chat request goes through here: straight to Groq with a personal key, otherwise via
    the proxy (same OpenAI-compatible request/response shape either way) */
+/* gpt-oss models think before answering, and that counts toward max_tokens: keep the thinking short
+   and leave room for it, so short replies don't come back empty */
+function garPrepGroq(payload){
+  if(/gpt-oss/.test(payload.model||"")){
+    payload = {...payload, reasoning_effort: payload.reasoning_effort || "low"};
+    if(payload.max_tokens) payload.max_tokens = Math.max(payload.max_tokens, 600);
+  }
+  return payload;
+}
 function groqProxyRequest(payload){
+  payload = garPrepGroq(payload);
   return fetch(MEDULLA_AI_PROXY_URL, {
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -3838,6 +3848,7 @@ function groqProxyRequest(payload){
   });
 }
 async function groqChatRequest(payload){
+  payload = garPrepGroq(payload);
   if(groqApiKey){
     /* a personal key that's been revoked, mistyped or rate-limited shouldn't break chat when the
        shared proxy is available — fall back to it instead of failing outright */
@@ -8608,7 +8619,7 @@ async function garOemColor(v, named){
   const year = garYear(v), name = String(v.vehicle||"").trim();
   let out = null;
   try{
-    const res = await groqChatRequest({model:"llama-3.3-70b-versatile", temperature:0, max_tokens:120, messages:[
+    const res = await groqChatRequest({model:"openai/gpt-oss-120b", temperature:0, max_tokens:120, messages:[
       {role:"system", content:"You know vehicle manufacturers' official factory (OEM) paint colours and colour schemes by model year. Answer with JSON only."},
       {role:"user", content:`Vehicle: ${year ? year + " " : ""}${name}. The owner chose the colour "${named}". Give the official factory colour or colour-scheme name this vehicle was actually sold in that best matches "${named}". For two-tone or multi-colour schemes (common on motorcycles) give the full scheme name as the manufacturer lists it. If you are not sure, answer "${named}". JSON: {"oem":"...", "colors":["every colour visible in that factory scheme, e.g. white, black, red"]}`}]});
     if(res && res.ok){
@@ -13189,7 +13200,7 @@ async function tryGroq(text){
       ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
       {role:"user", content: text}
     ];
-    const res = await groqChatRequest({ model:"llama-3.3-70b-versatile", messages });
+    const res = await groqChatRequest({ model:"openai/gpt-oss-120b", messages });
     if(!res.ok){ lastCloudAiError = await describeCloudAiFailure(res); console.warn("cloud AI failed:", lastCloudAiError); return null; }
     const data = await res.json();
     const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -16053,7 +16064,7 @@ async function generateAiWorkoutPlan(text){
   if(!cloudAiAvailable()) return null;
   try{
     const res = await groqChatRequest({
-        model:"llama-3.3-70b-versatile",
+        model:"openai/gpt-oss-120b",
         messages:[
           {role:"system", content: fitPlanSystemPrompt()},
           {role:"user", content: text}
@@ -16100,7 +16111,7 @@ async function editWorkoutDayNotes(currentNotes, instruction){
   if(!cloudAiAvailable()) return null;
   try{
     const res = await groqChatRequest({
-        model:"llama-3.3-70b-versatile",
+        model:"openai/gpt-oss-120b",
         messages:[
           {role:"system", content: fitDayEditSystemPrompt()},
           {role:"user", content: `Current: ${currentNotes || "(empty)"}\nInstruction: ${instruction}`}
