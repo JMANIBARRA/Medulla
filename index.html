@@ -1279,7 +1279,7 @@
   .gar-auto-row{flex:1 1 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#a9bcd6;margin-top:2px;}
   /* ---- holographic wireframe fallback: faint grid-filled body, bright traced outline, scan line ---- */
   .gar-wire{position:relative;display:block;width:100%;aspect-ratio:3.25/1;}
-  .gar-wire > span{position:absolute;inset:0;-webkit-mask:var(--src) center bottom/var(--msize, contain) no-repeat;mask:var(--src) center bottom/var(--msize, contain) no-repeat;}
+  .gar-wire > span{position:absolute;inset:-60% 0 0 0;   /* headroom above: tall vehicles keep their real size */-webkit-mask:var(--src) center bottom/var(--msize, contain) no-repeat;mask:var(--src) center bottom/var(--msize, contain) no-repeat;}
   .gar-wire-fill{background:
       repeating-linear-gradient(0deg, rgba(120,200,255,.10) 0 1px, transparent 1px 7px),
       repeating-linear-gradient(90deg, rgba(120,200,255,.07) 0 1px, transparent 1px 11px),
@@ -9054,7 +9054,7 @@ function garRepaint(url, hex){
 function garSilSrc(v){ return garFileSrc(garDrawFor(v), true); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
-  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}');--msize:${garDrawSize(v, 3.25)}`;
+  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}');--msize:${garDrawSize(v, 3.25 / 1.6)}`;
   return `<div class="${cls} gar-wire" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)} (no 3D model available)" style="--src:url('${garSilSrc(v)}')${edge}"><span class="gar-wire-fill"></span><span class="gar-wire-edge"></span><span class="gar-wire-scan"></span></div>`;
 }
 function garGhostHTML(v, cls){
