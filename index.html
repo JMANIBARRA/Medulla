@@ -1279,7 +1279,7 @@
   .gar-auto-row{flex:1 1 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#a9bcd6;margin-top:2px;}
   /* ---- holographic wireframe fallback: faint grid-filled body, bright traced outline, scan line ---- */
   .gar-wire{position:relative;display:block;width:100%;aspect-ratio:3.25/1;}
-  .gar-wire > span{position:absolute;inset:0;-webkit-mask:var(--src) center bottom/contain no-repeat;mask:var(--src) center bottom/contain no-repeat;}
+  .gar-wire > span{position:absolute;inset:0;-webkit-mask:var(--src) center bottom/var(--msize, contain) no-repeat;mask:var(--src) center bottom/var(--msize, contain) no-repeat;}
   .gar-wire-fill{background:
       repeating-linear-gradient(0deg, rgba(120,200,255,.10) 0 1px, transparent 1px 7px),
       repeating-linear-gradient(90deg, rgba(120,200,255,.07) 0 1px, transparent 1px 11px),
@@ -7955,6 +7955,22 @@ function garModelFile(v){
   }
   return null;
 }
+/* width / height of each drawing (for real-world sizing on the stage) */
+const GAR_ASPECT = {"atv":1.59,"audi_100_c1":3.12,"audi_100_c3":3.19,"audi_72":3.26,"audi_a3_sedan":2.94,"audi_a4_b5":3.16,"audi_a7":3.19,"audi_a8_d2":3.19,"audi_etron_gt":3.23,"audi_quattro":3.09,"audi_r8":3.09,"audi_tt_mk1":3.03,"audi_v8":3.26,"bmw_1500_nk":3.06,"bmw_3_e30":2.97,"bmw_3_e90":2.97,"bmw_3_f30":3.03,"bmw_4_g22":3.06,"bmw_5_e34":3.19,"bmw_5_e39":3.06,"bmw_8_e31":3.33,"bmw_i4":3.09,"bmw_x5_e53":2.83,"boat":1.61,"bus":2.73,"cabriolet":3.16,"campervan":1.94,"chevrolet_silverado_1967":2.75,"chevrolet_silverado_1973":2.78,"chevrolet_silverado_1981":2.75,"chevrolet_silverado_1988":2.83,"chevrolet_silverado_1999":2.88,"chevrolet_silverado_2003":2.88,"chevrolet_silverado_2007":3.0,"chevrolet_silverado_2014":2.97,"chevrolet_silverado_2016":2.97,"chevrolet_silverado_2019":2.88,"chevrolet_silverado_2022":2.88,"chevrolet_silverado_ev":2.94,"coupe":2.92,"crossover":2.53,"cruiser":1.75,"dirtbike":1.61,"ford_f150_1975":2.78,"ford_f150_1980":2.8,"ford_f150_1987":2.78,"ford_f150_1992":2.94,"ford_f150_1997":3.0,"ford_f150_2004":3.0,"ford_f150_2009":3.0,"ford_f150_2015":3.06,"ford_f150_2018":3.06,"ford_f150_2021":2.94,"ford_f150_2024":2.97,"ford_f150_lightning":2.91,"hatchback":2.52,"honda_accord_2g":3.16,"honda_accord_5g":3.03,"honda_accord_6g":3.12,"honda_accord_7g":3.16,"honda_accord_8g":3.09,"honda_accord_9g":3.16,"honda_civic_10g":3.0,"honda_civic_11g":2.97,"honda_civic_2g":2.83,"honda_civic_3g":2.91,"honda_civic_4g":2.97,"honda_civic_5g":2.83,"honda_civic_6g":2.83,"honda_civic_7g":2.88,"honda_civic_8g":2.91,"honda_civic_9g":2.97,"honda_civic_typer_fl5":3.03,"jetski":2.53,"jonboat":5.81,"liftback":2.77,"limousine":3.56,"mb_190e_w201":3.09,"mb_300sl_w198":3.37,"mb_a_w168":2.56,"mb_c_w205":3.03,"mb_cls_c219":3.3,"mb_e_w124":3.3,"mb_eqs":3.16,"mb_s_w116":3.41,"mb_s_w220":3.26,"mb_sl_r129":3.41,"mb_sls":3.19,"mb_w111":3.33,"micro":2.56,"minivan":2.38,"mus_442_1966":3.19,"mus_camaro_1969":3.33,"mus_camaro_6g":3.19,"mus_challenger_1970":3.61,"mus_challenger_lc":3.12,"mus_charger_1968":3.41,"mus_chevelle_1970":3.49,"mus_cuda_1970":3.41,"mus_gto_1964":3.26,"mus_mustang_1967":3.16,"mus_mustang_s197":3.16,"mus_transam_2g":3.57,"musclecar":3.06,"naked":1.63,"offroad":2.12,"pickup":2.73,"pickup_ext":2.94,"pickup_full":2.82,"pickup_reg":2.94,"roadster":3.19,"rv":2.58,"s_e1_full":3.33,"s_e1_lux":3.3,"s_e1_mid":3.49,"s_e2_compact":3.45,"s_e2_lux":3.49,"s_e2_mid":3.37,"s_e3_aero":3.45,"s_e3_lux":3.26,"s_e3_perf":3.33,"s_e4_ev":3.09,"s_e4_lux":3.12,"s_e4_mid":3.23,"scooter":1.3,"sedan":2.91,"snowmobile":2.34,"sport":1.74,"sportscar":3.03,"supercar":3.05,"suv":2.46,"suv_1970":2.97,"suv_1979":2.86,"suv_1985":2.86,"suv_1993":2.73,"suv_1998":2.88,"suv_2002":2.88,"suv_2007_full":2.91,"suv_2012_cross":2.86,"suv_2015_compact":2.88,"suv_2020_large":3.12,"suv_2023_compact":2.91,"suv_ev":2.94,"t_e1_crew":3.12,"t_e1_ext":2.91,"t_e1_reg":3.03,"t_e2_crew":3.37,"t_e2_ext":3.33,"t_e2_reg":3.19,"t_e3_crew":3.0,"t_e3_ext":3.0,"t_e3_reg":2.94,"t_e4_crew":2.86,"t_e4_hd":2.94,"t_e4_mega":2.88,"touring":1.54,"toyota_camry_v10":3.3,"toyota_camry_v20":3.3,"toyota_camry_xv10":3.3,"toyota_camry_xv20":3.41,"toyota_camry_xv30":3.3,"toyota_camry_xv40":3.33,"toyota_camry_xv50":3.33,"toyota_camry_xv50b":3.33,"toyota_camry_xv70":3.45,"toyota_camry_xv70b":3.33,"toyota_camry_xv80":3.33,"toyota_corolla_e10":2.75,"toyota_corolla_e100":3.03,"toyota_corolla_e110":2.97,"toyota_corolla_e120":2.94,"toyota_corolla_e140":2.94,"toyota_corolla_e170":3.0,"toyota_corolla_e20":2.8,"toyota_corolla_e210":2.94,"toyota_corolla_e30":2.8,"toyota_corolla_e70":2.86,"toyota_corolla_e80":2.97,"toyota_corolla_e90":2.94,"toyota_tacoma_1g_double":2.91,"toyota_tacoma_1g_reg":2.91,"toyota_tacoma_2g_access":2.83,"toyota_tacoma_2g_double":2.91,"toyota_tacoma_2g_facelift":2.88,"toyota_tacoma_3g":2.88,"toyota_tacoma_3g_refresh":2.94,"toyota_tacoma_3g_trdpro":2.91,"toyota_tacoma_4g":2.94,"toyota_tacoma_4g_hybrid":2.91,"toyota_tacoma_4g_trailhunter":2.94,"toyota_tundra_2000_reg":2.88,"toyota_tundra_2003_access":2.86,"toyota_tundra_2006_double":2.86,"toyota_tundra_2007_reg":2.91,"toyota_tundra_2010_crewmax":2.97,"toyota_tundra_2014":2.94,"toyota_tundra_2016_trdpro":2.88,"toyota_tundra_2019":2.91,"toyota_tundra_2021_sx":2.94,"toyota_tundra_2022":2.94,"toyota_tundra_2023_hybrid":2.91,"toyota_tundra_2024_trd":2.94,"tractor":1.42,"trailer":1.88,"universal":2.88,"van":2.19};
+/* typical length in feet by body style, so a jon boat isn't drawn as big as a truck */
+const GAR_LEN_FT = {micro:12, sedan:15.5, hatchback:14, universal:16, liftback:15.5, coupe:15, cabriolet:14.5, roadster:13.5, targa:14,
+  limousine:20, musclecar:16.5, sportscar:14.5, supercar:15, suv:16.5, crossover:15, offroad:14, pickup:18, pickup_full:19.5,
+  pickup_reg:16.5, pickup_ext:17.5, minitruck:15, van:17, minivan:16.5, minibus:19, campervan:20, bus:24, cruiser:7.5, naked:7,
+  sport:7, moto:7, touring:8, scooter:6, dirtbike:7, boat:21, jonboat:14, jetski:10.5, atv:6.5, snowmobile:10, rv:24, trailer:18, tractor:12};
+const GAR_STAGE_FT = 25;     /* the stage's full width, in feet (big trucks just fit) */
+/* mask size for a vehicle's drawing inside a box of the given width/height ratio */
+function garDrawSize(v, boxAspect){
+  const f = garDrawFor(v), a = GAR_ASPECT[f] || 2.6;
+  const ft = GAR_LEN_FT[resolveVehicleType(v)] || 15.5;
+  let w = Math.min(1, ft / GAR_STAGE_FT);
+  if(w * boxAspect / a > 1) w = a / boxAspect;                    /* never taller than the box */
+  return `${(w*100).toFixed(1)}% auto`;
+}
 function garDrawFor(v){
   const exact = garModelFile(v);
   if(exact) return exact;
@@ -8088,6 +8104,7 @@ function classifyVehicleIcon(text){
 /* v.type is set by the Garage widget's explicit type picker at add-time; vehicles saved before
    that existed (or where the user never bothered picking one) fall back to the keyword guess. */
 function resolveVehicleType(v){
+  if(v.type === "boat" && /\b(jon|john ?boat|jonboat|skiff)\b/i.test(v.vehicle||"")) return "jonboat";
   if(v.type && (GAR_LINE[v.type] || VEHICLE_TYPE_ICONS[v.type] || VEHICLE_ICONS[v.type])) return v.type;
   const t = classifyVehicleIcon(v.vehicle);
   if((t === "pickup_ext" || t === "pickup_reg") && Number(v.doors) >= 4) return "pickup";
@@ -9037,7 +9054,7 @@ function garRepaint(url, hex){
 function garSilSrc(v){ return garFileSrc(garDrawFor(v), true); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
-  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}')`;
+  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}');--msize:${garDrawSize(v, 3.25)}`;
   return `<div class="${cls} gar-wire" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)} (no 3D model available)" style="--src:url('${garSilSrc(v)}')${edge}"><span class="gar-wire-fill"></span><span class="gar-wire-edge"></span><span class="gar-wire-scan"></span></div>`;
 }
 function garGhostHTML(v, cls){
