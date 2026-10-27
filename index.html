@@ -1270,6 +1270,8 @@
   @keyframes gar-spin{to{transform:rotate(360deg);}}
   .gar-credit{position:absolute;right:22px;bottom:16px;z-index:3;max-width:46%;font-size:10.5px;color:rgba(169,188,214,.75);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gar-credit:hover{color:#cfe4ff;text-decoration:underline;}
+  .gar-upload-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  .gar-upload{cursor:pointer;}
   .gar-repick{position:absolute;left:22px;bottom:12px;z-index:3;padding:5px 11px;border-radius:999px;border:1px solid rgba(124,196,255,.28);
     background:rgba(10,24,48,.55);color:#a9bcd6;font:inherit;font-size:11px;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
   .gar-repick:hover{color:#e6f4ff;border-color:rgba(124,196,255,.7);background:rgba(20,50,95,.7);}
@@ -8195,6 +8197,8 @@ function garCreditFor(rec){
 /* -> {kind:"model"|"render"|"sketchfab", url|uid, orbit, credit, thumb} or null */
 function garAssetFor(v, opts={}){
   if(opts.forceWire) return null;
+  const photo = v.photo || (v.photoId && garagePhotos[v.photoId]);
+  if(photo && !garAssetFailed[photo]) return {kind:"photo", url:photo, cut:!!v.photoCut, credit:null};
   const own = String(v.asset || v.imageUrl || "").trim();
   const ownUid = garSketchfabUid(own);
   if(ownUid && !garAssetFailed["sf:"+ownUid]){
@@ -8749,11 +8753,39 @@ function garAiHTML(v, cls, id){
   if(done) return `<img class="${cls} gar-render gar-cut" src="${done}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   return garGhostHTML(v, cls).replace('class="', `data-ai-src="${escapeHtml(id)}" class="`);
 }
+/* your own picture: cut out when its background could be removed, otherwise the photo with soft edges */
+function garPhotoHTML(v, cls, a){
+  return `<img class="${cls} gar-render ${a.cut ? "gar-cut" : "gar-thumbimg"}" src="${a.url}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
+}
+/* an uploaded file -> {url, cut}: at most 1000 px wide, background removed when it's plain */
+async function garPrepPhoto(file){
+  const src = URL.createObjectURL(file);
+  try{
+    const im = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = src; });
+    const W = Math.min(1000, im.naturalWidth), H = Math.max(1, Math.round(W * im.naturalHeight / im.naturalWidth));
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    c.getContext("2d").drawImage(im, 0, 0, W, H);
+    const small = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = c.toDataURL("image/png"); });
+    let cut = null;
+    try{ cut = garTrimTransparent(small) || garCutBackdrop(small); }catch(e){}
+    if(cut){
+      /* keep it small enough to store on this device */
+      if(cut.length > 600000){ const ci = await new Promise(r=>{ const i = new Image(); i.onload = ()=>r(i); i.src = cut; });
+        const k = Math.sqrt(600000 / cut.length), d = document.createElement("canvas"); d.width = Math.round(ci.naturalWidth*k); d.height = Math.round(ci.naturalHeight*k);
+        d.getContext("2d").drawImage(ci, 0, 0, d.width, d.height); cut = d.toDataURL("image/webp", .85); }
+      return {url:cut, cut:true};
+    }
+    let url = c.toDataURL("image/webp", .82);
+    if(!url.startsWith("data:image/webp")) url = c.toDataURL("image/jpeg", .82);
+    return {url, cut:false};
+  } finally { URL.revokeObjectURL(src); }
+}
 /* small visual: side panels, manage list, form preview */
 function garVisualHTML(v, cls, opts){
   const a = garAssetFor(v, opts);
   if(a && a.kind === "render") return `<img class="${cls} gar-render" src="${escapeHtml(garPaintedSrc(a.url, v.color))}" data-asset="${escapeHtml(a.url)}" data-paint="${escapeHtml(v.color||"")}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.kind === "ai") return garAiHTML(v, cls, a.url);
+  if(a && a.kind === "photo") return garPhotoHTML(v, cls, a);
   if(a && a.kind === "model" && garSnapshots[a.url + "|" + (v.color||"")]) return `<img class="${cls} gar-render" src="${garSnapshots[a.url + "|" + (v.color||"")]}" alt="${escapeHtml(v.vehicle)}" draggable="false">`;
   if(a && a.thumb) return garThumbHTML(v, cls, a.thumb);
   if(a || garAutoWaiting(v)) return garGhostHTML(v, cls);
@@ -8784,6 +8816,12 @@ function garShowcaseHTML(v, opts){
             allow="autoplay; fullscreen; xr-spatial-tracking" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
       </div>
+    </div>`;
+  }
+  if(a && a.kind === "photo"){
+    return `<div class="gar-show kind-render">
+      <div class="gar-contact" aria-hidden="true"></div>
+      <div class="gar-model">${garPhotoHTML(v, "", a)}</div>
     </div>`;
   }
   if(a && a.kind === "ai"){
@@ -9083,7 +9121,11 @@ function hydrateGarageFull(scope){
         <div class="gar-photo-pick">
           <div class="gar-photo-preview" id="gar-photo-preview"></div>
           <div class="gar-photo-btns">
-            <label class="gar-field gar-url"><span>3D model</span><input type="text" id="gar-f-asset" placeholder="Automatic — or paste a Sketchfab link" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
+            <div class="gar-upload-row">
+              <label class="gar-btn small gar-upload">${GAR_ICONS.plus}<span>${v.photoId && garagePhotos[v.photoId] ? "Change your picture" : "Upload your own picture"}</span><input type="file" id="gar-f-photo" accept="image/*" hidden></label>
+              <button type="button" class="gar-btn small ghost" id="gar-f-photo-clear"${v.photoId && garagePhotos[v.photoId] ? "" : " hidden"}>Use automatic</button>
+            </div>
+            <label class="gar-field gar-url"><span>Or an image link</span><input type="text" id="gar-f-asset" placeholder="Automatic — or paste an image / Sketchfab link" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
             <p class="gar-hint" id="gar-asset-hint"></p>
           </div>
         </div>
@@ -9112,22 +9154,44 @@ function hydrateGarageFull(scope){
     const typeSel = sheet.querySelector("#gar-f-type");
     const assetInp = sheet.querySelector("#gar-f-asset");
     const yearInp = sheet.querySelector("#gar-f-year");
+    /* your own picture: undefined = unchanged, {url, cut} = new one, null = removed */
+    let newPhoto;
+    const curPhoto = ()=>newPhoto === undefined ? (v.photoId && garagePhotos[v.photoId] ? {url:garagePhotos[v.photoId], cut:!!v.photoCut} : null) : newPhoto;
+    const photoInp = sheet.querySelector("#gar-f-photo"), photoClear = sheet.querySelector("#gar-f-photo-clear");
+    photoInp.addEventListener("change", async ()=>{
+      const f = photoInp.files && photoInp.files[0];
+      if(!f) return;
+      const hint = sheet.querySelector("#gar-asset-hint");
+      hint.textContent = "Preparing your picture…";
+      try{ newPhoto = await garPrepPhoto(f); }catch(e){ hint.textContent = "That file couldn't be opened as a picture."; return; }
+      photoInp.value = ""; photoClear.hidden = false;
+      photoInp.parentElement.querySelector("span").textContent = "Change your picture";
+      drawPreview();
+    });
+    photoClear.addEventListener("click", ()=>{
+      newPhoto = null; photoClear.hidden = true;
+      photoInp.parentElement.querySelector("span").textContent = "Upload your own picture";
+      drawPreview();
+    });
     let pickedColor = /^#[0-9a-f]{6}$/i.test(v.color||"") ? v.color.toLowerCase() : "";
     const swatches = sheet.querySelector("#gar-f-color");
     const markSwatch = ()=>swatches.querySelectorAll(".gar-swatch").forEach(b=>{
       const on = b.classList.contains("custom") ? !!pickedColor && !GAR_COLORS.some(c=>c[1]===pickedColor) : (b.dataset.color||"") === pickedColor;
       b.classList.toggle("on", on); if(b.tagName === "BUTTON") b.setAttribute("aria-checked", String(on));
     });
-    swatches.querySelectorAll("button.gar-swatch").forEach(b=>b.addEventListener("click", ()=>{ pickedColor = b.dataset.color || ""; markSwatch(); }));
+    swatches.querySelectorAll("button.gar-swatch").forEach(b=>b.addEventListener("click", ()=>{ pickedColor = b.dataset.color || ""; markSwatch(); if(typeof drawPreview === "function") drawPreview(); }));
     const customInp = sheet.querySelector("#gar-f-color-custom");
     customInp.addEventListener("input", ()=>{ pickedColor = customInp.value.toLowerCase(); customInp.parentElement.style.setProperty("--c", pickedColor); markSwatch(); });
     /* live preview + a one-line explanation of which asset will be used */
     function drawPreview(){
-      const fake = {vehicle: nameInp.value || "Vehicle", year: yearInp.value, type: typeSel.value, asset: assetInp.value.trim()};
+      const ph = curPhoto();
+      const fake = {vehicle: nameInp.value || "Vehicle", year: yearInp.value, type: typeSel.value, asset: assetInp.value.trim(), color: pickedColor, photo: ph ? ph.url : "", photoCut: ph ? ph.cut : false};
       preview.innerHTML = garVisualHTML(fake, "gar-preview-holo");
       wireGarAssets(preview, drawPreview);
       const own = fake.asset, a = garAssetFor(fake), m = garRegistryMatch(fake), hint = sheet.querySelector("#gar-asset-hint");
-      if(own && !garAssetKind(own)) hint.textContent = "Paste a Sketchfab model link, or a .glb / .gltf model or .svg / .png render.";
+      if(a && a.kind === "photo") hint.textContent = a.cut ? "Your picture, background removed — shown on the pedestal." : "Your picture — shown on the pedestal. (A photo on a plain background gets its background removed.)";
+      else if(a && a.kind === "ai") hint.textContent = "Picture found automatically from an image search. Upload your own or paste an image link to use a different one.";
+      else if(own && !garAssetKind(own)) hint.textContent = "Paste a Sketchfab model link, or a .glb / .gltf model or .svg / .png render.";
       else if(own && (garAssetFailed[own] || garAssetFailed["sf:"+garSketchfabUid(own)])) hint.textContent = "That model didn't load — leave this empty to pick one automatically.";
       else if(own && garSketchfabUid(own)) hint.textContent = "Sketchfab model — it'll spin on the pedestal.";
       else if(own && a && a.kind === "model") hint.textContent = "3D model — it'll spin on the pedestal (drag to rotate).";
@@ -9172,7 +9236,15 @@ function hydrateGarageFull(scope){
       if(asset){ entry.asset = asset; delete garAssetFailed[asset]; const u = garSketchfabUid(asset); if(u) delete garAssetFailed["sf:"+u]; } else delete entry.asset;
       /* retire the old photo pipeline's fields */
       delete entry.imageUrl; delete entry.autoImage; delete entry.photoCutout;
-      if(entry.photoId){ delete garagePhotos[entry.photoId]; delete entry.photoId; saveGaragePhotos(); }
+      if(newPhoto !== undefined){
+        if(entry.photoId){ delete garagePhotos[entry.photoId]; delete entry.photoId; delete entry.photoCut; }
+        if(newPhoto){
+          const pid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          garagePhotos[pid] = newPhoto.url;
+          if(!saveGaragePhotos()){ delete garagePhotos[pid]; status.textContent = "Not enough space on this device for that picture — try a smaller one."; return; }
+          entry.photoId = pid; if(newPhoto.cut) entry.photoCut = true;
+        } else saveGaragePhotos();
+      }
       if(!editing){ garageData.vehicles.push(entry); garageSelectedIndex = garageData.vehicles.length - 1; lastDir = 1; }
       save(); render(); closeSheet();
     }
