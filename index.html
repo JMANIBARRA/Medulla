@@ -8231,30 +8231,62 @@ const garPngDone = {}, garPngJobs = {}, garPngVeh = {};
 const GAR_PNG_BAD = /\b(toy|lego|cartoon|logo|emblem|wheels?|rims?|tires?|tyres?|engine|interior|seats?|bumper|grille|headlights?|taillights?|lifted|wreck(ed)?|rusty|silhouette|outline|sketch|coloring|blueprint|exploded|keychain|sticker|decal)\b/i;
 const GAR_DDG_COLOR = {white:"White", black:"Black", silver:"Gray", gray:"Gray", red:"Red", "dark red":"Red", blue:"Blue", navy:"Blue",
   green:"Green", yellow:"Yellow", orange:"Orange", brown:"Brown", tan:"Brown", gold:"Yellow"};
-function garPngId(v){ return "2|" + garModelKey(v) + "|" + String(v.color||"").toLowerCase(); }
+function garPngId(v){ return "3|" + garModelKey(v) + "|" + String(v.color||"").toLowerCase(); }
 /* the factory (OEM) name of the chosen colour for this exact vehicle, e.g. white on a Kawasaki Z400 ->
    its real white colour scheme, so the image search finds that scheme rather than any white-ish one */
 const GAR_OEM_STORE = NS + "garageOemColors";
 let garOem = (()=>{ const m = loadJSON(GAR_OEM_STORE, {}); return (m && typeof m === "object") ? m : {}; })();
+/* a colour word -> the hue family it belongs to ("" for black/white/grey/silver: no hue) */
+function garHueName(c){
+  c = String(c||"").toLowerCase();
+  if(/red|crimson|maroon|burgundy|scarlet|ruby|candy apple/.test(c)) return "red";
+  if(/orange|copper|bronze|amber|brown|tan|beige|gold/.test(c)) return "orange";
+  if(/yellow|lemon/.test(c)) return "yellow";
+  if(/green|lime|olive|emerald/.test(c)) return "green";
+  if(/blue|navy|teal|cyan|turquoise|aqua|sapphire|cobalt/.test(c)) return "blue";
+  if(/purple|violet|plum|magenta/.test(c)) return "purple";
+  if(/pink|rose/.test(c)) return "pink";
+  return "";
+}
+/* the picture's clearly coloured areas must all be colours of the chosen scheme (a white Z400 can't be green) */
+function garColorsOk(im, allowed){
+  const W = 160, H = Math.max(1, Math.round(W * im.naturalHeight / im.naturalWidth));
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", {willReadFrequently:true}); ctx.drawImage(im, 0, 0, W, H);
+  const d = ctx.getImageData(0, 0, W, H).data, share = {};
+  let n = 0;
+  for(let i = 0; i < d.length; i += 4){
+    if(d[i+3] < 200) continue;
+    n++;
+    const [h, s, l] = garRgbToHsl(d[i], d[i+1], d[i+2]);
+    if(s < .35 || l < .15 || l > .85) continue;
+    const name = h < 15 || h >= 345 ? "red" : h < 40 ? "orange" : h < 70 ? "yellow" : h < 165 ? "green" : h < 260 ? "blue" : h < 300 ? "purple" : "pink";
+    share[name] = (share[name]||0) + 1;
+  }
+  if(!n) return false;
+  return Object.entries(share).every(([name, k])=>k / n < .04 || allowed.has(name));
+}
 async function garOemColor(v, named){
-  if(!named || !cloudAiAvailable()) return "";
-  const key = garModelKey(v) + "|" + named;
+  if(!named || !cloudAiAvailable()) return null;
+  const key = "2|" + garModelKey(v) + "|" + named;
   if(key in garOem) return garOem[key];
   const year = garYear(v), name = String(v.vehicle||"").trim();
-  let out = "";
+  let out = null;
   try{
-    const res = await groqChatRequest({model:"llama-3.3-70b-versatile", temperature:0, max_tokens:80, messages:[
+    const res = await groqChatRequest({model:"llama-3.3-70b-versatile", temperature:0, max_tokens:120, messages:[
       {role:"system", content:"You know vehicle manufacturers' official factory (OEM) paint colours and colour schemes by model year. Answer with JSON only."},
-      {role:"user", content:`Vehicle: ${year ? year + " " : ""}${name}. The owner chose the colour "${named}". Give the official factory colour or colour-scheme name this vehicle was actually sold in that best matches "${named}". For two-tone or multi-colour schemes (common on motorcycles) give the full scheme name as the manufacturer lists it. If you are not sure, answer "${named}". JSON: {"oem":"..."}`}]});
+      {role:"user", content:`Vehicle: ${year ? year + " " : ""}${name}. The owner chose the colour "${named}". Give the official factory colour or colour-scheme name this vehicle was actually sold in that best matches "${named}". For two-tone or multi-colour schemes (common on motorcycles) give the full scheme name as the manufacturer lists it. If you are not sure, answer "${named}". JSON: {"oem":"...", "colors":["every colour visible in that factory scheme, e.g. white, black, red"]}`}]});
     if(res && res.ok){
       const d = await res.json();
       const t = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || "";
       const m = t.match(/\{[\s\S]*?\}/);
       const j = m ? JSON.parse(m[0]) : null;
-      out = String(j && j.oem || "").replace(/[^\w\s\/&+'-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 70);
+      const oem = String(j && j.oem || "").replace(/[^\w\s\/&+'-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 70);
+      const colors = (Array.isArray(j && j.colors) ? j.colors : []).map(x=>String(x).toLowerCase().slice(0, 30)).slice(0, 6);
+      out = {oem: oem.toLowerCase() === named.toLowerCase() ? "" : oem, colors};
     }
   }catch(e){}
-  if(out.toLowerCase() === named.toLowerCase()) out = "";
+  if(!out) return null;
   garOem[key] = out; saveJSON(GAR_OEM_STORE, garOem);
   return out;
 }
@@ -8295,24 +8327,30 @@ function garPngResolve(v){
     const hex = String(v.color||"").toLowerCase();
     const named = ((GAR_COLORS.find(c=>c[1].toLowerCase() === hex)||[])[0]||"").toLowerCase();
     const finish = async (img, matched)=>(!matched && /^#[0-9a-f]{6}$/.test(hex)) ? (await garRepaint(img, hex) || img) : img;
-    const tryUrl = async u=>{ try{ const im = await garLoadImg(`${MEDULLA_AI_PROXY_URL}/garage/img?u=${encodeURIComponent(u)}`); return garTrimTransparent(im) || garCutBackdrop(im); }catch(e){ return null; } };
+    let allowed = null;   /* colours the picture may show (set for colour-matched searches) */
+    const tryUrl = async u=>{ try{ const im = await garLoadImg(`${MEDULLA_AI_PROXY_URL}/garage/img?u=${encodeURIComponent(u)}`); if(allowed && !garColorsOk(im, allowed)) return null; return garTrimTransparent(im); }catch(e){ return null; } };
     const saved = garPngPicks[id];
     if(saved && saved.u){ const t = await tryUrl(saved.u); if(t) return finish(t, saved.matched); delete garPngPicks[id]; }
     const rejected = new Set(garRejected[id] || []);
     const name = String(v.vehicle||"").trim(), year = garYear(v), base = `${year ? year + " " : ""}${name}`;
-    const want = garTokens(name).filter(t=>!GAR_GENERIC.has(t) && !GAR_MAKES.has(t));
+    const want = garTokens(name).filter(t=>!GAR_MAKES.has(t));
+    const titleOk = t=>{ t = String(t||"").toLowerCase().replace(/[^a-z0-9]+/g, " "); const squashed = t.replace(/ /g, "");
+      return want.every(w=>new RegExp(`\\b${w}\\b`).test(t) || (/\d/.test(w) && squashed.includes(w))); };
     const ddg = GAR_DDG_COLOR[named] || "";
     const passes = ddg ? [[`${base} ${named} png`, ddg, true], [`${base} png`, "", false]] : [[`${base} png`, "", !hex]];
-    const oem = await garOemColor(v, named);
-    if(oem){ console.info(`[Garage] ${base}: factory colour "${oem}"`); passes.unshift([`${base} ${oem.replace(/\//g, " ")} png`, "", true]); }
+    const scheme = await garOemColor(v, named);
+    const oem = scheme && scheme.oem;
+    if(oem){ console.info(`[Garage] ${base}: factory colour "${oem}" (${(scheme.colors||[]).join(", ")})`); passes.unshift([`${base} ${oem.replace(/\//g, " ")} png`, "", true]); }
+    const schemeHues = new Set([...(scheme && scheme.colors || []), named].map(garHueName).filter(Boolean));
     if(year) passes.push([`${name} png`, "", !hex]);   /* last try without the year */
     for(const [q, col, matched] of passes){
+      allowed = matched && named ? schemeHues : null;
       let list; try{ list = await garPngSearch(q, col); }catch(e){ list = []; }
       console.info(`[Garage] "${q}"${col ? " (" + col + ")" : ""}: ${list.length} results`);
       list = list.filter(r=>r && r.img && !rejected.has(r.img) && !GAR_PNG_BAD.test(r.title||"")
         && (!r.w || !r.h || (r.w / r.h > 1.1 && r.w / r.h < 4.2 && r.w >= 300))
-        && (!want.length || want.some(t=>String(r.title||"").toLowerCase().includes(t))));
-      for(const r of list.slice(0, 12)){
+        && (!want.length || titleOk(r.title)));
+      for(const r of list.slice(0, 16)){
         const t = await tryUrl(r.img);
         if(t){ garPngPicks[id] = {u:r.img, matched}; saveJSON(GAR_PNG_STORE, garPngPicks); return finish(t, matched); }
       }
