@@ -1227,7 +1227,7 @@
   @keyframes gar-sweep{to{--gar-sweep:360deg;}}
   .gar-ped-inner{position:absolute;inset:22% 20% 30% 20%;border-radius:50%;border:1px dashed rgba(140,200,255,.28);}
   /* ---- the car: grounded with a contact shadow, a floor reflection and a slow light sweep ---- */
-  .gar-car{position:absolute;left:50%;bottom:46%;transform:translateX(-50%);width:62%;height:165%;pointer-events:none;}
+  .gar-car{position:absolute;left:50%;bottom:46%;transform:translateX(-50%);width:80%;height:165%;pointer-events:none;}
   .gar-show{position:absolute;inset:0;}
   .gar-model{position:absolute;left:0;right:0;bottom:0;top:0;display:flex;align-items:flex-end;justify-content:center;}
   .gar-model .gar-img, .gar-model .gar-sil{position:relative;display:block;max-width:100%;max-height:100%;}
@@ -1278,8 +1278,8 @@
   .gar-repick[hidden]{display:none;}
   .gar-auto-row{flex:1 1 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#a9bcd6;margin-top:2px;}
   /* ---- holographic wireframe fallback: faint grid-filled body, bright traced outline, scan line ---- */
-  .gar-wire{position:relative;display:block;width:100%;aspect-ratio:3.25/1;}
-  .gar-wire > span{position:absolute;inset:-60% 0 0 0;   /* headroom above: tall vehicles keep their real size */-webkit-mask:var(--src) center bottom/var(--msize, contain) no-repeat;mask:var(--src) center bottom/var(--msize, contain) no-repeat;}
+  .gar-wire{position:relative;display:block;width:100%;aspect-ratio:2/1;}
+  .gar-wire > span{position:absolute;inset:0;-webkit-mask:var(--src) center bottom/var(--msize, contain) no-repeat;mask:var(--src) center bottom/var(--msize, contain) no-repeat;}
   .gar-wire-fill{background:
       repeating-linear-gradient(0deg, rgba(120,200,255,.10) 0 1px, transparent 1px 7px),
       repeating-linear-gradient(90deg, rgba(120,200,255,.07) 0 1px, transparent 1px 11px),
@@ -7766,7 +7766,7 @@ const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
 const GAR_OTHER_TYPES = ["jonboat","boat","jetski","atv","snowmobile","rv","trailer","tractor"];
 /* bump when a drawing file changes, so browsers don't keep showing the old one */
-const GAR_ICON_V = "14";
+const GAR_ICON_V = "15";
 function garFileSrc(f, fill){ return `icons/vehicles/${f}${fill ? "-fill" : ""}.png?v=${GAR_ICON_V}`; }
 /* pickups: the drawing follows the truck's era (year), cab (body style / doors) and size (model) */
 const GAR_TRUCK_TYPES = new Set(["pickup","pickup_full","pickup_reg","pickup_ext","minitruck"]);
@@ -9063,7 +9063,7 @@ function garRepaint(url, hex){
 function garSilSrc(v){ return garFileSrc(garDrawFor(v), true); }
 function garWireHTML(v, cls){
   const type = resolveVehicleType(v);
-  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}');--msize:${garDrawSize(v, 3.25 / 1.6)}`;
+  const edge = `;--edge:url('${garFileSrc(garDrawFor(v))}');--msize:${garDrawSize(v, 2)}`;
   return `<div class="${cls} gar-wire" data-holo="${escapeHtml(type)}" role="img" aria-label="${escapeHtml(v.vehicle)} (no 3D model available)" style="--src:url('${garSilSrc(v)}')${edge}"><span class="gar-wire-fill"></span><span class="gar-wire-edge"></span><span class="gar-wire-scan"></span></div>`;
 }
 function garGhostHTML(v, cls){
