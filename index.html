@@ -7766,7 +7766,7 @@ const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
 const GAR_OTHER_TYPES = ["jonboat","boat","jetski","atv","snowmobile","rv","trailer","tractor"];
 /* bump when a drawing file changes, so browsers don't keep showing the old one */
-const GAR_ICON_V = "9";
+const GAR_ICON_V = "10";
 function garFileSrc(f, fill){ return `icons/vehicles/${f}${fill ? "-fill" : ""}.png?v=${GAR_ICON_V}`; }
 /* pickups: the drawing follows the truck's era (year), cab (body style / doors) and size (model) */
 const GAR_TRUCK_TYPES = new Set(["pickup","pickup_full","pickup_reg","pickup_ext","minitruck"]);
@@ -7803,7 +7803,34 @@ function garSedanFile(v){
   if(y < 2012) return perf ? "s_e3_perf" : lux ? "s_e3_lux" : "s_e3_aero";
   return ev ? "s_e4_ev" : lux ? "s_e4_lux" : perf ? "s_e3_perf" : "s_e4_mid";
 }
+/* ---- exact drawings per make / model / generation (US model years). Checked first; anything not
+   listed here falls back to the body-style drawings. Add a model: {match, gens:[[firstYear, lastYear, file], …]} ---- */
+const GAR_MODELS = [
+  {make:"Toyota", model:"Camry", match:/\bcamry\b/, gens:[
+    [1983, 1986, "toyota_camry_v10"],    /* V10 */
+    [1987, 1991, "toyota_camry_v20"],    /* V20 */
+    [1992, 1996, "toyota_camry_xv10"],   /* XV10 */
+    [1997, 2001, "toyota_camry_xv20"],   /* XV20 */
+    [2002, 2006, "toyota_camry_xv30"],   /* XV30 */
+    [2007, 2011, "toyota_camry_xv40"],   /* XV40 */
+    [2012, 2014, "toyota_camry_xv50"],   /* XV50 */
+    [2015, 2017, "toyota_camry_xv50b"],  /* XV50 facelift */
+    [2018, 2020, "toyota_camry_xv70"],   /* XV70 */
+    [2021, 2024, "toyota_camry_xv70b"],  /* XV70 facelift */
+    [2025, 2099, "toyota_camry_xv80"],   /* XV80 */
+  ]},
+];
+function garModelFile(v){
+  const n = String(v.vehicle||"").toLowerCase(), y = garYear(v);
+  const m = GAR_MODELS.find(m=>m.match.test(n));
+  if(!m) return null;
+  if(!y) return m.gens[m.gens.length-1][2];                       /* no year: the current one */
+  const g = m.gens.find(g=>y >= g[0] && y <= g[1]) || (y < m.gens[0][0] ? m.gens[0] : m.gens[m.gens.length-1]);
+  return g[2];
+}
 function garDrawFor(v){
+  const exact = garModelFile(v);
+  if(exact) return exact;
   const t = resolveVehicleType(v);
   if(GAR_TRUCK_TYPES.has(t)) return garTruckFile(v, t);
   if(t === "sedan") return garSedanFile(v);
@@ -7909,6 +7936,7 @@ function classifyVehicleIcon(text){
   if(has("f-?150","f-?250","f-?350","silverado","sierra","ram","ram 1500","tundra","titan")) return "pickup_full";
   if(has("mini ?truck","hardbody","d21","toyota pickup","hilux","s-?10","sonoma","b-?series","b ?\\d{4}","courier","luv","t-?100","mighty max","d-?50","p-?up")) return "minitruck";
   if(has("ranger","dakota")) return "pickup_ext";
+  if(GAR_MODELS.some(m=>m.match.test(t))) return "sedan";
   if(has("tacoma","colorado","canyon","frontier","maverick","ridgeline","santa cruz")) return "pickup";
   const isMoto = MOTO_MODEL_WORDS.some(k=>t.includes(k)) || MOTO_ONLY_BRANDS.some(k=>t.includes(k)) || NAKED_WORDS.some(k=>t.includes(k));
   if(isMoto){
