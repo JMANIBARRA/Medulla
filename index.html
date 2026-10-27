@@ -1781,6 +1781,122 @@
   .btn:hover{border-color:var(--accent-teal);color:var(--accent-teal);box-shadow:0 0 10px -3px var(--accent-teal);}
   .btn.primary{background:var(--accent-amber);color:var(--bg-deep);border-color:var(--accent-amber);font-weight:700;}
   .btn.primary:hover{color:var(--bg-deep);box-shadow:0 0 12px -1px var(--accent-amber);}
+
+  /* ---- Career ---- */
+  #modal-panel.modal-custom.modal-career{width:min(1180px,96vw);max-height:94vh;}
+  #modal-panel.modal-custom.modal-career #modal-body{padding:0;}
+  .cr-root{position:relative;padding:22px 24px 24px;color:#e6eef8;font-family:var(--font-body);background:radial-gradient(ellipse 60% 40% at 20% 0%, rgba(40,105,210,.14), transparent 70%);}
+  .cr-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px;}
+  .cr-top h2{margin:0;font-size:28px;font-weight:700;letter-spacing:-.01em;color:#fff;text-transform:none;text-shadow:none;font-family:var(--font-body);}
+  .cr-top p{margin:2px 0 0;color:#9fb3cc;font-size:14px;}
+  .cr-top-r{display:flex;gap:10px;align-items:center;}
+  .cr-x{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(10,22,42,.7);color:#cfe0f5;cursor:pointer;display:grid;place-items:center;}
+  .cr-x svg{width:16px;height:16px;}
+  .cr-btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:9px;border:1px solid rgba(124,180,255,.35);background:rgba(10,24,46,.7);color:#dbe8f8;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .cr-btn svg{width:15px;height:15px;}
+  .cr-btn:hover{border-color:#5aa9ff;color:#fff;}
+  .cr-btn.primary{background:linear-gradient(180deg,#2f8bff,#1366e6);border-color:transparent;color:#fff;box-shadow:0 6px 18px -8px #1f7bff;}
+  .cr-btn.primary:hover{filter:brightness(1.08);}
+  .cr-btn.wide{width:100%;justify-content:center;}
+  .cr-btn.danger{border-color:#e05563;color:#ff9aa4;}
+  .cr-ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none;background:rgba(40,110,230,.16);border:1px solid rgba(90,169,255,.35);color:#6db4ff;}
+  .cr-ico svg{width:22px;height:22px;}
+  .cr-ico.sm{width:36px;height:36px;}
+  .cr-ico.teal{background:rgba(20,170,150,.14);border-color:rgba(50,210,180,.35);color:#3fd6b8;}
+  .cr-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+  .cr-stat{display:flex;gap:14px;align-items:center;text-align:left;padding:16px 18px;border-radius:14px;border:1px solid rgba(90,169,255,.22);background:linear-gradient(180deg, rgba(15,32,58,.78), rgba(8,18,35,.78));color:inherit;font:inherit;cursor:default;}
+  button.cr-stat{cursor:pointer;} button.cr-stat:hover{border-color:rgba(90,169,255,.5);}
+  .cr-stat small{display:block;font-size:13px;color:#b9c9de;}
+  .cr-stat b{display:block;font-size:26px;font-weight:700;margin:2px 0;color:#fff;}
+  .cr-stat em{font-style:normal;font-size:12px;color:#8ea3bd;display:flex;align-items:center;gap:4px;}
+  .cr-stat em.up{color:#36d39a;} .cr-stat em svg{width:13px;height:13px;}
+  .cr-stat em.dot::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .cr-stat em.good{color:#36d39a;} .cr-stat em.warn{color:#f0b84a;}
+  .cr-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;}
+  .cr-side{display:flex;flex-direction:column;gap:16px;}
+  .cr-card{border-radius:14px;border:1px solid rgba(90,169,255,.22);background:linear-gradient(180deg, rgba(15,32,58,.78), rgba(8,18,35,.78));padding:14px;}
+  .cr-card-head{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .cr-card-head h3{margin:0;font-size:16px;font-weight:600;color:#fff;}
+  .cr-card-head p{margin:2px 0 0;font-size:12.5px;color:#9fb3cc;}
+  .cr-doc-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-radius:11px;border:1px solid rgba(90,169,255,.25);background:rgba(10,24,46,.55);margin-bottom:12px;}
+  .cr-doc-name{display:flex;flex-direction:column;flex:1;min-width:150px;}
+  .cr-doc-name b{font-size:13.5px;} .cr-doc-name span{font-size:12px;color:#9fb3cc;}
+  .cr-strength{display:flex;flex-direction:column;gap:3px;min-width:110px;font-size:12px;color:#b9c9de;}
+  .cr-strength b{color:#fff;font-size:13px;}
+  .cr-strength i{display:block;height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;}
+  .cr-strength em{display:block;height:100%;background:linear-gradient(90deg,#16b08b,#3fe0b4);border-radius:3px;transition:width .3s;}
+  .cr-resume{border-radius:11px;border:1px solid rgba(90,169,255,.25);background:rgba(8,18,34,.6);padding:18px 20px;font-size:12.5px;line-height:1.55;}
+  .cr-name{margin:0;font-size:24px;font-weight:700;color:#fff;}
+  .cr-sub{color:#b9c9de;font-size:14px;margin-bottom:8px;}
+  .cr-contact{display:flex;flex-wrap:wrap;gap:6px 16px;color:#b9c9de;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1);}
+  .cr-contact > span{display:inline-flex;align-items:center;gap:6px;} .cr-contact svg{width:13px;height:13px;opacity:.8;flex:none;}
+  .cr-resume h4{margin:14px 0 8px;font-size:15px;font-weight:600;color:#fff;}
+  .cr-job{margin-bottom:10px;}
+  .cr-job-head{display:flex;justify-content:space-between;gap:10px;}
+  .cr-dates{color:#9fb3cc;font-size:11.5px;white-space:nowrap;}
+  .cr-job ul{margin:4px 0 0;padding-left:16px;color:#c9d6e6;}
+  .cr-foot{display:grid;grid-template-columns:1fr 1fr;gap:16px;border-top:1px solid rgba(255,255,255,.1);margin-top:12px;}
+  .cr-foot > div + div{border-left:1px solid rgba(255,255,255,.1);padding-left:16px;}
+  .cr-strong{font-weight:600;color:#fff;} .cr-dim{color:#9fb3cc;font-size:12px;}
+  .cr-skills{color:#c9d6e6;}
+  .cr-ed:empty::before{content:attr(data-ph);color:#5f7491;}
+  .cr-editing .cr-ed{outline:1px dashed rgba(90,169,255,.35);outline-offset:2px;border-radius:3px;min-width:30px;display:inline-block;}
+  .cr-editing .cr-ed:focus{outline:1px solid #5aa9ff;background:rgba(40,110,230,.12);}
+  .cr-edit-only{display:none;gap:6px;margin-top:4px;} .cr-editing .cr-edit-only{display:flex;}
+  .cr-mini{height:26px;padding:0 9px;border-radius:7px;border:1px solid rgba(124,180,255,.3);background:rgba(10,24,46,.7);color:#cfe0f5;font:inherit;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+  .cr-mini svg{width:12px;height:12px;}
+  .cr-letter{margin-top:12px;border-radius:11px;border:1px solid rgba(90,169,255,.25);background:rgba(8,18,34,.6);padding:12px;}
+  .cr-letter-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;} .cr-letter-head span{flex:1;color:#9fb3cc;font-size:12px;}
+  .cr-letter textarea{width:100%;box-sizing:border-box;resize:vertical;background:rgba(4,12,24,.6);border:1px solid rgba(90,169,255,.2);border-radius:8px;color:#dbe8f8;font:inherit;font-size:13px;line-height:1.55;padding:10px;}
+  .cr-sal{border-radius:11px;border:1px solid rgba(90,169,255,.25);background:rgba(10,24,46,.55);padding:16px;}
+  .cr-sal-val{font-size:22px;font-weight:700;color:#fff;margin-bottom:14px;}
+  .cr-range{position:relative;height:22px;}
+  .cr-range::before{content:"";position:absolute;left:0;right:0;top:9px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);}
+  .cr-range-fill{position:absolute;top:9px;height:4px;border-radius:2px;background:#2f8bff;}
+  .cr-range input{position:absolute;inset:0;width:100%;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none;}
+  .cr-range input::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#0b1a33;border:3px solid #2f8bff;cursor:pointer;box-shadow:0 0 10px #2f8bff;}
+  .cr-range input::-moz-range-thumb{pointer-events:auto;width:13px;height:13px;border-radius:50%;background:#0b1a33;border:3px solid #2f8bff;cursor:pointer;}
+  .cr-range input::-webkit-slider-runnable-track{background:none;} .cr-range input::-moz-range-track{background:none;}
+  .cr-range-ends{display:flex;justify-content:space-between;font-size:12px;color:#b9c9de;margin:6px 0 10px;}
+  .cr-sal-meta{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#b9c9de;margin-bottom:12px;}
+  .cr-sal-meta svg{width:14px;height:14px;flex:none;}
+  .cr-sal-meta input{flex:1;min-width:0;background:transparent;border:0;border-bottom:1px dashed rgba(124,180,255,.3);color:#dbe8f8;font:inherit;padding:2px 0;}
+  .cr-chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+  .cr-chips button{height:28px;padding:0 12px;border-radius:14px;border:1px solid rgba(124,180,255,.3);background:rgba(10,24,46,.6);color:#cfe0f5;font:inherit;font-size:12px;cursor:pointer;}
+  .cr-chips button.on{background:#2f8bff;border-color:#2f8bff;color:#fff;}
+  .cr-feed{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding-right:2px;}
+  .cr-job-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px;border-radius:11px;border:1px solid rgba(90,169,255,.22);background:rgba(10,24,46,.55);}
+  .cr-logo{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;position:relative;overflow:hidden;}
+  .cr-logo b{font-size:20px;color:#fff;} .cr-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;}
+  .cr-job-main{display:flex;flex-direction:column;min-width:0;}
+  .cr-job-main b{font-size:13.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cr-co{font-size:12px;color:#3fd6b8;}
+  .cr-job-meta{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#9fb3cc;white-space:nowrap;overflow:hidden;}
+  .cr-job-meta svg{width:12px;height:12px;flex:none;} .cr-job-meta i{width:10px;}
+  .cr-match{font-size:11.5px;padding:4px 10px;border-radius:12px;background:rgba(255,255,255,.08);color:#b9c9de;white-space:nowrap;}
+  .cr-match.mid{background:rgba(54,211,154,.12);color:#5fe0b0;} .cr-match.hi{background:rgba(54,211,154,.2);color:#6ff0c0;}
+  .cr-job-acts{display:flex;align-items:center;gap:8px;}
+  .cr-save{background:none;border:0;color:#9fb3cc;font-size:16px;cursor:pointer;} .cr-save.on{color:#f0c84a;}
+  .cr-view{display:inline-flex;align-items:center;gap:4px;color:#5aa9ff;font-size:12.5px;font-weight:600;text-decoration:none;white-space:nowrap;}
+  .cr-view svg{width:13px;height:13px;}
+  .cr-sheet{position:absolute;inset:0;z-index:20;background:rgba(3,8,18,.6);display:flex;align-items:flex-start;justify-content:center;padding-top:80px;}
+  .cr-sheet[hidden]{display:none;}
+  .cr-sheet-panel{width:min(460px,92%);border-radius:14px;border:1px solid rgba(90,169,255,.35);background:#0b1a33;padding:18px;box-shadow:0 30px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px;}
+  .cr-sheet-panel h3{margin:0 0 4px;font-size:17px;color:#fff;}
+  .cr-sheet-panel label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#9fb3cc;}
+  .cr-sheet-panel input, .cr-sheet-panel select{height:36px;border-radius:8px;border:1px solid rgba(124,180,255,.3);background:rgba(4,12,24,.7);color:#e6eef8;font:inherit;font-size:13px;padding:0 10px;}
+  .cr-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .cr-sheet-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .cr-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto;}
+  .cr-list-row{display:grid;grid-template-columns:1fr auto auto;grid-template-rows:auto auto;gap:0 10px;text-align:left;padding:9px 11px;border-radius:9px;border:1px solid rgba(124,180,255,.2);background:rgba(10,24,46,.6);color:#e6eef8;font:inherit;cursor:pointer;}
+  .cr-list-row b{font-size:13px;} .cr-list-row span{grid-row:2;font-size:12px;color:#9fb3cc;}
+  .cr-list-row em{font-style:normal;font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.08);align-self:center;grid-row:1/3;}
+  .cr-list-row small{grid-row:1/3;align-self:center;font-size:11px;color:#9fb3cc;}
+  .cr-list-row em.st-interview{color:#3fd6b8;} .cr-list-row em.st-offer{color:#36d39a;} .cr-list-row em.st-rejected{color:#ff8a95;}
+  .cr-mini-w{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+  .cr-mini-w > div{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);} .cr-mini-w .wide{grid-column:1/-1;}
+  .cr-mini-w small{display:block;font-size:10px;color:var(--text-dim);} .cr-mini-w b{font-size:16px;}
+  @media (max-width:860px){ .cr-grid,.cr-stats{grid-template-columns:1fr;} .cr-job-card{grid-template-columns:40px minmax(0,1fr) auto;} .cr-match{display:none;} }
   .sp-hub{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;min-height:340px;}
   @media (max-width:640px){ .sp-hub{grid-template-columns:1fr;} }
   .sp-col{display:flex;flex-direction:column;min-width:0;}
@@ -2731,7 +2847,7 @@ const WIDGET_DEFS = [
   {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
   {id:"garage", title:"Garage", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Add vehicles you own, keep a running garage list."},
   {id:"phone", title:"Phone", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Saved contacts you can call with one click via tel: links — add a name and number, tap to dial."},
-  {id:"career", title:"Career", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Resume/cover letter editor, salary target tracker, and job feed deep-links."},
+  {id:"career", title:"Career", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Resume/cover letter editor, salary target tracker, and job feed deep-links."},
   {id:"fitness", title:"Fitness", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Age/gender setup, routine + food diary journaling, and a biomarker notes panel."},
   {id:"market", title:"Market", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Live indices + pinned assets, headline wire."},
   {id:"claudeprojects", title:"Projects", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Notes pad plus a sandbox area for snippets and file paths."},
@@ -6071,7 +6187,8 @@ window.addEventListener("keydown",(e)=>{
 function openModal(def){
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career");
+  document.getElementById("modal-panel").classList.toggle("modal-career", def.id==="career");
   document.getElementById("modal-panel").classList.toggle("modal-garage", def.id==="garage");
   document.getElementById("modal-panel").classList.toggle("modal-market", def.id==="market");
   document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
@@ -6090,6 +6207,7 @@ function openModal(def){
     if(def.id==="fitness") hydrateFitnessFull(modalBody);
     if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
     if(def.id==="phone") hydratePhoneFull(modalBody);
+    if(def.id==="career") hydrateCareerFull(modalBody);
     if(def.id==="bluetooth") hydrateBluetoothFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
@@ -6123,6 +6241,7 @@ const INDEX_ASSETS = {
 const COIN_NAMES = {bitcoin:"BTC", ethereum:"ETH", solana:"SOL", dogecoin:"DOGE", cardano:"ADA"};
 
 function renderMini(id){
+  if(id==="career") return careerMiniHTML();
   if(id==="market"){
     /* table-layout:fixed + an all-percentage colgroup (see .mkt-fixed-table CSS) so the
        sparkline column can NEVER push the table wider than this compact card — with the default
@@ -6460,6 +6579,7 @@ function renderFull(id){
     </div>`;
   }
   if(id==="garage") return garageFullHTML();
+  if(id==="career") return careerFullHTML();
   if(id==="phone"){
     return `
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Saved Contacts</h3>
@@ -7923,6 +8043,376 @@ function hydrateSportsFull(scope){
   return function cleanup(){ clearInterval(intervalId); };
 }
 async function loadEvents(scope){ if(scope && scope.querySelector && scope.querySelector("#sp-games")) return spLoadFeed(scope); }
+
+/* ================= CAREER =================
+   Applications tracker, resume + AI cover letter, salary target, and a job feed. Everything is
+   saved in NS+"career". The job feed is live from Remotive (free, no key); every job also gets
+   a match score from your resume's title/skills and your salary target. When the feed can't be
+   reached, the cards become search links for LinkedIn / Indeed / Google Jobs instead. */
+const CAREER_STAGES = ["Applied","Interview","Offer","Rejected"];
+function careerDefaults(){
+  return {
+    apps:[],
+    salary:{min:65000, max:75000, lo:30000, hi:200000, location:"", field:""},
+    resume:{name:userPreferredName || "", title:"", location:"", phone:"", email:"", linkedin:"",
+      experience:[{role:"", company:"", dates:"", bullets:[""]}],
+      education:{school:"", degree:"", date:"", gpa:""}, skills:[]},
+    resumeLabel:"My Resume", resumeUpdated:0, saved:[], letter:"",
+  };
+}
+let careerData = (()=>{ const d = loadJSON(NS+"career", null); const base = careerDefaults();
+  if(!d || typeof d !== "object") return base;
+  return {...base, ...d, salary:{...base.salary, ...(d.salary||{})}, resume:{...base.resume, ...(d.resume||{}), education:{...base.resume.education, ...((d.resume||{}).education||{})}}};
+})();
+function saveCareer(){ saveJSON(NS+"career", careerData); }
+const careerMoney = n=>"$" + Math.round(n/1000) + "k";
+const careerMoneyFull = n=>"$" + Math.round(n).toLocaleString("en-US");
+const CAREER_ICONS = {
+  doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  coins:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  brief:'<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 13h18"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  money:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
+  pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
+  up:'<path d="M7 17 17 7M9 7h8v8"/>', plus:'<path d="M12 5v14M5 12h14"/>', ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  phone:'<path d="M21 16.4v2.8a1.9 1.9 0 0 1-2.07 1.9 18.8 18.8 0 0 1-8.2-2.92 18.5 18.5 0 0 1-5.7-5.7A18.8 18.8 0 0 1 2.1 4.24 1.9 1.9 0 0 1 4 2.17h2.8a1.9 1.9 0 0 1 1.9 1.63c.12.9.34 1.8.66 2.66a1.9 1.9 0 0 1-.43 2L7.7 9.7a15 15 0 0 0 6.6 6.6l1.24-1.24a1.9 1.9 0 0 1 2-.43c.86.32 1.76.54 2.66.66a1.9 1.9 0 0 1 1.63 1.92z"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+  link:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v6M8 7.5v.01M12 16v-3.5a2 2 0 0 1 4 0V16M12 10v6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>', copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+};
+const cIcon = n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CAREER_ICONS[n]||""}</svg>`;
+function careerWeekDelta(pred){
+  const wk = Date.now() - 7*86400000;
+  return careerData.apps.filter(a=>pred(a) && (a.ts||0) >= wk).length;
+}
+/* how complete the resume is, 0-100 */
+function careerResumeStrength(){
+  const r = careerData.resume, checks = [
+    r.name, r.title, r.location, r.phone || r.email, r.email, r.linkedin,
+    r.experience.some(x=>x.role && x.company), r.experience.some(x=>x.bullets.filter(Boolean).length >= 2),
+    r.experience.filter(x=>x.role).length >= 2, r.education.school, r.education.degree, r.skills.length >= 4,
+  ];
+  return Math.round(checks.filter(Boolean).length / checks.length * 100);
+}
+function careerOnTrack(){
+  const s = careerData.salary, ints = careerData.apps.filter(a=>a.stage==="Interview" || a.stage==="Offer").length;
+  if(careerData.apps.some(a=>a.stage==="Offer")) return {label:"Offer in hand", cls:"good"};
+  if(careerData.apps.length >= 5 && ints >= 1) return {label:"On track", cls:"good"};
+  if(careerData.apps.length) return {label:"Keep applying", cls:"warn"};
+  return {label:"Set your target", cls:"dim"};
+}
+function careerResumeHTML(){
+  const r = careerData.resume, e = escapeHtml;
+  const ed = (path, val, ph, tag="span", cls="")=>`<${tag} class="cr-ed ${cls}" data-path="${path}" data-ph="${e(ph)}">${e(val||"")}</${tag}>`;
+  return `
+    ${ed("name", r.name, "Your name", "h3", "cr-name")}
+    ${ed("title", r.title, "Your field, e.g. Finance & Accounting", "div", "cr-sub")}
+    <div class="cr-contact">
+      <span>${cIcon("pin")}${ed("location", r.location, "City, State")}</span>
+      <span>${cIcon("phone")}${ed("phone", r.phone, "Phone")}</span>
+      <span>${cIcon("mail")}${ed("email", r.email, "Email")}</span>
+      <span>${cIcon("link")}${ed("linkedin", r.linkedin, "linkedin.com/in/you")}</span>
+    </div>
+    <h4>Experience</h4>
+    ${r.experience.map((x,i)=>`<div class="cr-job">
+      <div class="cr-job-head"><b>${ed(`experience.${i}.role`, x.role, "Role")} – ${ed(`experience.${i}.company`, x.company, "Company")}</b>${ed(`experience.${i}.dates`, x.dates, "Start – End", "span", "cr-dates")}</div>
+      <ul>${x.bullets.map((bl,j)=>`<li>${ed(`experience.${i}.bullets.${j}`, bl, "What you did and the result")}</li>`).join("")}</ul>
+      <div class="cr-edit-only"><button type="button" class="cr-mini" data-add-bullet="${i}">+ bullet</button><button type="button" class="cr-mini" data-del-job="${i}">Remove job</button></div>
+    </div>`).join("")}
+    <div class="cr-edit-only"><button type="button" class="cr-mini" data-add-job>+ Add experience</button></div>
+    <div class="cr-foot">
+      <div><h4>Education</h4>
+        ${ed("education.school", r.education.school, "School", "div", "cr-strong")}
+        ${ed("education.degree", r.education.degree, "Degree", "div")}
+        <div class="cr-dim">${ed("education.date", r.education.date, "Graduation")} · GPA ${ed("education.gpa", r.education.gpa, "—")}</div>
+      </div>
+      <div><h4>Skills</h4>${ed("skills", r.skills.join(" · "), "Skill · Skill · Skill", "div", "cr-skills")}</div>
+    </div>`;
+}
+function careerFullHTML(){
+  return `<div class="cr-root" id="cr-root">
+    <div class="cr-top">
+      <div><h2>Career</h2><p>Your job search, organized.</p></div>
+      <div class="cr-top-r"><button type="button" class="cr-btn primary" id="cr-add">${cIcon("plus")}<span>Add application</span></button>
+      <button type="button" class="cr-x" id="cr-close" aria-label="Close">${cIcon("x")}</button></div>
+    </div>
+    <div class="cr-stats" id="cr-stats"></div>
+    <div class="cr-grid">
+      <section class="cr-card cr-resume-card">
+        <div class="cr-card-head"><span class="cr-ico">${cIcon("doc")}</span><div><h3>Resume &amp; cover letter</h3><p>Keep your documents updated and ready.</p></div></div>
+        <div class="cr-doc-row">
+          <span class="cr-ico sm">${cIcon("doc")}</span>
+          <div class="cr-doc-name"><b class="cr-ed" data-path="label" id="cr-label"></b><span id="cr-updated"></span></div>
+          <div class="cr-strength"><span>Resume strength</span><b id="cr-strength"></b><i><em id="cr-strength-bar"></em></i></div>
+          <button type="button" class="cr-btn" id="cr-edit">${cIcon("pen")}<span>Edit resume</span></button>
+          <button type="button" class="cr-btn primary" id="cr-letter">${cIcon("doc")}<span>Build cover letter</span></button>
+        </div>
+        <div class="cr-resume" id="cr-resume"></div>
+        <div class="cr-letter" id="cr-letter-box" hidden>
+          <div class="cr-letter-head"><b>Cover letter</b><span id="cr-letter-for"></span><button type="button" class="cr-mini" id="cr-letter-copy">${cIcon("copy")} Copy</button><button type="button" class="cr-mini" id="cr-letter-close">Close</button></div>
+          <textarea id="cr-letter-text" rows="12"></textarea>
+        </div>
+      </section>
+      <div class="cr-side">
+        <section class="cr-card">
+          <div class="cr-card-head"><span class="cr-ico">${cIcon("target")}</span><div><h3>Salary target</h3><p>Set your target range and track your progress.</p></div></div>
+          <div class="cr-sal">
+            <div class="cr-sal-val" id="cr-sal-val"></div>
+            <div class="cr-range" id="cr-range"><i class="cr-range-fill" id="cr-range-fill"></i>
+              <input type="range" id="cr-sal-min" step="1000" aria-label="Minimum salary"><input type="range" id="cr-sal-max" step="1000" aria-label="Maximum salary"></div>
+            <div class="cr-range-ends"><span id="cr-sal-lo"></span><span id="cr-sal-hi"></span></div>
+            <div class="cr-sal-meta">${cIcon("pin")}<input id="cr-sal-loc" placeholder="Location"><span>·</span><input id="cr-sal-field" placeholder="Field"></div>
+            <button type="button" class="cr-btn primary wide" id="cr-sal-save">Save target</button>
+          </div>
+        </section>
+        <section class="cr-card">
+          <div class="cr-card-head"><span class="cr-ico">${cIcon("brief")}</span><div><h3>Job feed</h3><p>New opportunities that match your goals.</p></div>
+            <div class="cr-chips" id="cr-chips"></div></div>
+          <div class="cr-feed" id="cr-feed"><div class="cr-dim">Loading jobs…</div></div>
+        </section>
+      </div>
+    </div>
+    <div class="cr-sheet" id="cr-sheet" hidden></div>
+  </div>`;
+}
+let careerFeedFilter = "all";
+function careerChipsFor(){
+  const f = (careerData.salary.field || careerData.resume.title || "").split(/[\/,&]| and /i).map(s=>s.trim()).filter(Boolean).slice(0, 2);
+  return [["all","All jobs"], ...f.map(x=>[x.toLowerCase(), x]), ["saved","Saved"]];
+}
+/* 0-100: words of your title/field/skills found in the job, plus salary overlap */
+function careerMatch(job){
+  const r = careerData.resume, s = careerData.salary;
+  const words = [...new Set(`${r.title} ${s.field} ${r.skills.join(" ")}`.toLowerCase().match(/[a-z]{4,}/g) || [])].filter(w=>!["with","from","that","this"].includes(w));
+  const hay = `${job.title} ${job.tags||""} ${job.category||""} ${(job.desc||"").slice(0, 1500)}`.toLowerCase();
+  const hit = words.length ? words.filter(w=>hay.includes(w)).length / words.length : .5;
+  let sal = .6;
+  if(job.min && job.max){ const ov = Math.max(0, Math.min(job.max, s.max) - Math.max(job.min, s.min)); sal = ov > 0 ? 1 : (job.max < s.min ? .25 : .7); }
+  return Math.max(40, Math.min(98, Math.round(45 + hit * 40 + sal * 13)));
+}
+function careerParseSalary(txt){
+  const nums = String(txt||"").replace(/,/g, "").match(/\d+(?:\.\d+)?\s*k?/gi);
+  if(!nums) return {};
+  const v = nums.map(n=>{ let x = parseFloat(n); if(/k/i.test(n) || x < 1000) x *= 1000; return x; }).filter(x=>x >= 15000 && x <= 900000);
+  return v.length ? {min:Math.min(...v), max:Math.max(...v)} : {};
+}
+let careerJobsCache = {q:"", ts:0, jobs:[]};
+async function careerFetchJobs(){
+  const q = (careerData.salary.field || careerData.resume.title || "").split(/[\/,&]/)[0].trim() || "analyst";
+  if(careerJobsCache.q === q && Date.now() - careerJobsCache.ts < 30*60000) return careerJobsCache.jobs;
+  const res = await fetch(`https://remotive.com/api/remote-jobs?search=${encodeURIComponent(q)}&limit=30`);
+  if(!res.ok) throw new Error("jobs " + res.status);
+  const d = await res.json();
+  const jobs = (d.jobs||[]).map(j=>({id:String(j.id), title:j.title, company:j.company_name, logo:j.company_logo, url:j.url,
+    location:j.candidate_required_location || "Remote", salaryText:j.salary || "", tags:(j.tags||[]).join(" "), category:j.category,
+    desc:String(j.description||"").replace(/<[^>]+>/g, " "), date:j.publication_date, ...careerParseSalary(j.salary)}));
+  careerJobsCache = {q, ts:Date.now(), jobs};
+  return jobs;
+}
+function careerJobCard(job, i){
+  const colors = ["#2f7cf6","#6a4cf0","#16a37a","#e0712a","#c2367a"], e = escapeHtml;
+  const saved = careerData.saved.some(s=>s.id === job.id), m = job.match;
+  const sal = job.min ? `${careerMoney(job.min)}${job.max && job.max !== job.min ? ` – ${careerMoney(job.max)}` : ""}` : (job.salaryText ? e(job.salaryText.slice(0, 22)) : "Salary n/a");
+  return `<div class="cr-job-card">
+    <span class="cr-logo" style="background:${colors[i % colors.length]}">${job.logo ? `<img src="${e(job.logo)}" alt="" onerror="this.remove()">` : ""}<b>${e((job.company||"?")[0].toUpperCase())}</b></span>
+    <div class="cr-job-main"><b>${e(job.title)}</b><span class="cr-co">${e(job.company||"")}</span>
+      <span class="cr-job-meta">${cIcon("pin")}${e((job.location||"").slice(0, 28))}<i></i>${cIcon("money")}${sal}</span></div>
+    ${m != null ? `<span class="cr-match ${m >= 85 ? "hi" : m >= 70 ? "mid" : ""}">${m}% match</span>` : ""}
+    <div class="cr-job-acts"><button type="button" class="cr-save${saved ? " on" : ""}" data-save="${e(job.id)}" title="${saved ? "Saved" : "Save"}">${saved ? "★" : "☆"}</button>
+      <a class="cr-view" href="${e(job.url)}" target="_blank" rel="noopener noreferrer">View job ${cIcon("up")}</a></div>
+  </div>`;
+}
+function careerSearchLinks(){
+  const s = careerData.salary, q = encodeURIComponent((s.field || careerData.resume.title || "jobs").split(/[\/,&]/)[0].trim()), loc = encodeURIComponent(s.location || "");
+  return [
+    {id:"li", title:`${decodeURIComponent(q)} jobs`, company:"LinkedIn", location:s.location || "Anywhere", url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${loc}`},
+    {id:"in", title:`${decodeURIComponent(q)} jobs`, company:"Indeed", location:s.location || "Anywhere", url:`https://www.indeed.com/jobs?q=${q}&l=${loc}&salaryType=%24${Math.round(s.min/1000)}%2C000`},
+    {id:"gg", title:`${decodeURIComponent(q)} jobs`, company:"Google Jobs", location:s.location || "Anywhere", url:`https://www.google.com/search?q=${q}+jobs+${loc}&ibp=htl;jobs`},
+  ];
+}
+async function careerRenderFeed(scope){
+  const box = scope.querySelector("#cr-feed");
+  if(!box) return;
+  scope.querySelector("#cr-chips").innerHTML = careerChipsFor().map(([k,l])=>`<button type="button" data-chip="${escapeHtml(k)}" class="${careerFeedFilter === k ? "on" : ""}">${escapeHtml(l)}</button>`).join("");
+  scope.querySelectorAll("[data-chip]").forEach(b=>b.addEventListener("click", ()=>{ careerFeedFilter = b.dataset.chip; careerRenderFeed(scope); }));
+  let jobs;
+  if(careerFeedFilter === "saved") jobs = careerData.saved.slice();
+  else {
+    try{ jobs = await careerFetchJobs(); }
+    catch(e){ box.innerHTML = careerSearchLinks().map(careerJobCard).join("") + `<div class="cr-dim" style="margin-top:6px;">Live listings are unavailable right now — these open the searches instead.</div>`; careerWireFeed(scope); return; }
+    if(careerFeedFilter !== "all") jobs = jobs.filter(j=>`${j.title} ${j.tags} ${j.category}`.toLowerCase().includes(careerFeedFilter.split(" ")[0]));
+  }
+  jobs.forEach(j=>{ j.match = careerMatch(j); });
+  jobs.sort((a,b)=>b.match - a.match);
+  if(!scope.querySelector("#cr-feed")) return;
+  box.innerHTML = jobs.length ? jobs.slice(0, 12).map(careerJobCard).join("")
+    : `<div class="cr-dim">${careerFeedFilter === "saved" ? "No saved jobs yet — tap ☆ on a job to keep it here." : "No listings right now."}</div>` + (careerFeedFilter === "saved" ? "" : careerSearchLinks().map(careerJobCard).join(""));
+  careerWireFeed(scope, jobs);
+}
+function careerWireFeed(scope, jobs=[]){
+  scope.querySelectorAll("[data-save]").forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.save, i = careerData.saved.findIndex(s=>s.id === id);
+    if(i >= 0) careerData.saved.splice(i, 1);
+    else { const j = jobs.find(x=>x.id === id); if(j){ const {desc, ...keep} = j; careerData.saved.unshift(keep); } }
+    saveCareer(); careerRenderFeed(scope);
+  }));
+}
+function careerRenderStats(scope){
+  const apps = careerData.apps, ints = apps.filter(a=>a.stage === "Interview").length, s = careerData.salary, t = careerOnTrack();
+  const d1 = careerWeekDelta(()=>true), d2 = careerWeekDelta(a=>a.stage === "Interview");
+  scope.querySelector("#cr-stats").innerHTML = `
+    <button type="button" class="cr-stat" data-list="all"><span class="cr-ico blue">${cIcon("doc")}</span><div><small>Applications</small><b>${apps.length}</b><em class="${d1 ? "up" : ""}">${d1 ? cIcon("up") + `+${d1}` : "—"} vs last 7 days</em></div></button>
+    <button type="button" class="cr-stat" data-list="Interview"><span class="cr-ico teal">${cIcon("cal")}</span><div><small>Interviews</small><b>${ints}</b><em class="${d2 ? "up" : ""}">${d2 ? cIcon("up") + `+${d2}` : "—"} vs last 7 days</em></div></button>
+    <div class="cr-stat"><span class="cr-ico teal">${cIcon("coins")}</span><div><small>Salary target</small><b>${careerMoney(s.min)} – ${careerMoney(s.max)}</b><em class="dot ${t.cls}">${t.label}</em></div></div>`;
+  scope.querySelectorAll("[data-list]").forEach(b=>b.addEventListener("click", ()=>careerOpenList(scope, b.dataset.list)));
+}
+function careerRenderResume(scope){
+  const r = scope.querySelector("#cr-resume");
+  r.innerHTML = careerResumeHTML();
+  scope.querySelector("#cr-label").textContent = careerData.resumeLabel;
+  const up = careerData.resumeUpdated;
+  scope.querySelector("#cr-updated").textContent = !up ? "Not edited yet" : (new Date(up).toDateString() === new Date().toDateString() ? "Updated today" : "Updated " + new Date(up).toLocaleDateString());
+  const st = careerResumeStrength();
+  scope.querySelector("#cr-strength").textContent = st + "%";
+  scope.querySelector("#cr-strength-bar").style.width = st + "%";
+  const editing = scope.querySelector("#cr-root").classList.contains("cr-editing");
+  scope.querySelectorAll(".cr-ed").forEach(el=>{ el.contentEditable = editing ? "true" : "false"; });
+  scope.querySelectorAll("[data-add-bullet]").forEach(b=>b.addEventListener("click", ()=>{ careerData.resume.experience[+b.dataset.addBullet].bullets.push(""); saveCareer(); careerRenderResume(scope); }));
+  scope.querySelectorAll("[data-del-job]").forEach(b=>b.addEventListener("click", ()=>{ careerData.resume.experience.splice(+b.dataset.delJob, 1); if(!careerData.resume.experience.length) careerData.resume.experience.push({role:"",company:"",dates:"",bullets:[""]}); saveCareer(); careerRenderResume(scope); }));
+  const addJob = scope.querySelector("[data-add-job]");
+  if(addJob) addJob.addEventListener("click", ()=>{ careerData.resume.experience.push({role:"",company:"",dates:"",bullets:[""]}); saveCareer(); careerRenderResume(scope); });
+}
+/* write an edited field back into careerData */
+function careerSetPath(path, text){
+  text = text.replace(/\s+/g, " ").trim();
+  if(path === "label"){ careerData.resumeLabel = text || "My Resume"; return; }
+  if(path === "skills"){ careerData.resume.skills = text.split(/·|,|\|/).map(x=>x.trim()).filter(Boolean); return; }
+  const parts = path.split("."); let o = careerData.resume;
+  for(let i = 0; i < parts.length - 1; i++) o = o[isNaN(parts[i]) ? parts[i] : +parts[i]];
+  const last = parts[parts.length-1]; o[isNaN(last) ? last : +last] = text;
+}
+function careerRenderSalary(scope){
+  const s = careerData.salary, mn = scope.querySelector("#cr-sal-min"), mx = scope.querySelector("#cr-sal-max");
+  [mn, mx].forEach(i=>{ i.min = s.lo; i.max = s.hi; });
+  mn.value = s.min; mx.value = s.max;
+  const draw = ()=>{
+    let a = +mn.value, b = +mx.value;
+    if(a > b - 1000){ if(document.activeElement === mn) a = mn.value = b - 1000; else b = mx.value = a + 1000; }
+    const pct = v=>(v - s.lo) / (s.hi - s.lo) * 100;
+    const f = scope.querySelector("#cr-range-fill"); f.style.left = pct(a) + "%"; f.style.width = (pct(b) - pct(a)) + "%";
+    scope.querySelector("#cr-sal-val").textContent = `${careerMoneyFull(a)} – ${careerMoneyFull(b)}`;
+  };
+  mn.oninput = mx.oninput = draw; draw();
+  scope.querySelector("#cr-sal-lo").textContent = careerMoney(s.lo);
+  scope.querySelector("#cr-sal-hi").textContent = careerMoney(s.hi);
+  scope.querySelector("#cr-sal-loc").value = s.location || careerData.resume.location || "";
+  scope.querySelector("#cr-sal-field").value = s.field || careerData.resume.title || "";
+}
+function careerOpenSheet(scope, html){
+  const sh = scope.querySelector("#cr-sheet");
+  sh.innerHTML = `<div class="cr-sheet-panel">${html}</div>`; sh.hidden = false;
+  sh.addEventListener("click", e=>{ if(e.target === sh) sh.hidden = true; }, {once:true});
+  sh.querySelectorAll("[data-sheet-close]").forEach(b=>b.addEventListener("click", ()=>{ sh.hidden = true; }));
+  return sh;
+}
+function careerAddForm(scope, idx){
+  const a = idx != null ? careerData.apps[idx] : {role:"", company:"", stage:"Applied", date:new Date().toISOString().slice(0,10), url:"", salary:""};
+  const sh = careerOpenSheet(scope, `<h3>${idx != null ? "Edit application" : "Add application"}</h3>
+    <label>Role<input id="cra-role" value="${escapeHtml(a.role)}"></label>
+    <label>Company<input id="cra-co" value="${escapeHtml(a.company)}"></label>
+    <div class="cr-2"><label>Stage<select id="cra-stage">${CAREER_STAGES.map(s=>`<option${s===a.stage?" selected":""}>${s}</option>`).join("")}</select></label>
+    <label>Date<input type="date" id="cra-date" value="${escapeHtml(a.date)}"></label></div>
+    <label>Salary (optional)<input id="cra-sal" value="${escapeHtml(a.salary||"")}"></label>
+    <label>Link (optional)<input id="cra-url" value="${escapeHtml(a.url||"")}"></label>
+    <div class="cr-sheet-foot">${idx != null ? `<button type="button" class="cr-btn danger" id="cra-del">Delete</button>` : "<span></span>"}<span><button type="button" class="cr-btn" data-sheet-close>Cancel</button> <button type="button" class="cr-btn primary" id="cra-save">Save</button></span></div>`);
+  sh.querySelector("#cra-role").focus();
+  sh.querySelector("#cra-save").addEventListener("click", ()=>{
+    const role = sh.querySelector("#cra-role").value.trim(), company = sh.querySelector("#cra-co").value.trim();
+    if(!role && !company){ sh.querySelector("#cra-role").focus(); return; }
+    const entry = {role, company, stage:sh.querySelector("#cra-stage").value, date:sh.querySelector("#cra-date").value,
+      salary:sh.querySelector("#cra-sal").value.trim(), url:sh.querySelector("#cra-url").value.trim(), ts:a.ts || Date.now()};
+    if(idx != null) careerData.apps[idx] = entry; else careerData.apps.unshift(entry);
+    saveCareer(); sh.hidden = true; careerRenderStats(scope); renderWidgets();
+  });
+  const del = sh.querySelector("#cra-del");
+  if(del) del.addEventListener("click", ()=>{ careerData.apps.splice(idx, 1); saveCareer(); sh.hidden = true; careerRenderStats(scope); });
+}
+function careerOpenList(scope, which){
+  const list = careerData.apps.map((a,i)=>({a,i})).filter(({a})=>which === "all" || a.stage === which);
+  const sh = careerOpenSheet(scope, `<h3>${which === "all" ? "Applications" : "Interviews"}</h3>
+    <div class="cr-list">${list.map(({a,i})=>`<button type="button" class="cr-list-row" data-edit-app="${i}"><b>${escapeHtml(a.role||"—")}</b><span>${escapeHtml(a.company||"")}</span><em class="st-${a.stage.toLowerCase()}">${a.stage}</em><small>${escapeHtml(a.date||"")}</small></button>`).join("") || `<div class="cr-dim">Nothing here yet.</div>`}</div>
+    <div class="cr-sheet-foot"><span></span><span><button type="button" class="cr-btn" data-sheet-close>Close</button> <button type="button" class="cr-btn primary" id="crl-add">Add application</button></span></div>`);
+  sh.querySelectorAll("[data-edit-app]").forEach(b=>b.addEventListener("click", ()=>careerAddForm(scope, +b.dataset.editApp)));
+  sh.querySelector("#crl-add").addEventListener("click", ()=>careerAddForm(scope, null));
+}
+async function careerBuildLetter(scope){
+  const box = scope.querySelector("#cr-letter-box"), ta = scope.querySelector("#cr-letter-text");
+  box.hidden = false;
+  const target = careerData.saved[0] || (careerJobsCache.jobs || []).slice().sort((a,b)=>(b.match||0)-(a.match||0))[0] || null;
+  const latest = careerData.apps[0];
+  const job = target ? `${target.title} at ${target.company}` : latest ? `${latest.role} at ${latest.company}` : (careerData.salary.field || careerData.resume.title || "the role");
+  scope.querySelector("#cr-letter-for").textContent = "for " + job;
+  ta.value = "Writing your cover letter…";
+  const r = careerData.resume;
+  const resumeText = `${r.name}, ${r.title}, ${r.location}. Experience: ${r.experience.map(x=>`${x.role} at ${x.company} (${x.dates}): ${x.bullets.filter(Boolean).join("; ")}`).join(" | ")}. Education: ${r.education.degree}, ${r.education.school} ${r.education.date}. Skills: ${r.skills.join(", ")}.`;
+  try{
+    const res = await groqChatRequest({model:"openai/gpt-oss-120b", max_tokens:1400, messages:[
+      {role:"system", content:"You write concise, specific, professional cover letters (about 250 words, 3-4 short paragraphs). Use only facts from the resume; never invent employers, numbers or credentials. Plain text, no placeholders in brackets except the hiring manager greeting if unknown."},
+      {role:"user", content:`Resume: ${resumeText}\n\nWrite a cover letter for: ${job}.${target && target.desc ? `\nJob description (excerpt): ${target.desc.slice(0, 1200)}` : ""}`}]});
+    const d = res.ok ? await res.json() : null;
+    const txt = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    ta.value = txt ? txt.trim() : "Couldn't write the letter right now — try again in a moment.";
+    if(txt){ careerData.letter = ta.value; saveCareer(); }
+  }catch(e){ ta.value = "Couldn't reach the AI service right now — try again in a moment."; }
+}
+function hydrateCareerFull(scope){
+  const root = scope.querySelector("#cr-root");
+  careerRenderStats(scope); careerRenderResume(scope); careerRenderSalary(scope); careerRenderFeed(scope);
+  if(careerData.letter){ scope.querySelector("#cr-letter-text").value = careerData.letter; }
+  scope.querySelector("#cr-close").addEventListener("click", closeModal);
+  scope.querySelector("#cr-add").addEventListener("click", ()=>careerAddForm(scope, null));
+  const editBtn = scope.querySelector("#cr-edit");
+  editBtn.addEventListener("click", ()=>{
+    const on = !root.classList.contains("cr-editing");
+    root.classList.toggle("cr-editing", on);
+    editBtn.querySelector("span").textContent = on ? "Done editing" : "Edit resume";
+    scope.querySelectorAll(".cr-ed").forEach(el=>{ el.contentEditable = on ? "true" : "false"; });
+    if(on){ const first = scope.querySelector("#cr-resume .cr-ed"); if(first) first.focus(); }
+    else careerRenderResume(scope);
+  });
+  /* edits save as you type */
+  scope.addEventListener("input", e=>{
+    const el = e.target.closest && e.target.closest(".cr-ed");
+    if(!el || !el.dataset.path) return;
+    careerSetPath(el.dataset.path, el.textContent);
+    careerData.resumeUpdated = Date.now(); saveCareer();
+    const st = careerResumeStrength();
+    scope.querySelector("#cr-strength").textContent = st + "%"; scope.querySelector("#cr-strength-bar").style.width = st + "%";
+  });
+  scope.addEventListener("keydown", e=>{ if(e.key === "Enter" && e.target.closest && e.target.closest(".cr-ed")){ e.preventDefault(); e.target.blur(); } });
+  scope.querySelector("#cr-label").addEventListener("dblclick", e=>{ e.target.contentEditable = "true"; e.target.focus(); });
+  scope.querySelector("#cr-letter").addEventListener("click", ()=>careerBuildLetter(scope));
+  scope.querySelector("#cr-letter-close").addEventListener("click", ()=>{ scope.querySelector("#cr-letter-box").hidden = true; });
+  scope.querySelector("#cr-letter-copy").addEventListener("click", ()=>{ const t = scope.querySelector("#cr-letter-text"); t.select(); try{ navigator.clipboard.writeText(t.value); }catch(e){ document.execCommand("copy"); } });
+  scope.querySelector("#cr-letter-text").addEventListener("input", e=>{ careerData.letter = e.target.value; saveCareer(); });
+  scope.querySelector("#cr-sal-save").addEventListener("click", ()=>{
+    const s = careerData.salary;
+    s.min = +scope.querySelector("#cr-sal-min").value; s.max = +scope.querySelector("#cr-sal-max").value;
+    s.location = scope.querySelector("#cr-sal-loc").value.trim(); s.field = scope.querySelector("#cr-sal-field").value.trim();
+    saveCareer(); careerRenderStats(scope); careerJobsCache.ts = 0; careerRenderFeed(scope); renderWidgets();
+    const b = scope.querySelector("#cr-sal-save"); b.textContent = "Saved ✓"; setTimeout(()=>{ b.textContent = "Save target"; }, 1400);
+  });
+}
+function careerMiniHTML(){
+  const apps = careerData.apps, ints = apps.filter(a=>a.stage === "Interview").length, s = careerData.salary;
+  return `<div class="cr-mini-w">
+    <div><small>Applications</small><b>${apps.length}</b></div>
+    <div><small>Interviews</small><b>${ints}</b></div>
+    <div class="wide"><small>Salary target</small><b>${careerMoney(s.min)} – ${careerMoney(s.max)}</b></div>
+  </div>`;
+}
 
 /* ================= GARAGE WIDGET ================= */
 /* 21 car body-style icons (cropped from a reference silhouette sheet, recolored to the
