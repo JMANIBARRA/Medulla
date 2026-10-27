@@ -7760,7 +7760,7 @@ const GAR_LINE = {micro:"micro", sedan:"sedan", hatchback:"hatchback", universal
   cabriolet:"cabriolet", roadster:"roadster", targa:"roadster", limousine:"limousine", musclecar:"musclecar", sportscar:"sportscar",
   supercar:"supercar", suv:"suv", crossover:"crossover", offroad:"offroad", pickup:"pickup", pickup_full:"pickup_full",
   van:"van", minivan:"minivan", minibus:"van", campervan:"campervan", bus:"bus",
-  cruiser:"cruiser", naked:"sport", sport:"sport", moto:"sport", touring:"touring", scooter:"scooter", dirtbike:"dirtbike",
+  cruiser:"cruiser", naked:"naked", sport:"sport", moto:"sport", touring:"touring", scooter:"scooter", dirtbike:"dirtbike",
   boat:"boat", jonboat:"jonboat", jetski:"jetski", atv:"atv", snowmobile:"snowmobile", rv:"rv", trailer:"trailer", tractor:"tractor"};
 const GAR_OTHER_TYPES = ["jonboat","boat","jetski","atv","snowmobile","rv","trailer","tractor"];
 function garLineSrc(type, fill){ return `icons/vehicles/${GAR_LINE[type] || "sedan"}${fill ? "-fill" : ""}.png`; }
@@ -7862,7 +7862,7 @@ function classifyVehicleIcon(text){
   if(has("wrangler","jeep","bronco","gladiator","land cruiser fj","fj cruiser","defender","g-?wagon")) return "offroad";
   if(has("f-?150","f-?250","f-?350","silverado","sierra","ram","ram 1500","tundra","titan")) return "pickup_full";
   if(has("ranger","tacoma","colorado","canyon","frontier","maverick","ridgeline","s-?10","dakota","hilux","santa cruz")) return "pickup";
-  const isMoto = MOTO_MODEL_WORDS.some(k=>t.includes(k)) || MOTO_ONLY_BRANDS.some(k=>t.includes(k));
+  const isMoto = MOTO_MODEL_WORDS.some(k=>t.includes(k)) || MOTO_ONLY_BRANDS.some(k=>t.includes(k)) || NAKED_WORDS.some(k=>t.includes(k));
   if(isMoto){
     if(SPORT_WORDS.some(k=>t.includes(k))) return "sport";
     if(CRUISER_WORDS.some(k=>t.includes(k))) return "cruiser";
@@ -9218,15 +9218,15 @@ function hydrateGarageFull(scope){
               <label class="gar-btn small gar-upload">${GAR_ICONS.plus}<span>${v.photoId && garagePhotos[v.photoId] ? "Change your picture" : "Upload your own picture"}</span><input type="file" id="gar-f-photo" accept="image/*" hidden></label>
               <button type="button" class="gar-btn small ghost" id="gar-f-photo-clear"${v.photoId && garagePhotos[v.photoId] ? "" : " hidden"}>Use automatic</button>
             </div>
-            <label class="gar-field gar-url"><span>Or an image link</span><input type="text" id="gar-f-asset" placeholder="Automatic — or paste an image / Sketchfab link" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
+            <label class="gar-field gar-url"><span>Or an image link</span><input type="text" id="gar-f-asset" value="${escapeHtml(v.asset || v.imageUrl || "")}"></label>
             <p class="gar-hint" id="gar-asset-hint"></p>
           </div>
         </div>
-        <label class="gar-field wide"><span>Vehicle</span><input type="text" id="gar-f-name" placeholder="e.g. Ford Ranger" value="${escapeHtml(v.vehicle)}"></label>
-        <label class="gar-field"><span>Year</span><input type="text" id="gar-f-year" inputmode="numeric" placeholder="2000" value="${escapeHtml(v.year||"")}"></label>
+        <label class="gar-field wide"><span>Vehicle</span><input type="text" id="gar-f-name" value="${escapeHtml(v.vehicle)}"></label>
+        <label class="gar-field"><span>Year</span><input type="text" id="gar-f-year" inputmode="numeric" value="${escapeHtml(v.year||"")}"></label>
         <label class="gar-field"><span>Drive</span><select id="gar-f-drive">${GAR_DRIVES.map(d=>`<option value="${d}"${(v.drive||"")===d?" selected":""}>${d || "—"}</option>`).join("")}</select></label>
-        <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" placeholder="3.0L V6" value="${escapeHtml(v.engine||"")}"></label>
-        <label class="gar-field"><span>Mileage</span><input type="text" id="gar-f-miles" inputmode="numeric" placeholder="275,000" value="${escapeHtml(v.mileage||"")}"></label>
+        <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" value="${escapeHtml(v.engine||"")}"></label>
+        <label class="gar-field"><span>Mileage</span><input type="text" id="gar-f-miles" inputmode="numeric" value="${escapeHtml(v.mileage||"")}"></label>
         <label class="gar-field wide"><span>Body style</span><select id="gar-f-type">${typeOptions(v.type||"")}</select></label>
         <div class="gar-field wide"><span>Paint color</span>
           <div class="gar-swatches" id="gar-f-color" role="radiogroup" aria-label="Paint color">
