@@ -7971,6 +7971,20 @@ function garDrawSize(v, boxAspect){
   if(w / a > .96 / boxAspect) w = .96 * a / boxAspect;
   return `${(w*100).toFixed(1)}% auto`;
 }
+/* make / model: as saved, or split from an older "Make Model" name */
+const GAR_MAKE_NAMES = ["Acura","Alfa Romeo","Aston Martin","Audi","Bentley","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ferrari","Fiat","Ford","Genesis","GMC","Harley-Davidson","Honda","Hyundai","Indian","Infiniti","Jaguar","Jeep","Kawasaki","Kia","KTM","Lamborghini","Land Rover","Lexus","Lincoln","Lotus","Lucid","Maserati","Mazda","McLaren","Mercedes-Benz","Mercury","Mini","Mitsubishi","Nissan","Oldsmobile","Plymouth","Polaris","Pontiac","Porsche","Ram","Rivian","Rolls-Royce","Saab","Saturn","Scion","Sea-Doo","Ski-Doo","Subaru","Suzuki","Tesla","Toyota","Tracker","Triumph","Volkswagen","Volvo","Yamaha","Ducati","Can-Am","Alumacraft","Lowe","Bayliner","Boston Whaler"];
+function garSplitName(v){
+  if(v.model != null) return {make:v.make || "", model:v.model};
+  const name = String(v.vehicle||"").trim(), low = name.toLowerCase().replace(/-/g, " ");
+  const alias = {chevy:"Chevrolet", vw:"Volkswagen", mercedes:"Mercedes-Benz", benz:"Mercedes-Benz", harley:"Harley-Davidson"};
+  for(const m of GAR_MAKE_NAMES){
+    const k = m.toLowerCase().replace(/-/g, " ");
+    if(low === k || low.startsWith(k + " ")) return {make:m, model:name.slice(k.length).trim()};
+  }
+  const first = low.split(" ")[0];
+  if(alias[first]) return {make:alias[first], model:name.slice(first.length).trim()};
+  return {make:"", model:name};
+}
 function garDrawFor(v){
   const exact = garModelFile(v);
   if(exact) return exact;
@@ -9454,7 +9468,9 @@ function hydrateGarageFull(scope){
             <p class="gar-hint" id="gar-asset-hint"></p>
           </div>
         </div>
-        <label class="gar-field wide"><span>Vehicle</span><input type="text" id="gar-f-name" value="${escapeHtml(v.vehicle)}"></label>
+        <label class="gar-field"><span>Make</span><input type="text" id="gar-f-make" list="gar-makes" autocomplete="off" value="${escapeHtml(garSplitName(v).make)}"></label>
+        <label class="gar-field"><span>Model</span><input type="text" id="gar-f-model" autocomplete="off" value="${escapeHtml(garSplitName(v).model)}"></label>
+        <datalist id="gar-makes">${GAR_MAKE_NAMES.map(m=>`<option value="${m}">`).join("")}</datalist>
         <label class="gar-field"><span>Year</span><input type="text" id="gar-f-year" inputmode="numeric" value="${escapeHtml(v.year||"")}"></label>
         <label class="gar-field"><span>Drive</span><select id="gar-f-drive">${GAR_DRIVES.map(d=>`<option value="${d}"${(v.drive||"")===d?" selected":""}>${d || "—"}</option>`).join("")}</select></label>
         <label class="gar-field"><span>Engine</span><input type="text" id="gar-f-engine" value="${escapeHtml(v.engine||"")}"></label>
@@ -9474,8 +9490,14 @@ function hydrateGarageFull(scope){
         ${editing ? `<button type="button" class="gar-btn small danger" id="gar-f-delete">${GAR_ICONS.trash}<span>Remove vehicle</span></button>` : "<span></span>"}
         <div class="gar-sheet-foot-r"><button type="button" class="gar-btn small ghost" data-close>Cancel</button><button type="button" class="gar-btn small primary" id="gar-f-save">${editing ? "Save" : "Add to garage"}</button></div>
       </div>`);
-    const nameInp = sheet.querySelector("#gar-f-name");
-    applyLiveTitleCase(nameInp);
+    const makeInp = sheet.querySelector("#gar-f-make"), modelInp = sheet.querySelector("#gar-f-model");
+    applyLiveTitleCase(makeInp); applyLiveTitleCase(modelInp);
+    /* "Make Model" together, for everything that reads the vehicle's name */
+    const nameInp = {
+      get value(){ return [makeInp.value.trim(), modelInp.value.trim()].filter(Boolean).join(" "); },
+      focus(){ (makeInp.value.trim() ? modelInp : makeInp).focus(); },
+      addEventListener(ev, fn){ makeInp.addEventListener(ev, fn); modelInp.addEventListener(ev, fn); },
+    };
     const preview = sheet.querySelector("#gar-photo-preview");
     const typeSel = sheet.querySelector("#gar-f-type");
     const assetInp = sheet.querySelector("#gar-f-asset");
@@ -9547,9 +9569,11 @@ function hydrateGarageFull(scope){
     function submit(){
       const name = nameInp.value.trim();
       const status = sheet.querySelector("#gar-form-status");
-      if(!name){ status.textContent = "Give the vehicle a name first."; nameInp.focus(); return; }
+      if(!modelInp.value.trim()){ status.textContent = makeInp.value.trim() ? "Add the model too." : "Enter the make and model first."; nameInp.focus(); return; }
       const entry = editing ? vehicles()[index] : {};
       entry.vehicle = name;
+      if(makeInp.value.trim()) entry.make = makeInp.value.trim(); else delete entry.make;
+      entry.model = modelInp.value.trim();
       entry.year = sheet.querySelector("#gar-f-year").value.trim();
       entry.drive = sheet.querySelector("#gar-f-drive").value;
       entry.engine = sheet.querySelector("#gar-f-engine").value.trim();
