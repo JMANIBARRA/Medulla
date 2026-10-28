@@ -3121,6 +3121,34 @@
     padding:10px 12px;border-radius:16px;background:rgba(9,20,38,.96);border:1px solid var(--db-edge-strong);box-shadow:0 20px 50px rgba(0,0,0,.6), 0 0 40px -16px var(--accent);
   }
   .db-editing .db-editbar{display:flex;}
+  .db-editbar{z-index:2000 !important;}
+  .lp-pop{position:fixed;z-index:9600;max-height:min(620px, calc(100vh - 90px));overflow:auto;padding:16px;border-radius:18px;background:linear-gradient(180deg,#10233f,#0a1830);border:1px solid rgba(124,180,255,.22);box-shadow:0 30px 70px -18px rgba(0,0,0,.8), 0 0 40px -18px #2f8bff;opacity:0;transform:translateY(-6px);transition:opacity .15s, transform .15s;scrollbar-width:thin;}
+  .lp-pop.show{opacity:1;transform:none;}
+  .lp-head b{display:block;font-size:16px;} .lp-head small{font-size:12px;color:var(--text-dim);}
+  .lp-sec{margin:14px 2px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);}
+  .lp-list{display:flex;flex-direction:column;gap:6px;}
+  .lp-card{position:relative;display:flex;align-items:center;gap:12px;padding:8px 10px 8px 8px;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:background .12s,border-color .12s;}
+  .lp-card:hover,.lp-card:focus-visible{background:rgba(90,169,255,.1);outline:none;}
+  .lp-card.on{background:rgba(47,139,255,.14);border-color:rgba(77,155,255,.55);}
+  .lp-thumb{flex:none;width:64px;height:42px;border-radius:7px;background:rgba(4,12,24,.75);border:1px solid rgba(124,180,255,.16);display:grid;gap:2px;padding:3px;box-sizing:border-box;}
+  .lp-thumb i{border-radius:2px;background:rgba(90,169,255,.4);}
+  .lp-thumb.pr-classic{grid-template-columns:1fr 2fr 1.4fr;grid-template-rows:1fr 1fr;} .lp-thumb.pr-classic i:nth-child(4){grid-column:1/3;}
+  .lp-thumb.pr-focus{grid-template-columns:2fr 1fr 1fr;grid-template-rows:1fr 1fr;} .lp-thumb.pr-focus i:nth-child(4){grid-column:1/2;} .lp-thumb.pr-focus i:nth-child(5){grid-column:2/4;}
+  .lp-thumb.pr-gameday{grid-template-columns:1fr 2fr 1.4fr;grid-template-rows:1fr 1fr;} .lp-thumb.pr-gameday i:nth-child(3){grid-row:1/3;grid-column:3;background:rgba(255,176,64,.6);}
+  .lp-thumb.pr-mine{place-items:center;font-size:18px;color:#ffb040;}
+  .lp-txt{flex:1;min-width:0;}
+  .lp-txt b{display:flex;align-items:center;gap:8px;font-size:14px;}
+  .lp-txt b em{font-style:normal;font-size:10.5px;font-weight:700;color:#fff;background:#2f8bff;padding:2px 7px;border-radius:999px;}
+  .lp-txt small{display:block;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lp-del{flex:none;height:26px;min-width:26px;padding:0 8px;border-radius:999px;border:1px solid rgba(124,180,255,.22);background:transparent;color:var(--text-dim);font-size:11.5px;cursor:pointer;opacity:0;}
+  .lp-card:hover .lp-del,.lp-del.armed{opacity:1;} .lp-del.armed{color:#ff8a8a;border-color:#ff8a8a;}
+  @media (hover:none){ .lp-del{opacity:1;} }
+  .lp-empty{padding:12px;border-radius:12px;border:1px dashed rgba(124,180,255,.22);font-size:12.5px;color:var(--text-dim);text-align:center;}
+  .lp-save{display:flex;gap:8px;margin-top:14px;}
+  .lp-save input{flex:1;min-width:0;height:38px;border-radius:10px;padding:0 12px;font-size:13px;}
+  .lp-save button{height:38px;padding:0 16px;border-radius:10px;border:none;background:linear-gradient(180deg,#2f8bff,#1366e6);color:#fff;font-weight:700;cursor:pointer;}
+  .lp-edit{width:100%;margin-top:10px;height:36px;border-radius:10px;border:1px solid rgba(124,180,255,.2);background:rgba(255,255,255,.03);color:#cfe0f5;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .lp-edit:hover{background:rgba(90,169,255,.12);}
   .db-editing .db-main{padding-bottom:110px;}
   .db-editbar .hint{font-size:13px;color:var(--text-dim);margin-right:4px;}
   .db-editbar button.on{background:#2f8bff;border-color:#2f8bff;color:#fff;}
@@ -20521,6 +20549,7 @@ function buildDashboard(){
     </div>
     <div class="db-header-right">
       <div class="db-status-line"><span id="db-status-time"></span><span class="db-status-dot" id="db-status-net">System Online</span></div>
+      <button class="db-edit-btn" id="db-layouts-btn" type="button" title="Switch or save dashboard layouts" aria-haspopup="true">${dbIcon("grid")}<span>Layouts</span>${dbIcon("down")}</button>
       <button class="db-edit-btn" id="db-edit-btn" type="button" title="Move, resize, hide or add dashboard panels">${dbIcon("grid")}<span>Edit layout</span></button>
       <button class="db-profile" id="db-profile" type="button" title="Account">
         <span class="db-avatar" id="db-avatar"></span>
@@ -21210,6 +21239,7 @@ function dbLoadLayout(){
   return L;
 }
 function dbSaveLayout(){
+  if(typeof dbMarkLayoutCustom === "function" && !dbApplyingPreset) dbMarkLayoutCustom();
   const items = {};
   for(const [id,it] of Object.entries(dbLayout.items)) items[id] = {x:it.x, y:it.y, w:it.w, h:it.h};
   saveJSON(NS+"dashLayout", {items, hidden:dbLayout.hidden});
@@ -21281,7 +21311,9 @@ const DB_BUILTIN_PRESETS = [
 ];
 let dbPresets = loadJSON(NS+"dashPresets", []) || [];
 let dbPresetsOpen = false;
+let dbApplyingPreset = false;
 function dbApplyPresetData(d){
+  dbApplyingPreset = true; setTimeout(()=>{ dbApplyingPreset = false; }, 0);
   saveJSON(NS+"dashPinned", d.pinned);
   saveJSON(NS+"dashLayout", d.layout);
   saveJSON(DB_WIN_STORE, d.windows || {v:1, items:{}, snap:dbWin.snap, top:10});
@@ -21296,6 +21328,7 @@ function dbApplyBuiltin(p){
   for(const [id,it] of Object.entries(L.items)) items[id] = (p.items && p.items[id]) ? {...p.items[id]} : {...it};
   p.pinned.forEach(a=>{ const id = dbPinId(a); if(!items[id]) items[id] = (p.items && p.items[id]) ? {...p.items[id]} : {x:0, y:200, w:6, h:20}; });
   dbApplyPresetData({pinned:p.pinned.slice(), layout:{items, hidden:p.hidden.slice()}, windows:null});
+  dbSetActiveLayout("b:"+p.key);
   undoToast(`${p.name} layout`);
 }
 function dbSavePreset(name){
@@ -21310,41 +21343,83 @@ function dbSavePreset(name){
   if(i >= 0) dbPresets[i] = rec; else dbPresets.push(rec);
   dbPresets = dbPresets.slice(-12);
   saveJSON(NS+"dashPresets", dbPresets);
+  dbSetActiveLayout("m:"+name);
 }
-function dbPresetsHTML(){
-  return `<div class="db-presets" id="db-presets">
-    <div class="db-pr-title">Layouts</div>
-    <div class="db-pr-grid">
-      ${DB_BUILTIN_PRESETS.map(p=>`<button type="button" class="db-pr" data-builtin="${p.key}"><span class="db-pr-thumb pr-${p.key}"><i></i><i></i><i></i><i></i><i></i></span><b>${p.name}</b><small>${p.desc}</small></button>`).join("")}
-      ${dbPresets.map((p,i)=>`<div class="db-pr mine"><button type="button" class="db-pr-main" data-mine="${i}"><span class="db-pr-thumb pr-mine">★</span><b>${dbEsc(p.name)}</b><small>Saved ${new Date(p.t).toLocaleDateString("en-US",{month:"short", day:"numeric"})}</small></button><button type="button" class="db-pr-del" data-del="${i}" title="Delete preset">✕</button></div>`).join("")}
-    </div>
-    <form class="db-pr-save" id="db-pr-save"><input type="text" id="db-pr-name" placeholder="Name this layout (e.g. Work mode)" maxlength="30" autocomplete="off"><button type="submit" class="fx-ask-btn">Save current</button></form>
-  </div>`;
+let dbActiveLayout = loadJSON(NS+"dashActiveLayout", "b:classic");
+function dbSetActiveLayout(k){ dbActiveLayout = k; try{ localStorage.setItem(NS+"dashActiveLayout", JSON.stringify(k)); }catch(e){} }
+/* layout changes by hand mean the current layout is "custom" until saved */
+function dbMarkLayoutCustom(){ if(dbActiveLayout && !String(dbActiveLayout).endsWith("*")) dbSetActiveLayout(dbActiveLayout + "*"); }
+function dbLayoutsHTML(){
+  const act = String(dbActiveLayout||"");
+  const edited = act.endsWith("*"), cur = act.replace(/\*$/,"");
+  const card = (key, name, desc, thumb, del)=>`<div class="lp-card${cur===key ? " on" : ""}" data-k="${dbEsc(key)}" role="button" tabindex="0">
+      <span class="lp-thumb ${thumb}">${thumb==="pr-mine" ? "★" : "<i></i><i></i><i></i><i></i><i></i>"}</span>
+      <span class="lp-txt"><b>${dbEsc(name)}${cur===key ? `<em>${edited ? "Edited" : "Current"}</em>` : ""}</b><small>${dbEsc(desc)}</small></span>
+      ${del!=null ? `<button type="button" class="lp-del" data-del="${del}" title="Delete this layout" aria-label="Delete">✕</button>` : ""}
+    </div>`;
+  return `<div class="lp-head"><b>Layouts</b><small>Switch your Home dashboard in one click</small></div>
+    <div class="lp-sec">Ready-made</div>
+    <div class="lp-list">${DB_BUILTIN_PRESETS.map(p=>card("b:"+p.key, p.name, p.desc, "pr-"+p.key)).join("")}</div>
+    <div class="lp-sec">Yours</div>
+    <div class="lp-list">${dbPresets.length ? dbPresets.map((p,i)=>card("m:"+p.name, p.name, "Saved " + new Date(p.t).toLocaleDateString("en-US",{month:"short", day:"numeric"}), "pr-mine", i)).join("") : `<div class="lp-empty">Arrange the dashboard how you like, then save it here.</div>`}</div>
+    <form class="lp-save"><input type="text" placeholder="Name your current layout…" maxlength="30" autocomplete="off" aria-label="Layout name"><button type="submit">Save</button></form>
+    ${document.getElementById("dashboard").classList.contains("db-editing") ? "" : `<button type="button" class="lp-edit">✎ Edit layout</button>`}`;
 }
-function dbWirePresets(bar){
-  const box = bar.querySelector("#db-presets"); if(!box) return;
-  box.querySelectorAll("[data-builtin]").forEach(b=>b.addEventListener("click", ()=>dbApplyBuiltin(DB_BUILTIN_PRESETS.find(p=>p.key===b.dataset.builtin))));
-  box.querySelectorAll("[data-mine]").forEach(b=>b.addEventListener("click", ()=>{ const p = dbPresets[+b.dataset.mine]; if(p){ dbApplyPresetData(p.data); undoToast(`${p.name} layout`); } }));
-  box.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
-    if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Delete?"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent = "✕"; } }, 3000); return; }
-    dbPresets.splice(+b.dataset.del, 1); saveJSON(NS+"dashPresets", dbPresets); renderDbEditbar();
-  }));
-  box.querySelector("#db-pr-save").addEventListener("submit", e=>{
-    e.preventDefault();
-    const inp = box.querySelector("#db-pr-name"), name = inp.value.trim();
-    if(!name){ inp.focus(); return; }
-    dbSavePreset(name); renderDbEditbar(); undoToast(`Saved “${name}”`);
-  });
+function dbToggleLayouts(anchor){
+  let pop = document.getElementById("db-layouts-pop");
+  if(pop){ pop.remove(); return; }
+  pop = document.createElement("div");
+  pop.id = "db-layouts-pop"; pop.className = "lp-pop";
+  document.body.appendChild(pop);
+  const place = ()=>{
+    const r = anchor.getBoundingClientRect(), w = Math.min(360, window.innerWidth - 24);
+    pop.style.width = w + "px";
+    const below = r.bottom + 8 + 520 < window.innerHeight || r.top < 300;
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.right - w)) + "px";
+    if(below){ pop.style.top = (r.bottom + 8) + "px"; pop.style.bottom = ""; } else { pop.style.bottom = (window.innerHeight - r.top + 8) + "px"; pop.style.top = ""; }
+  };
+  const render = ()=>{
+    pop.innerHTML = dbLayoutsHTML();
+    pop.querySelectorAll(".lp-card").forEach(c=>{
+      const go = ()=>{
+        const k = c.dataset.k;
+        if(k.startsWith("b:")) dbApplyBuiltin(DB_BUILTIN_PRESETS.find(p=>"b:"+p.key===k));
+        else { const p = dbPresets.find(x=>"m:"+x.name===k); if(p){ dbApplyPresetData(p.data); dbSetActiveLayout(k); undoToast(`${p.name} layout`); } }
+        render();
+      };
+      c.addEventListener("click", e=>{ if(!e.target.closest(".lp-del")) go(); });
+      c.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } });
+    });
+    pop.querySelectorAll(".lp-del").forEach(b=>b.addEventListener("click", e=>{
+      e.stopPropagation();
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Delete?"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent = "✕"; } }, 3000); return; }
+      dbPresets.splice(+b.dataset.del, 1); saveJSON(NS+"dashPresets", dbPresets); render();
+    }));
+    pop.querySelector(".lp-save").addEventListener("submit", e=>{
+      e.preventDefault();
+      const inp = pop.querySelector(".lp-save input"), name = inp.value.trim();
+      if(!name){ inp.focus(); return; }
+      dbSavePreset(name); render(); undoToast(`Saved “${name}”`);
+    });
+    const le = pop.querySelector(".lp-edit"); if(le) le.addEventListener("click", ()=>{ close(); setDbEditing(true); });
+    place();
+  };
+  const close = ()=>{ pop.remove(); document.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", onKey, true); window.removeEventListener("resize", place); };
+  const outside = e=>{ if(!pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const onKey = e=>{ if(e.key==="Escape"){ e.stopImmediatePropagation(); close(); } };
+  document.addEventListener("pointerdown", outside, true);
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("resize", place);
+  render();
+  requestAnimationFrame(()=>pop.classList.add("show"));
 }
 function renderDbEditbar(){
   const bar = document.getElementById("db-editbar");
   if(!bar) return;
   bar.innerHTML = `<span class="hint">Drag windows by the top · – sends one to Apps · drag an app onto the dashboard to add it</span><label class="snap"><input type="checkbox" id="db-snap"${dbWin.snap ? " checked" : ""}> Snap &amp; guides</label>`
     + dbLayout.hidden.filter(id=>DB_PANELS[id]).map(id=>`<button type="button" class="add" data-add="${id}">+ ${DB_PANELS[id].label}</button>`).join("")
-    + `<button type="button" class="${dbPresetsOpen ? "on" : ""}" data-act="presets">▦ Layouts</button><button type="button" data-act="reset">Reset layout</button><button type="button" class="done" data-act="done">Done</button>`
-    + (dbPresetsOpen ? dbPresetsHTML() : "");
-  bar.querySelector('[data-act="presets"]').addEventListener("click", ()=>{ dbPresetsOpen = !dbPresetsOpen; renderDbEditbar(); });
-  dbWirePresets(bar);
+    + `<button type="button" data-act="presets">▦ Layouts</button><button type="button" data-act="reset">Reset layout</button><button type="button" class="done" data-act="done">Done</button>`;
+  bar.querySelector('[data-act="presets"]').addEventListener("click", e=>{ e.stopPropagation(); dbToggleLayouts(e.currentTarget); });
   bar.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click", ()=>dbRestorePanel(b.dataset.add)));
   bar.querySelector('[data-act="reset"]').addEventListener("click", ()=>{
     [...dbPinned].forEach(dbUnpinApp); dbLastFreed = null;
@@ -21375,6 +21450,7 @@ function wireDbLayout(){
   dbLayout = dbLoadLayout();
   const main = document.getElementById("db-main");
   main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(dbAddEditUI);
+  $("#db-layouts-btn").addEventListener("click", e=>dbToggleLayouts(e.currentTarget));
   $("#db-edit-btn").addEventListener("click", ()=>setDbEditing(!document.getElementById("dashboard").classList.contains("db-editing")));
   window.addEventListener("keydown", e=>{
     if(e.key==="Escape" && document.getElementById("dashboard").classList.contains("db-editing")) setDbEditing(false);
@@ -21400,7 +21476,7 @@ let dbWin = (()=>{
   if(its.length > 1 && its.every(i=>!i.x && !i.y)) w.items = {};
   return w;
 })();
-function dbWinSave(){ saveJSON(DB_WIN_STORE, dbWin); }
+function dbWinSave(){ saveJSON(DB_WIN_STORE, dbWin); if(typeof dbMarkLayoutCustom === "function" && !dbApplyingPreset && document.getElementById("dashboard") && document.getElementById("dashboard").classList.contains("db-editing")) dbMarkLayoutCustom(); }
 function dbWinPanels(main){ return [...main.querySelectorAll(":scope > .db-panel[data-panel]")]; }
 function dbWinMin(id){
   const p = DB_PANELS[id] || {};
