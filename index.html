@@ -876,6 +876,22 @@
   .fx-list .list-row{font-family:inherit;font-size:13.5px;}
   .fx-list .list-row span span{font-size:11.5px !important;}
   .fx-pill.on{background:#2f8bff;border-color:#2f8bff;color:#fff;}
+  .fx-eq{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .fx-eq-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;align-items:stretch;}
+  .fx-eq-lbl{font-size:12px;font-weight:600;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+  .fx-eq-opt{flex:1;min-width:128px;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;border:1px solid rgba(124,180,255,.16);background:rgba(255,255,255,.03);color:var(--text-primary);cursor:pointer;text-align:left;transition:border-color .15s,background .15s;}
+  .fx-eq-opt:hover{border-color:rgba(124,180,255,.4);}
+  .fx-eq-opt.on{border-color:#4d9bff;background:rgba(47,139,255,.16);box-shadow:0 0 0 1px #4d9bff inset;}
+  .fx-eq-opt .ic{font-size:20px;line-height:1;}
+  .fx-eq-opt b{display:block;font-size:13px;}
+  .fx-eq-opt > span:last-child{min-width:0;}
+  .fx-eq-opt small{display:block;font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fx-eq-custom{display:flex;flex-wrap:wrap;gap:6px;}
+  .fx-eq-custom label{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid rgba(124,180,255,.18);font-size:12.5px;cursor:pointer;}
+  .fx-eq-custom label.on{background:rgba(47,139,255,.18);border-color:#4d9bff;}
+  .fx-eq-custom input{display:none;}
+  .fx-eq-msg{font-size:12px;color:#9fd0ff;}
+  .fx-eq-msg button{background:none;border:none;color:#ffb040;cursor:pointer;font-size:12px;font-weight:600;}
   .fx-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:14px;}
   .fx-day{position:relative;display:flex;flex-direction:column;gap:8px;min-height:210px;padding:12px;border-radius:16px;background:linear-gradient(180deg,rgba(25,48,84,.55),rgba(10,22,42,.55));border:1px solid rgba(124,180,255,.12);cursor:pointer;text-align:left;transition:border-color .15s,transform .15s,background .15s;min-width:0;}
   .fx-day:hover{border-color:rgba(124,180,255,.4);transform:translateY(-2px);}
@@ -906,7 +922,19 @@
   .fx-ask-btn{height:34px;padding:0 18px;border-radius:999px;border:none;background:linear-gradient(180deg,#2f8bff,#1366e6);color:#fff;font-weight:700;font-size:13px;cursor:pointer;flex:none;}
   .fx-ask-btn:disabled{opacity:.6;}
   .fx-equip{font-size:11.5px;color:var(--text-dim);margin:6px 14px 0;}
-  .fx-tabs{display:flex;gap:4px;margin-top:22px;padding:4px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(124,180,255,.14);overflow-x:auto;scrollbar-width:none;}
+  .fx-logs{margin-top:20px;border-radius:16px;border:1px solid rgba(124,180,255,.14);background:rgba(255,255,255,.02);}
+  .fx-logs-toggle{width:100%;display:flex;align-items:center;gap:10px;padding:12px 16px;background:none;border:none;color:var(--text-primary);cursor:pointer;text-align:left;}
+  .fx-logs-toggle span{font-weight:700;font-size:14px;}
+  .fx-logs-toggle small{color:var(--text-dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .fx-logs-toggle i{margin-left:auto;font-style:normal;color:var(--text-dim);transition:transform .2s;}
+  .fx-logs.open .fx-logs-toggle i{transform:rotate(180deg);}
+  .fx-logs-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease;}
+  .fx-logs-body > *{min-height:0;}
+  .fx-logs.open .fx-logs-body{grid-template-rows:1fr;}
+  .fx-logs-inner{overflow:hidden;padding:0 12px;}
+  .fx-logs.open .fx-logs-inner{padding:0 12px 12px;}
+  .fx-logs:not(.open) .fx-logs-inner{visibility:hidden;transition:visibility 0s .22s;}
+  .fx-tabs{display:flex;gap:4px;margin-top:2px;padding:4px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(124,180,255,.14);overflow-x:auto;scrollbar-width:none;}
   .fx-tabs button{flex:1;white-space:nowrap;border:none;background:transparent;color:var(--text-dim);font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:999px;cursor:pointer;}
   .fx-tabs button.on{background:#2f8bff;color:#fff;}
   .fx-tabs button .n{margin-left:5px;font-size:10.5px;opacity:.8;}
@@ -7196,6 +7224,7 @@ function renderFull(id){
         </div>
         <button type="button" class="fx-pill" id="fit-volume-toggle-btn" title="Weekly sets per muscle group">Sets per muscle</button>
       </div>
+      <div class="fx-eq" id="fx-eq"></div>
       <div id="fit-volume-panel" class="fit-plan-day-detail-wrap"></div>
       <div id="fit-plan-grid-full" class="fx-week"></div>
       <div id="fx-empty" class="fx-empty" hidden>
@@ -7210,8 +7239,11 @@ function renderFull(id){
         <input id="fit-plan-input" type="text" placeholder='Change your plan: "make Wednesday legs", "4-day strength split", "swap squats for leg press"' autocomplete="off"/>
         <button class="fx-ask-btn" id="fit-plan-submit">Update</button>
       </div>
-      <div id="fit-equipment-status" class="fx-equip"></div>
+      <div id="fit-equipment-status" class="fx-equip" hidden></div>
 
+      <div class="fx-logs" id="fx-logs">
+      <button type="button" class="fx-logs-toggle" id="fx-logs-toggle"><span>Logs &amp; profile</span><small>Cardio · Workout · Food · Bloodwork · Notes · Profile</small><i>▾</i></button>
+      <div class="fx-logs-body"><div class="fx-logs-inner">
       <div class="fx-tabs" id="fx-tabs">
         <button type="button" data-tab="cardio" class="on">Cardio</button>
         <button type="button" data-tab="workout">Workout log</button>
@@ -7245,6 +7277,8 @@ function renderFull(id){
           </div>
           <div class="fx-equip" style="margin-top:8px;">Used to tailor your plan. You can also just say it in the box above ("I'm 23, 170 lb").</div>
         </div>
+      </div>
+      </div></div>
       </div>
     </div>`;
   }
@@ -18022,6 +18056,19 @@ if(!("weightUnit" in fitnessData)) fitnessData.weightUnit = "lbs";
 // yet doesn't suddenly lose every barbell/machine exercise it would have gotten before this.
 if(!("equipment" in fitnessData)) fitnessData.equipment = [];
 if(!("cardio" in fitnessData)) fitnessData.cardio = [];
+/* One-tap equipment presets (the Fitness window's picker). [] = full gym, no restriction. */
+const FIT_EQUIP_PRESETS = [
+  {key:"full", label:"Full gym", icon:"🏋️", sub:"Everything", equip:[]},
+  {key:"free", label:"Free weights", icon:"💪", sub:"Barbell, dumbbells, kettlebell", equip:["barbell","dumbbell","kettlebell","pullup"]},
+  {key:"db", label:"Dumbbells only", icon:"🏠", sub:"Home setup", equip:["dumbbell"]},
+  {key:"cali", label:"Calisthenics", icon:"🤸", sub:"Bodyweight + pull-up bar", equip:["pullup"]},
+  {key:"bw", label:"No equipment", icon:"🧍", sub:"Bodyweight only", equip:["bodyweight"]},
+];
+function fitEquipPresetKey(eq){
+  const a = (eq||[]).slice().sort().join(",");
+  const hit = FIT_EQUIP_PRESETS.find(p=>p.equip.slice().sort().join(",")===a);
+  return hit ? hit.key : "custom";
+}
 const FIT_EQUIPMENT_OPTIONS = [
   {key:"barbell", label:"Barbell"},
   {key:"dumbbell", label:"Dumbbells"},
@@ -18072,6 +18119,11 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Cable Row 3x12", equip:"machine"}, {name:"Pull-Up 3xAMRAP", equip:"pullup"},
     {name:"Kettlebell Row 3x12", equip:"kettlebell"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
     {name:"Pike Push-Up 3x12", equip:"bodyweight"},
+    {name:"Chin-Up 3xAMRAP", equip:"pullup"},
+    {name:"Dip 3xAMRAP", equip:"bodyweight"},
+    {name:"Inverted Row 3x12", equip:"bodyweight"},
+    {name:"Diamond Push-Up 3x12", equip:"bodyweight"},
+    {name:"Dumbbell Shoulder Press 3x10", equip:"dumbbell"},
   ],
   "Lower": [
     {name:"Back Squat 4x8", equip:"barbell"}, {name:"Romanian Deadlift 4x8", equip:"barbell"},
@@ -18079,6 +18131,12 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Dumbbell Romanian Deadlift 3x10", equip:"dumbbell"}, {name:"Goblet Squat 3x12", equip:"kettlebell"},
     {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Bodyweight Squat 4x20", equip:"bodyweight"},
     {name:"Walking Lunge 3x12", equip:"bodyweight"}, {name:"Calf Raise 4x15", equip:"bodyweight"},
+    {name:"Bulgarian Split Squat 3x10", equip:"bodyweight"},
+    {name:"Glute Bridge 3x15", equip:"bodyweight"},
+    {name:"Nordic Curl 3x6", equip:"bodyweight"},
+    {name:"Jump Squat 3x12", equip:"bodyweight"},
+    {name:"Dumbbell Goblet Squat 3x12", equip:"dumbbell"},
+    {name:"Dumbbell Step-Up 3x10", equip:"dumbbell"},
   ],
   "Push": [
     {name:"Bench Press 4x8", equip:"barbell"}, {name:"Overhead Press 3x10", equip:"barbell"},
@@ -18086,6 +18144,11 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Cable Fly 3x12", equip:"machine"}, {name:"Tricep Pushdown 3x12", equip:"machine"},
     {name:"Kettlebell Push Press 3x10", equip:"kettlebell"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
     {name:"Dip 3xAMRAP", equip:"bodyweight"},
+    {name:"Pike Push-Up 3x12", equip:"bodyweight"},
+    {name:"Decline Push-Up 3x12", equip:"bodyweight"},
+    {name:"Diamond Push-Up 3x12", equip:"bodyweight"},
+    {name:"Dumbbell Fly 3x12", equip:"dumbbell"},
+    {name:"Overhead Tricep Extension 3x12", equip:"dumbbell"},
   ],
   "Pull": [
     {name:"Deadlift 3x5", equip:"barbell"}, {name:"Barbell Row 4x8", equip:"barbell"},
@@ -18093,6 +18156,11 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Cable Row 3x12", equip:"machine"}, {name:"Face Pull 3x15", equip:"machine"},
     {name:"Dumbbell Row 3x10", equip:"dumbbell"}, {name:"Kettlebell Row 3x12", equip:"kettlebell"},
     {name:"Inverted Row 3x12", equip:"bodyweight"},
+    {name:"Chin-Up 3xAMRAP", equip:"pullup"},
+    {name:"Hanging Knee Raise 3x12", equip:"pullup"},
+    {name:"Superman Hold 3x30s", equip:"bodyweight"},
+    {name:"Dumbbell Curl 3x12", equip:"dumbbell"},
+    {name:"Rear Delt Fly 3x15", equip:"dumbbell"},
   ],
   "Legs": [
     {name:"Back Squat 4x8", equip:"barbell"}, {name:"Romanian Deadlift 3x10", equip:"barbell"},
@@ -18100,6 +18168,12 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Dumbbell Walking Lunge 3x12", equip:"dumbbell"}, {name:"Goblet Squat 3x12", equip:"kettlebell"},
     {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Bodyweight Squat 4x20", equip:"bodyweight"},
     {name:"Calf Raise 4x15", equip:"bodyweight"},
+    {name:"Bulgarian Split Squat 3x10", equip:"bodyweight"},
+    {name:"Walking Lunge 3x12", equip:"bodyweight"},
+    {name:"Glute Bridge 3x15", equip:"bodyweight"},
+    {name:"Nordic Curl 3x6", equip:"bodyweight"},
+    {name:"Jump Squat 3x12", equip:"bodyweight"},
+    {name:"Dumbbell Step-Up 3x10", equip:"dumbbell"},
   ],
   "Full Body": [
     {name:"Squat 3x8", equip:"barbell"}, {name:"Bench Press 3x8", equip:"barbell"},
@@ -18107,28 +18181,47 @@ const SPLIT_DAY_EXERCISE_BANK = {
     {name:"Kettlebell Swing 3x15", equip:"kettlebell"}, {name:"Pull-Up 3xAMRAP", equip:"pullup"},
     {name:"Push-Up 3x15", equip:"bodyweight"}, {name:"Burpee 3x12", equip:"bodyweight"},
     {name:"Plank 3x45s", equip:"bodyweight"},
+    {name:"Inverted Row 3x12", equip:"bodyweight"},
+    {name:"Walking Lunge 3x12", equip:"bodyweight"},
+    {name:"Mountain Climber 3x30s", equip:"bodyweight"},
+    {name:"Dumbbell Bench Press 3x10", equip:"dumbbell"},
+    {name:"Dumbbell Row 3x10", equip:"dumbbell"},
   ],
   "Chest": [
     {name:"Bench Press 4x8", equip:"barbell"}, {name:"Incline Dumbbell Press 3x10", equip:"dumbbell"},
     {name:"Cable Fly 3x12", equip:"machine"}, {name:"Push-Up 4xAMRAP", equip:"bodyweight"},
     {name:"Dip 3xAMRAP", equip:"bodyweight"},
+    {name:"Decline Push-Up 3x12", equip:"bodyweight"},
+    {name:"Wide Push-Up 3x15", equip:"bodyweight"},
+    {name:"Dumbbell Bench Press 3x10", equip:"dumbbell"},
+    {name:"Dumbbell Fly 3x12", equip:"dumbbell"},
   ],
   "Back": [
     {name:"Deadlift 3x5", equip:"barbell"}, {name:"Barbell Row 4x8", equip:"barbell"},
     {name:"Pull-Up 4xAMRAP", equip:"pullup"}, {name:"Lat Pulldown 3x12", equip:"machine"},
     {name:"Dumbbell Row 3x10", equip:"dumbbell"}, {name:"Kettlebell Row 3x12", equip:"kettlebell"},
     {name:"Inverted Row 3x12", equip:"bodyweight"},
+    {name:"Chin-Up 3xAMRAP", equip:"pullup"},
+    {name:"Superman Hold 3x30s", equip:"bodyweight"},
+    {name:"Rear Delt Fly 3x15", equip:"dumbbell"},
   ],
   "Shoulders": [
     {name:"Overhead Press 4x8", equip:"barbell"}, {name:"Dumbbell Lateral Raise 3x15", equip:"dumbbell"},
     {name:"Rear Delt Fly 3x15", equip:"dumbbell"}, {name:"Cable Lateral Raise 3x15", equip:"machine"},
     {name:"Kettlebell Overhead Press 3x10", equip:"kettlebell"}, {name:"Pike Push-Up 3x12", equip:"bodyweight"},
+    {name:"Handstand Hold 3x30s", equip:"bodyweight"},
+    {name:"Plank Shoulder Tap 3x20", equip:"bodyweight"},
+    {name:"Dumbbell Shoulder Press 3x10", equip:"dumbbell"},
+    {name:"Dumbbell Front Raise 3x12", equip:"dumbbell"},
   ],
   "Arms": [
     {name:"Barbell Curl 3x12", equip:"barbell"}, {name:"Dumbbell Curl 3x12", equip:"dumbbell"},
     {name:"Hammer Curl 3x12", equip:"dumbbell"}, {name:"Overhead Tricep Extension 3x12", equip:"dumbbell"},
     {name:"Tricep Pushdown 3x12", equip:"machine"}, {name:"Chin-Up 3xAMRAP", equip:"pullup"},
     {name:"Diamond Push-Up 3x15", equip:"bodyweight"},
+    {name:"Bench Dip 3x15", equip:"bodyweight"},
+    {name:"Close-Grip Push-Up 3x12", equip:"bodyweight"},
+    {name:"Concentration Curl 3x12", equip:"dumbbell"},
   ],
   "Core": [
     {name:"Plank 3x45s", equip:"bodyweight"}, {name:"Dragon Flag 3x8", equip:"bodyweight"},
@@ -18683,13 +18776,13 @@ function formatExerciseListForDisplay(notesStr){
    (this app's own local bank + typically how an AI-generated plan names things too), so a handful
    of keyword patterns covers the overwhelming majority without needing real NLP. */
 const MUSCLE_GROUP_RULES = [
-  {group:"Chest", re:/bench press|incline .*press|chest press|cable fly|push-?up|dip/i},
-  {group:"Back", re:/deadlift|row|pulldown|pull-?up|chin-?up/i},
-  {group:"Shoulders", re:/overhead press|shoulder press|push press|lateral raise|rear delt|face pull|pike push-?up/i},
-  {group:"Legs", re:/squat|lunge|leg press|leg curl|leg extension|calf raise|romanian deadlift|goblet|kettlebell swing/i},
-  {group:"Triceps", re:/tricep|diamond push-?up/i},
+  {group:"Triceps", re:/tricep|diamond push-?up|bench dip|close-grip push-?up/i},
+  {group:"Shoulders", re:/overhead press|shoulder press|push press|lateral raise|front raise|rear delt|face pull|pike push-?up|handstand|shoulder tap/i},
+  {group:"Core", re:/plank|sit-?up|crunch|dragon flag|ab wheel|hollow hold|burpee|thruster|mountain climber|knee raise|leg raise|russian twist/i},
+  {group:"Chest", re:/bench press|incline .*press|chest press|fly|push-?up|dip/i},
+  {group:"Legs", re:/squat|lunge|leg press|leg curl|leg extension|calf raise|romanian deadlift|goblet|kettlebell swing|glute bridge|nordic|step-?up/i},
+  {group:"Back", re:/deadlift|row|pulldown|pull-?up|chin-?up|superman/i},
   {group:"Biceps", re:/curl/i},
-  {group:"Core", re:/plank|sit-?up|crunch|dragon flag|ab wheel|hollow hold|burpee|thruster/i},
 ];
 function classifyMuscleGroup(name){
   const n = name.toLowerCase();
@@ -19012,7 +19105,65 @@ function hydrateFitnessFull(scope){
   // whatever that inference last landed on, so "did it actually pick that up" isn't a guessing
   // game — not an input of its own.
   const equipStatusEl = scope.querySelector("#fit-equipment-status");
+  let fxCustomOpen = false, fxEqMsg = "", fxUndo = null;
+  function fxApplyEquipment(eq, label){
+    const before = {equip:fitnessData.equipment.slice(), notes: fitnessData.plan ? {...fitnessData.plan.notes} : null};
+    fitnessData.equipment = eq;
+    let changed = 0, kept = 0;
+    if(fitnessData.plan){
+      if(!fitnessData.plan.notes) fitnessData.plan.notes = {};
+      FIT_DAY_ORDER.forEach(d=>{
+        const lab = fitnessData.plan.days[d];
+        if(!lab || /^rest$/i.test(lab)) return;
+        const fresh = exercisesForLabel(lab, eq);
+        if(fresh){ fitnessData.plan.notes[d] = fresh; changed++; } else kept++;
+      });
+    }
+    saveJSON(NS+"fitness", fitnessData);
+    fxUndo = before;
+    fxEqMsg = fitnessData.plan
+      ? `Exercises updated for ${label}.` + (kept ? ` ${kept} custom day${kept>1?"s":""} left as is — ask below to rework ${kept>1?"them":"it"}.` : "")
+      : `${label} saved — new plans will use it.`;
+    fitnessSelectedPlanDay = null;
+    renderEquipmentStatus();
+    renderFitnessPlanSection(scope);
+    const miniScope = document.querySelector(".fit-mini-plan");
+    if(miniScope) renderFitnessMiniPlan(miniScope.closest(".widget-body"));
+  }
+  function fxRenderEquip(){
+    const box = scope.querySelector("#fx-eq"); if(!box) return;
+    const cur = fitEquipPresetKey(fitnessData.equipment);
+    const custom = cur==="custom" || fxCustomOpen;
+    box.innerHTML = `
+      <div class="fx-eq-lbl">Equipment I have</div>
+      <div class="fx-eq-row">${FIT_EQUIP_PRESETS.map(p=>`<button type="button" class="fx-eq-opt${cur===p.key && !fxCustomOpen?" on":""}" data-eq="${p.key}"><span class="ic">${p.icon}</span><span><b>${p.label}</b><small>${p.sub}</small></span></button>`).join("")}
+        <button type="button" class="fx-eq-opt${custom?" on":""}" data-eq="custom"><span class="ic">⚙️</span><span><b>Custom</b><small>Pick items</small></span></button></div>
+      ${custom ? `<div class="fx-eq-custom">${FIT_EQUIPMENT_OPTIONS.map(o=>{ const on = fitnessData.equipment.includes(o.key) || !fitnessData.equipment.length; return `<label class="${on?"on":""}"><input type="checkbox" data-item="${o.key}"${on?" checked":""}>${on?"✓ ":""}${o.label}</label>`; }).join("")}</div>` : ""}
+      ${fxEqMsg ? `<div class="fx-eq-msg">${escapeHtml(fxEqMsg)} ${fxUndo?`<button type="button" id="fx-eq-undo">Undo</button>`:""}</div>` : ""}`;
+    box.querySelectorAll("[data-eq]").forEach(b=>b.addEventListener("click", ()=>{
+      if(b.dataset.eq==="custom"){ fxCustomOpen = !fxCustomOpen || cur!=="custom"; fxRenderEquip(); return; }
+      fxCustomOpen = false;
+      const p = FIT_EQUIP_PRESETS.find(x=>x.key===b.dataset.eq);
+      fxApplyEquipment(p.equip.slice(), p.label);
+    }));
+    box.querySelectorAll("[data-item]").forEach(cb=>cb.addEventListener("change", ()=>{
+      let sel = [...box.querySelectorAll("[data-item]")].filter(x=>x.checked).map(x=>x.dataset.item);
+      if(sel.length===FIT_EQUIPMENT_OPTIONS.length) sel = [];
+      else if(!sel.length) sel = ["bodyweight"];
+      fxCustomOpen = true;
+      fxApplyEquipment(sel, "your equipment");
+    }));
+    const undo = box.querySelector("#fx-eq-undo");
+    if(undo) undo.addEventListener("click", ()=>{
+      fitnessData.equipment = fxUndo.equip;
+      if(fitnessData.plan && fxUndo.notes) fitnessData.plan.notes = fxUndo.notes;
+      saveJSON(NS+"fitness", fitnessData);
+      fxUndo = null; fxEqMsg = "Undone."; fxCustomOpen = false;
+      fxRenderEquip(); renderFitnessPlanSection(scope);
+    });
+  }
   function renderEquipmentStatus(){
+    fxRenderEquip();
     if(!equipStatusEl) return;
     if(!fitnessData.equipment.length){
       equipStatusEl.textContent = "Equipment: full gym.";
@@ -19193,6 +19344,13 @@ function hydrateFitnessFull(scope){
   // anymore, since which column you clicked already says what it is. renderFitnessColumns above
   // only ever touches .fit-col-* (the entry list itself), never these wrapper/input elements, so
   // the same input node stays mounted (and focused) across re-renders after each add.
+  const fxLogs = scope.querySelector("#fx-logs");
+  let fxLogsOpen = false; try{ fxLogsOpen = localStorage.getItem(NS+"fitnessLogsOpen")==="1"; }catch(e){}
+  fxLogs.classList.toggle("open", fxLogsOpen);
+  scope.querySelector("#fx-logs-toggle").addEventListener("click", ()=>{
+    fxLogsOpen = !fxLogsOpen; fxLogs.classList.toggle("open", fxLogsOpen);
+    try{ localStorage.setItem(NS+"fitnessLogsOpen", fxLogsOpen?"1":"0"); }catch(e){}
+  });
   scope.querySelectorAll("#fx-tabs [data-tab]").forEach(t=>t.addEventListener("click", ()=>{
     scope.querySelectorAll("#fx-tabs [data-tab]").forEach(x=>x.classList.toggle("on", x===t));
     scope.querySelectorAll(".fx-pane").forEach(p=>p.hidden = p.dataset.pane !== t.dataset.tab);
