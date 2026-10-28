@@ -631,6 +631,25 @@
   .calendar-events-title{font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
   .calendar-events-list{display:flex;flex-direction:column;}
   .calendar-add-event{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft);}
+  /* ---- rounded, softer calendar ---- */
+  .calendar-full-layout{gap:14px;padding:14px;}
+  .calendar-cal-panel{border-radius:18px;background:linear-gradient(180deg, rgba(15,32,58,.7), rgba(8,18,35,.7));border:1px solid rgba(90,169,255,.18);}
+  .calendar-nav .hbtn{width:34px;height:34px;border-radius:50%;font-size:18px;display:grid;place-items:center;}
+  .calendar-month-label{text-transform:none;letter-spacing:.01em;font-size:17px;}
+  .calendar-weekday-row{margin-bottom:8px;font-size:11.5px;letter-spacing:.06em;}
+  .calendar-grid{gap:6px;}
+  .calendar-day-cell{border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(124,180,255,.08);justify-content:center;align-items:center;padding:6px;font-size:13px;transition:background .15s, border-color .15s, transform .12s;}
+  .calendar-day-cell:hover{background:rgba(90,169,255,.12);border-color:rgba(124,180,255,.3);transform:translateY(-1px);}
+  .calendar-day-cell.other-month{background:transparent;border-color:transparent;}
+  .calendar-day-cell.is-today{border-color:#5aa9ff;color:#9fd0ff;box-shadow:0 0 14px -6px #5aa9ff;}
+  .calendar-day-cell.is-selected{background:linear-gradient(180deg,#2f8bff,#1366e6);border-color:transparent;color:#fff;box-shadow:0 8px 18px -10px #1f7bff;}
+  .calendar-day-cell.is-selected.is-today{border-color:#9fd0ff;}
+  .calendar-day-dot{left:50%;bottom:5px;transform:translateX(-50%);}
+  .calendar-events-panel{border-radius:18px;border:1px solid rgba(90,169,255,.18);background:linear-gradient(180deg, rgba(15,32,58,.7), rgba(8,18,35,.7));}
+  .calendar-events-title{text-transform:none;letter-spacing:.01em;font-size:16px;}
+  .calendar-add-event{border-top:1px solid rgba(124,180,255,.12);}
+  .calendar-add-event input{border-radius:10px;height:38px;padding:0 12px;}
+  .calendar-add-event .btn{border-radius:10px;height:38px;}
   /* ---------- YouTube trending/search suggestions — single column, thumb-left/title-right
      (like YouTube's own up-next list), shared by the full modal view and the mini widget. ---------- */
   .yt-suggestions{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
