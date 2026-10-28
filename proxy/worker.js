@@ -21,7 +21,7 @@ function corsHeaders(origin){
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
@@ -453,6 +453,55 @@ async function garagePick(request, env, cors, ctx){
   return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
 }
 
+/* ---- who's asking: verify the Firebase sign-in token (RS256) sent by the Medulla app ----
+   Private data (bank balances) is only returned to the owner's account (secret SIMPLEFIN_OWNER_EMAIL). */
+const FB_PROJECT = "medulla-4ec92";
+let fbKeys = null, fbKeysAt = 0;
+async function firebaseUser(request){
+  const m = (request.headers.get("Authorization") || "").match(/^Bearer (.+)$/);
+  if(!m) return null;
+  const [h, p, sig] = m[1].split(".");
+  if(!sig) return null;
+  const dec = s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(s.length/4)*4, "=")), c=>c.charCodeAt(0));
+  let head, body;
+  try{ head = JSON.parse(new TextDecoder().decode(dec(h))); body = JSON.parse(new TextDecoder().decode(dec(p))); }catch(e){ return null; }
+  const now = Math.floor(Date.now()/1000);
+  if(head.alg !== "RS256" || body.aud !== FB_PROJECT || body.iss !== `https://securetoken.google.com/${FB_PROJECT}` || !(body.exp > now) || !(body.iat <= now + 60)) return null;
+  if(!fbKeys || Date.now() - fbKeysAt > 3600000){
+    const r = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+    fbKeys = (await r.json()).keys || []; fbKeysAt = Date.now();
+  }
+  const jwk = fbKeys.find(k=>k.kid === head.kid);
+  if(!jwk) return null;
+  const key = await crypto.subtle.importKey("jwk", jwk, {name:"RSASSA-PKCS1-v1_5", hash:"SHA-256"}, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, dec(sig), new TextEncoder().encode(`${h}.${p}`));
+  return ok ? body : null;
+}
+/* ---- SimpleFIN Bridge: all your accounts' balances (read-only) ----
+   Secret SIMPLEFIN_ACCESS_URL = the access URL you get by claiming your setup token (see proxy/README.md). */
+async function simplefinAccounts(request, env, cors){
+  const user = await firebaseUser(request);
+  if(!user) return json({error:"sign_in_required"}, 401, cors);
+  const owner = String(env.SIMPLEFIN_OWNER_EMAIL || "").toLowerCase().trim();
+  if(!owner || String(user.email || "").toLowerCase() !== owner || user.email_verified === false) return json({error:"not_allowed"}, 403, cors);
+  if(!env.SIMPLEFIN_ACCESS_URL) return json({error:"simplefin_not_configured"}, 503, cors);
+  let u;
+  try{ u = new URL(env.SIMPLEFIN_ACCESS_URL); }catch(e){ return json({error:"simplefin_bad_url"}, 500, cors); }
+  const auth = "Basic " + btoa(decodeURIComponent(u.username) + ":" + decodeURIComponent(u.password));
+  u.username = ""; u.password = "";
+  const base = u.toString().replace(/\/+$/, "");
+  let d;
+  try{
+    const r = await fetch(`${base}/accounts?balances-only=1`, {headers:{Authorization:auth}});
+    if(r.status === 403) return json({error:"simplefin_revoked"}, 502, cors);
+    if(!r.ok) return json({error:"simplefin_error", status:r.status}, 502, cors);
+    d = await r.json();
+  }catch(e){ return json({error:"simplefin_unreachable"}, 502, cors); }
+  const accounts = (d.accounts||[]).map(a=>({id:a.id, name:a.name, org:(a.org && (a.org.name || a.org.domain)) || "", currency:a.currency || "USD",
+    balance:Number(a.balance), available:a["available-balance"] != null ? Number(a["available-balance"]) : null, asOf:a["balance-date"] ? a["balance-date"]*1000 : null}));
+  return new Response(JSON.stringify({accounts, errors:d.errors || [], fetched:Date.now()}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"no-store"}});
+}
+
 export default {
   async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
@@ -461,6 +510,10 @@ export default {
 
     if(request.method === "OPTIONS") return new Response(null, {status:204, headers:cors});
     const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if(path === "/finance/accounts"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return simplefinAccounts(request, env, cors);
+    }
     if(path === "/market/news"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return marketNews(cors, ctx);

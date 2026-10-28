@@ -74,3 +74,15 @@ files for 30 days at Cloudflare's edge.
 Everyone shares your Groq free-tier quota. If it runs out, Medulla says it couldn't reach its
 thinking service until the quota resets. Anyone who adds their own key in Settings uses that
 instead and isn't affected.
+
+## Bank accounts (SimpleFIN) — Assets page
+
+1. Sign up at https://bridge.simplefin.org, connect your banks/cards/brokerages, and create a **Setup Token**.
+2. Claim it once (turns it into your private access URL) and store that in the Worker:
+   ```bash
+   curl -s -X POST "$(echo 'PASTE_SETUP_TOKEN_HERE' | base64 --decode)"
+   npx wrangler secret put SIMPLEFIN_ACCESS_URL      # paste the https://...@... URL the first command printed
+   npx wrangler secret put SIMPLEFIN_OWNER_EMAIL     # the email you sign in to Medulla with
+   npx wrangler deploy
+   ```
+Only a request signed in as SIMPLEFIN_OWNER_EMAIL gets balances back. Never commit the access URL anywhere.

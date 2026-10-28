@@ -1828,6 +1828,26 @@
   .cs-input input{width:110px;border:0;background:rgba(4,12,24,.7);color:#fff;font:inherit;font-size:14px;padding:0 10px;outline:none;}
   .cs-input button{border:0;background:linear-gradient(180deg,#2f8bff,#1366e6);color:#fff;font:inherit;font-size:13px;font-weight:600;padding:0 14px;cursor:pointer;}
   .cs-msg{font-size:12px;color:#6db4ff;min-height:14px;}
+
+  /* ---- Assets / net worth ---- */
+  #modal-panel.modal-custom.modal-networth{width:min(980px,96vw);max-height:94vh;}
+  #modal-panel.modal-custom.modal-networth #modal-body{padding:0;}
+  .nw-root{padding:20px 22px;color:#e6eef8;font-family:var(--font-body);}
+  .nw-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;} .nw-head > div{flex:1;}
+  .nw-head h2{margin:0;font-size:26px;font-weight:700;color:#fff;text-transform:none;text-shadow:none;font-family:var(--font-body);letter-spacing:0;}
+  .nw-head p{margin:2px 0 0;color:#a9bcd6;font-size:13.5px;} .nw-head .ph-x{margin-left:0;}
+  .nw-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .nw-tot{padding:14px 16px;border-radius:12px;border:1px solid rgba(90,169,255,.22);background:linear-gradient(180deg, rgba(15,32,58,.78), rgba(8,18,35,.78));}
+  .nw-tot small{display:block;font-size:12.5px;color:#a9bcd6;} .nw-tot b{font-size:24px;color:#fff;}
+  .nw-tot.good b{color:#36d39a;} .nw-tot.bad b{color:#ff8a95;}
+  .nw-msg{font-size:12.5px;color:#93a8c2;margin:10px 2px;min-height:16px;}
+  .nw-groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .nw-org{border-radius:12px;border:1px solid rgba(90,169,255,.18);background:rgba(10,22,42,.5);padding:12px 14px;}
+  .nw-org h3{margin:0 0 6px;font-size:14px;color:#fff;}
+  .nw-acct{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid rgba(255,255,255,.06);}
+  .nw-name{display:flex;flex-direction:column;min-width:0;} .nw-name b{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .nw-name small{font-size:11px;color:#7f93ad;}
+  .nw-bal{text-align:right;font-family:var(--font-mono);font-size:13.5px;display:flex;flex-direction:column;} .nw-bal.bad{color:#ff8a95;} .nw-bal small{font-family:var(--font-body);font-size:10.5px;color:#7f93ad;}
+  @media (max-width:700px){ .nw-totals{grid-template-columns:1fr;} }
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-phone #modal-body{padding:0;}
@@ -3053,7 +3073,7 @@ const WIDGET_DEFS = [
   {id:"fitness", title:"Fitness", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Age/gender setup, routine + food diary journaling, and a biomarker notes panel."},
   {id:"market", title:"Market", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Live indices + pinned assets, headline wire."},
   {id:"claudeprojects", title:"Projects", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Notes pad plus a sandbox area for snippets and file paths."},
-  {id:"networth", title:"Assets", profiles:["main"], built:false, accent:"var(--accent-teal)", spec:"Embeds a local app (iframe) for balances and card due dates."},
+  {id:"networth", title:"Assets", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Embeds a local app (iframe) for balances and card due dates."},
   {id:"scratchpad", title:"Scratchpad", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Multi-page free-form notebook, autosaved."},
   {id:"sports", title:"Sports Center", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
   {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
@@ -6394,7 +6414,8 @@ window.addEventListener("keydown",(e)=>{
 function openModal(def){
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth");
+  document.getElementById("modal-panel").classList.toggle("modal-networth", def.id==="networth");
   document.getElementById("modal-panel").classList.toggle("modal-phone", def.id==="phone");
   document.getElementById("modal-panel").classList.toggle("modal-sports", def.id==="sports");
   document.getElementById("modal-panel").classList.toggle("modal-career", def.id==="career");
@@ -6417,6 +6438,7 @@ function openModal(def){
     if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
     if(def.id==="phone") hydratePhoneFull(modalBody);
     if(def.id==="career") hydrateCareerFull(modalBody);
+    if(def.id==="networth") hydrateNetworthFull(modalBody);
     if(def.id==="bluetooth") hydrateBluetoothFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
@@ -6450,6 +6472,7 @@ const INDEX_ASSETS = {
 const COIN_NAMES = {bitcoin:"BTC", ethereum:"ETH", solana:"SOL", dogecoin:"DOGE", cardano:"ADA"};
 
 function renderMini(id){
+  if(id==="networth"){ const t = nwTotals(nwData.accounts); return `<div style="text-align:center;"><small style="color:var(--text-dim)">Net worth</small><div style="font-size:20px;font-weight:700;">${nwData.fetched ? nwMoney(t.net) : "—"}</div></div>`; }
   if(id==="career") return careerMiniHTML();
   if(id==="market"){
     /* table-layout:fixed + an all-percentage colgroup (see .mkt-fixed-table CSS) so the
@@ -6769,6 +6792,7 @@ function renderFull(id){
   }
   if(id==="garage") return garageFullHTML();
   if(id==="career") return careerFullHTML();
+  if(id==="networth") return networthFullHTML();
   if(id==="phone") return phoneFullHTML();
   if(id==="bluetooth"){
     return `
@@ -8983,6 +9007,85 @@ function hydratePhoneFull(scope){
   root.querySelector("#ph-close").addEventListener("click", closeModal);
   root.querySelectorAll("[data-ph-tab]").forEach(b=>b.addEventListener("click", ()=>{ phTab = b.dataset.phTab; phShow(scope); }));
   phShow(scope);
+}
+
+
+/* ================= ASSETS: net worth from SimpleFIN (all your banks, cards, loans, brokerages) =================
+   The Medulla Worker reads your accounts from SimpleFIN and only answers your signed-in account. */
+let nwData = loadJSON(NS+"networthSync", {accounts:[], fetched:0});
+const NW_ERRORS = {
+  sign_in_required:"Sign in to Medulla to see your accounts.",
+  not_allowed:"This account isn't allowed to see these balances (the owner email in the Worker doesn't match your sign-in).",
+  simplefin_not_configured:"SimpleFIN isn't connected yet — add your access URL to the Worker (see the steps in Medulla's proxy/README.md).",
+  simplefin_revoked:"Your SimpleFIN connection was turned off — make a new setup token and claim it again.",
+  simplefin_error:"SimpleFIN had a problem just now — try again shortly.",
+  simplefin_unreachable:"Couldn't reach SimpleFIN right now.",
+};
+const nwMoney = v=>(v < 0 ? "-" : "") + "$" + Math.abs(v).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+/* credit cards and loans come back as negative balances: those are debts */
+function nwTotals(accts){
+  let assets = 0, debts = 0;
+  accts.forEach(a=>{ if(!isFinite(a.balance)) return; if(a.balance >= 0) assets += a.balance; else debts += -a.balance; });
+  return {assets, debts, net:assets - debts};
+}
+async function nwSync(){
+  if(!MEDULLA_AI_PROXY_URL) throw new Error("Needs the Medulla Worker.");
+  if(!fbUser || !fbUser.getIdToken) throw new Error(NW_ERRORS.sign_in_required);
+  const token = await fbUser.getIdToken();
+  const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/finance/accounts", {headers:{Authorization:"Bearer " + token}});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(NW_ERRORS[d.error] || (r.status === 404 ? "The Worker hasn't been updated yet — redeploy it." : `Couldn't load accounts (HTTP ${r.status}).`));
+  nwData = {accounts:d.accounts || [], errors:d.errors || [], fetched:d.fetched || Date.now()};
+  saveJSON(NS+"networthSync", nwData);
+  /* the dashboard's Total Balance follows the synced accounts */
+  const t = nwTotals(nwData.accounts);
+  dbBalance.assets = Math.round(t.assets*100)/100; dbBalance.liabilities = Math.round(t.debts*100)/100;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lastP = dbBalance.history[dbBalance.history.length-1];
+  if(lastP && lastP.t >= today.getTime()){ lastP.v = t.net; lastP.t = Date.now(); } else dbBalance.history.push({t:Date.now(), v:t.net});
+  saveDbBalance();
+  if(typeof renderDbBalance === "function" && document.getElementById("db-bal-amt")) renderDbBalance();
+  return nwData;
+}
+function networthFullHTML(){
+  return `<div class="nw-root">
+    <div class="nw-head"><div><h2>Assets</h2><p>Everything you own and owe, across all your accounts.</p></div>
+      <button type="button" class="ph-btn outline sm" id="nw-sync">Sync now</button>
+      <button type="button" class="ph-x" id="nw-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="nw-totals" id="nw-totals"></div>
+    <div class="nw-msg" id="nw-msg"></div>
+    <div class="nw-groups" id="nw-groups"></div>
+  </div>`;
+}
+function nwRender(scope){
+  const t = nwTotals(nwData.accounts);
+  scope.querySelector("#nw-totals").innerHTML = `
+    <div class="nw-tot"><small>Net worth</small><b>${nwMoney(t.net)}</b></div>
+    <div class="nw-tot good"><small>Assets</small><b>${nwMoney(t.assets)}</b></div>
+    <div class="nw-tot bad"><small>Debts</small><b>${nwMoney(t.debts)}</b></div>`;
+  const groups = {};
+  nwData.accounts.forEach(a=>{ (groups[a.org || "Other"] = groups[a.org || "Other"] || []).push(a); });
+  scope.querySelector("#nw-groups").innerHTML = Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0])).map(([org, list])=>`
+    <section class="nw-org"><h3>${escapeHtml(org)}</h3>${list.map(a=>`<div class="nw-acct">
+      <span class="nw-name"><b>${escapeHtml(a.name)}</b>${a.asOf ? `<small>as of ${new Date(a.asOf).toLocaleDateString([], {month:"short", day:"numeric"})}</small>` : ""}</span>
+      <span class="nw-bal ${a.balance < 0 ? "bad" : ""}">${nwMoney(a.balance)}${a.balance < 0 ? `<small>owed</small>` : a.available != null && a.available !== a.balance ? `<small>${nwMoney(a.available)} available</small>` : ""}</span>
+    </div>`).join("")}</section>`).join("") || (nwData.fetched ? `<div class="ph-dim">No accounts came back from SimpleFIN.</div>` : "");
+  const msg = scope.querySelector("#nw-msg");
+  if(nwData.fetched && !msg.dataset.err) msg.textContent = `Last synced ${new Date(nwData.fetched).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}${(nwData.errors||[]).length ? " · " + nwData.errors.join(" · ") : ""}`;
+}
+function hydrateNetworthFull(scope){
+  scope.querySelector("#nw-close").addEventListener("click", closeModal);
+  const msg = scope.querySelector("#nw-msg"), btn = scope.querySelector("#nw-sync");
+  const go = async ()=>{
+    btn.disabled = true; btn.textContent = "Syncing…"; delete msg.dataset.err;
+    try{ await nwSync(); }catch(e){ msg.dataset.err = "1"; msg.textContent = e.message; }
+    btn.disabled = false; btn.textContent = "Sync now";
+    if(scope.querySelector("#nw-totals")) nwRender(scope);
+  };
+  btn.addEventListener("click", go);
+  nwRender(scope);
+  /* refresh when the last sync is over an hour old */
+  if(Date.now() - (nwData.fetched||0) > 3600000) go();
 }
 
 /* ================= GARAGE WIDGET ================= */
