@@ -3148,6 +3148,7 @@
   .lp-list .lp-card{padding:10px 12px 10px 10px;}
   .lp-list .lp-thumb.pr-mine{width:70px;height:46px;font-size:20px;}
   .lp-list .lp-txt b{font-size:15px;}
+  .lp-thumb.pr-work{grid-template-columns:1.4fr 1.8fr 1fr;grid-template-rows:1fr 1fr;} .lp-thumb.pr-work i:nth-child(1){background:rgba(77,155,255,.7);} .lp-thumb.pr-work i:nth-child(2){background:rgba(54,211,154,.6);} .lp-thumb.pr-work i:nth-child(4){background:rgba(255,176,64,.6);}
   .lp-thumb.pr-fun{grid-template-columns:1.6fr 2fr 1fr;grid-template-rows:1fr 1fr 1fr;} .lp-thumb.pr-fun i:nth-child(1){grid-row:1/3;background:rgba(176,124,255,.6);} .lp-thumb.pr-fun i:nth-child(2){grid-row:1/4;background:rgba(255,176,64,.6);} .lp-thumb.pr-fun i:nth-child(5){display:none;}
   .lp-thumb.pr-mine{place-items:center;font-size:18px;color:#ffb040;}
   .lp-txt{flex:1;min-width:0;}
@@ -21331,9 +21332,9 @@ const DB_BUILTIN_PRESETS = [
   {key:"classic", name:"Classic", desc:"Everything, the original layout", pinned:[], hidden:[], items:null},
   {key:"focus", name:"Focus", desc:"Calm: time, calendar, balance, apps", pinned:[], hidden:["id","market","world","forecast"],
     items:{balance:{x:0,y:0,w:6,h:11}, clock:{x:6,y:0,w:3,h:11}, weather:{x:9,y:0,w:3,h:11}, calendar:{x:0,y:11,w:6,h:9}, apps:{x:6,y:11,w:6,h:17}, chat:{x:0,y:20,w:6,h:4}}},
-  {key:"gameday", name:"Game Day", desc:"Live scores up front, markets kept", pinned:["sports"], hidden:["world","forecast"],
-    items:{id:{x:0,y:0,w:3,h:11}, balance:{x:3,y:0,w:5,h:11}, weather:{x:8,y:0,w:2,h:7}, clock:{x:10,y:0,w:2,h:7}, calendar:{x:8,y:7,w:4,h:6},
-      market:{x:0,y:11,w:3,h:17}, apps:{x:3,y:11,w:5,h:17}, "app-sports":{x:8,y:13,w:4,h:28}, chat:{x:0,y:28,w:8,h:4}}},
+  {key:"work", name:"Work", desc:"Mail, projects and notes for the workday", pinned:["mail","claudeprojects","scratchpad"], hidden:["id","market","world","balance"],
+    items:{"app-mail":{x:0,y:0,w:4,h:17}, "app-claudeprojects":{x:4,y:0,w:5,h:17}, clock:{x:9,y:0,w:3,h:6}, calendar:{x:9,y:6,w:3,h:11},
+      "app-scratchpad":{x:0,y:17,w:4,h:15}, apps:{x:4,y:17,w:5,h:11}, weather:{x:9,y:17,w:3,h:7}, forecast:{x:9,y:24,w:3,h:8}, chat:{x:4,y:28,w:5,h:4}}},
   {key:"fun", name:"Fun", desc:"Arcade and live sports side by side", pinned:["arcade","sports"], hidden:["world","forecast","market","balance"],
     items:{"app-arcade":{x:0,y:0,w:4,h:25}, "app-sports":{x:4,y:0,w:5,h:32}, id:{x:9,y:0,w:3,h:11}, clock:{x:9,y:11,w:3,h:6},
       calendar:{x:9,y:17,w:3,h:7}, weather:{x:9,y:24,w:3,h:7}, apps:{x:0,y:25,w:3,h:11}, chat:{x:3,y:32,w:6,h:4}}},
