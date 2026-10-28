@@ -1722,6 +1722,49 @@
   .gm-kind.repair{background:rgba(255,93,108,.18);color:#ff8a95;} .gm-kind.upgrade{background:rgba(176,124,255,.2);color:#cdb0ff;}
   .gm-cost{flex:none;font-family:var(--font-mono);font-size:13px;font-weight:600;}
   .gm-foot{font-size:12.5px;color:#a9bcd6;text-align:right;}
+  .gm-keys{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .gm-item.gm-key{flex-direction:column;align-items:stretch;gap:8px;padding:14px;border-width:1.5px;}
+  .gm-item.gm-key .gm-dot{position:absolute;margin:4px 0 0 0;right:14px;width:12px;height:12px;}
+  .gm-item.gm-key{position:relative;}
+  .gm-keylbl{display:block;font-size:17px;font-weight:700;margin-bottom:2px;}
+  .gm-item.gm-key .gm-due{font-size:13.5px;margin-top:6px;}
+  .gm-item.gm-key .gm-txt small{white-space:normal;}
+  .gm-btns{display:flex;gap:8px;align-items:center;}
+  .gm-item.gm-key .gm-done{flex:1;height:36px;}
+  .gm-ftitle{grid-column:1/-1;font-size:13px;font-weight:700;color:#cfe0f5;}
+  .gm-other{border-radius:12px;border:1px solid rgba(130,153,184,.14);background:rgba(255,255,255,.02);}
+  .gm-other summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .gm-other summary::-webkit-details-marker{display:none;}
+  .gm-other summary::before{content:"▸";color:#7fbcff;transition:transform .15s;}
+  .gm-other[open] summary::before{transform:rotate(90deg);}
+  .gm-other summary span{font-size:12px;font-weight:500;color:#a9bcd6;}
+  .gm-other summary span b{color:#ffc46b;font-weight:700;}
+  .gm-other > .gm-list, .gm-other > .gm-add, .gm-other > .gm-form{margin:0 10px 10px;}
+  .gm-other > .gm-add{width:calc(100% - 20px);}
+  .gm-statbtn{cursor:pointer;font:inherit;color:inherit;text-align:left;} .gm-statbtn:hover{border-color:#4d9bff;}
+  .gm-q{padding:14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(130,153,184,.14);display:flex;flex-direction:column;gap:10px;}
+  .gm-qh{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:700;}
+  .gm-qn{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;background:#2f8bff;color:#fff;flex:none;}
+  .gm-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .gm-money{display:flex;align-items:center;height:42px;border-radius:10px;background:rgba(9,20,38,.85);border:1px solid rgba(130,153,184,.25);padding:0 12px;gap:4px;min-width:0;}
+  .gm-money:focus-within{border-color:#4d9bff;}
+  .gm-money i{font-style:normal;color:#a9bcd6;font-weight:600;}
+  .gm-money input{border:none !important;background:transparent !important;box-shadow:none !important;outline:none;color:var(--text-primary);font:inherit;font-size:16px;font-weight:600;width:110px;padding:0;height:100%;}
+  .gm-seg{display:flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:11px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .gm-seg button{height:34px;padding:0 14px;border:none;border-radius:8px;background:none;color:#c3d4ea;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .gm-seg button.on{background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;}
+  .gm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .gm-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#a9bcd6;}
+  .gm-grid label em{font-style:normal;opacity:.7;}
+  .gm-grid label > input{height:42px;border-radius:10px;padding:0 12px;background:rgba(9,20,38,.85);border:1px solid rgba(130,153,184,.25);color:var(--text-primary);font:inherit;font-size:14px;}
+  .gm-grid .gm-money input{width:100%;}
+  .gm-total{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:linear-gradient(180deg,rgba(47,139,255,.14),rgba(47,139,255,.05));border:1px solid rgba(77,155,255,.35);}
+  .gm-total > div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;color:#cfe0f5;}
+  .gm-total b{font-size:15px;} .gm-total small{font-size:11px;color:#a9bcd6;margin-left:2px;}
+  .gm-total .all{flex-wrap:wrap;padding-top:8px;margin-top:2px;border-top:1px solid rgba(124,180,255,.2);}
+  .gm-total .all span{font-weight:700;color:#fff;} .gm-total .all b{font-size:22px;}
+  .gm-total .all em{flex-basis:100%;text-align:right;font-style:normal;font-size:12px;color:#a9bcd6;}
+  @media (max-width:640px){ .gm-keys,.gm-grid{grid-template-columns:1fr;} }
   @media (max-width:640px){ .gm-top{grid-template-columns:1fr 1fr;} .gm-odo{grid-column:1/-1;} .gm-form{grid-template-columns:1fr 1fr;} .gm-done{padding:0 9px;} }
   .gar-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;}
   .gar-sheet-head h4{margin:0;font-size:17px;font-weight:600;}
@@ -10839,6 +10882,10 @@ function garMiles(v){ const r = String(v.mileage||"").trim().toLowerCase().repla
 function garMaint(v){
   if(!v.maint) v.maint = {items: GAR_MAINT_DEFAULTS[garMaintKind(v)].map(([name,miles,months],i)=>({id:"m"+Date.now()+i, name, miles, months, lastDate:"", lastMiles:null})), log:[]};
   if(!Array.isArray(v.maint.log)) v.maint.log = [];
+  const kind = garMaintKind(v), its = v.maint.items;
+  if(!its.some(it=>/registration/i.test(it.name))) its.unshift({id:"mreg"+Date.now(), name: kind === "car" ? "Registration & inspection" : "Registration", miles:0, months:12, lastDate:"", lastMiles:null});
+  if(!its.some(it=>/oil/i.test(it.name) && !/gear/i.test(it.name))) its.unshift({id:"moil"+Date.now(), name: kind === "boat" ? "Engine service / oil" : "Oil & filter change", miles: kind === "boat" ? 0 : kind === "moto" ? 3000 : 5000, months: kind === "boat" ? 12 : 6, lastDate:"", lastMiles:null});
+  if(!v.costs) v.costs = {own:"", insurance:"", insPer:"mo", payment:"", apr:"", monthsLeft:"", lender:""};
   return v.maint;
 }
 function garAddMonths(dateStr, m){ const d = new Date(dateStr+"T12:00:00"); d.setMonth(d.getMonth()+m); return d; }
@@ -10854,6 +10901,13 @@ function garMaintStatus(v, it){
   if(dueMiles != null) parts.push(milesLeft === Infinity ? `at ${dueMiles.toLocaleString()} mi` : milesLeft < 0 ? `${(-milesLeft).toLocaleString()} mi overdue` : `in ${milesLeft.toLocaleString()} mi`);
   if(dueDate) parts.push(daysLeft < 0 ? `${-daysLeft} day${daysLeft===-1?"":"s"} overdue` : daysLeft === 0 ? "today" : `by ${dueDate.toLocaleDateString("en-US",{month:"short", day:"numeric", year: dueDate.getFullYear()!==today.getFullYear() ? "numeric" : undefined})}`);
   return {state: over ? "over" : soon ? "soon" : "ok", label: (over ? "Overdue · " : "Due ") + (parts.join(" or ") || "—"), sort: over ? 0 : soon ? 1 : 2, dueDate};
+}
+function garIsKeyItem(it){ return /registration/i.test(it.name) || (/oil/i.test(it.name) && !/gear/i.test(it.name)); }
+function garMonthlyCost(v){
+  const c = v.costs || {}, n = x=>{ const k = parseFloat(String(x||"").replace(/[$,\s]/g,"")); return isFinite(k) ? k : 0; };
+  const ins = n(c.insurance) / ({mo:1, "6mo":6, yr:12}[c.insPer||"mo"] || 1);
+  const pay = (c.own === "financed" || c.own === "leased") ? n(c.payment) : 0;
+  return {ins, pay, total: ins + pay};
 }
 function garMaintSummary(v){
   if(!v.maint) return null;
@@ -12290,6 +12344,8 @@ function hydrateGarageFull(scope){
   /* ---------- maintenance & repairs ---------- */
   let maintTab = "schedule", maintEdit = null;
   function openMaint(){
+    const gmScroll = sheet.querySelector(".gm") ? sheet.querySelector(".gm").scrollTop : 0;
+    requestAnimationFrame(()=>{ const g = sheet.querySelector(".gm"); if(g) g.scrollTop = gmScroll; });
     const v = vehicles()[garageSelectedIndex];
     if(!v){ openForm(null); return; }
     const m = garMaint(v); save();
@@ -12302,44 +12358,82 @@ function hydrateGarageFull(scope){
     const today = new Date().toISOString().slice(0,10);
     const fmtD = d=>d ? new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short", day:"numeric", year:"numeric"}) : "";
     const every = it=>[it.miles ? `${it.miles.toLocaleString()} mi` : "", it.months ? (it.months % 12 === 0 ? `${it.months/12} yr` : `${it.months} mo`) : ""].filter(Boolean).join(" / ");
-    openSheet(`
-      <div class="gar-sheet-head"><h4>${escapeHtml(v.vehicle)} · Maintenance</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
-      <div class="gm">
-        <div class="gm-top">
-          <label class="gm-odo"><span>Current mileage</span><input type="text" inputmode="numeric" id="gm-odo" value="${cur != null ? cur.toLocaleString() : ""}" placeholder="e.g. 84,200"></label>
-          <div class="gm-stat ${sum.over ? "over" : ""}"><b>${sum.over}</b><span>Overdue</span></div>
-          <div class="gm-stat ${sum.soon ? "soon" : ""}"><b>${sum.soon}</b><span>Due soon</span></div>
-          <div class="gm-stat"><b>$${Math.round(spentYr).toLocaleString()}</b><span>Spent ${yr}</span></div>
-        </div>
-        <div class="gm-tabs"><button type="button" data-mt="schedule" class="${maintTab==="schedule"?"on":""}">Schedule</button><button type="button" data-mt="history" class="${maintTab==="history"?"on":""}">History &amp; repairs <em>${m.log.length}</em></button></div>
-        ${maintTab === "schedule" ? `
-        <div class="gm-list">${items.map(({it,st})=>`
-          <div class="gm-item ${st.state}">
+    const itemHTML = (it, st, key)=>`
+          <div class="gm-item ${st.state}${key ? " gm-key" : ""}">
             <span class="gm-dot"></span>
-            <div class="gm-txt"><b>${escapeHtml(it.name)}</b><small>Every ${escapeHtml(every(it) || "—")}${it.lastDate || it.lastMiles != null ? ` · last ${[fmtD(it.lastDate), it.lastMiles != null ? it.lastMiles.toLocaleString()+" mi" : ""].filter(Boolean).join(" at ")}` : ""}</small><span class="gm-due">${escapeHtml(st.label)}</span></div>
-            <button type="button" class="gm-done" data-done="${it.id}">✓ Done</button>
-            <button type="button" class="gm-more" data-iedit="${it.id}" title="Edit" aria-label="Edit">✎</button>
-          </div>
-          ${maintEdit === "done:"+it.id ? `<form class="gm-form" data-fdone="${it.id}">
+            <div class="gm-txt">${key ? `<span class="gm-keylbl">${/registration/i.test(it.name) ? "📋 Registration" : "🛢️ Oil change"}</span>` : `<b>${escapeHtml(it.name)}</b>`}<small>Every ${escapeHtml(every(it) || "—")}${it.lastDate || it.lastMiles != null ? ` · last ${[fmtD(it.lastDate), it.lastMiles != null ? it.lastMiles.toLocaleString()+" mi" : ""].filter(Boolean).join(" at ")}` : ""}</small><span class="gm-due">${escapeHtml(st.state === "unknown" ? (key ? "Tap ✎ to enter when it was last done" : st.label) : st.label)}</span></div>
+            <div class="gm-btns"><button type="button" class="gm-done" data-done="${it.id}">✓ Done</button>
+            <button type="button" class="gm-more" data-iedit="${it.id}" title="Edit" aria-label="Edit">✎</button></div>
+          </div>`;
+    const formsFor = it=>`${maintEdit === "done:"+it.id ? `<form class="gm-form" data-fdone="${it.id}">
+              <div class="gm-ftitle">Mark “${escapeHtml(it.name)}” done</div>
               <label>Date<input type="date" name="date" value="${today}" max="${today}"></label>
               <label>Mileage<input type="text" name="miles" inputmode="numeric" value="${cur != null ? cur : ""}"></label>
               <label>Cost<input type="text" name="cost" inputmode="decimal" placeholder="$"></label>
               <label class="w">Notes<input type="text" name="notes" placeholder="Shop, parts, anything to remember"></label>
               <div class="gm-fbtns"><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>` : ""}
           ${maintEdit === "edit:"+it.id ? `<form class="gm-form" data-fedit="${it.id}">
+              <div class="gm-ftitle">Edit “${escapeHtml(it.name)}”</div>
               <label class="w">Name<input type="text" name="name" value="${escapeHtml(it.name)}"></label>
               <label>Every (miles)<input type="text" name="miles" inputmode="numeric" value="${it.miles||""}" placeholder="—"></label>
               <label>Every (months)<input type="text" name="months" inputmode="numeric" value="${it.months||""}" placeholder="—"></label>
               <label>Last done<input type="date" name="lastDate" value="${it.lastDate||""}" max="${today}"></label>
               <label>At mileage<input type="text" name="lastMiles" inputmode="numeric" value="${it.lastMiles ?? ""}"></label>
-              <div class="gm-fbtns"><button type="button" class="del" data-idel="${it.id}">Delete</button><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>` : ""}`).join("")}
+              <div class="gm-fbtns">${garIsKeyItem(it) ? "" : `<button type="button" class="del" data-idel="${it.id}">Delete</button>`}<button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>` : ""}`;
+    const keys = m.items.filter(garIsKeyItem).sort((a,b)=>/oil/i.test(a.name) ? -1 : 1).map(it=>({it, st:garMaintStatus(v, it)}));
+    const rest = items.filter(x=>!garIsKeyItem(x.it));
+    const restAlert = rest.filter(x=>x.st.state==="over"||x.st.state==="soon").length;
+    const mc = garMonthlyCost(v), c = v.costs;
+    const money = n=>"$"+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits:2});
+    const seg = (name, val, opts)=>`<div class="gm-seg">${opts.map(([k,l])=>`<button type="button" data-seg="${name}" data-v="${k}" class="${val===k?"on":""}">${l}</button>`).join("")}</div>`;
+    openSheet(`
+      <div class="gar-sheet-head"><h4>${escapeHtml(v.vehicle)}</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
+      <div class="gm">
+        <div class="gm-top">
+          <label class="gm-odo"><span>Current mileage</span><input type="text" inputmode="numeric" id="gm-odo" value="${cur != null ? cur.toLocaleString() : ""}" placeholder="e.g. 84,200"></label>
+          <div class="gm-stat ${sum.over ? "over" : ""}"><b>${sum.over}</b><span>Overdue</span></div>
+          <div class="gm-stat ${sum.soon ? "soon" : ""}"><b>${sum.soon}</b><span>Due soon</span></div>
+          <button type="button" class="gm-stat gm-statbtn" data-mt="costs"><b>${mc.total ? money(mc.total) : "—"}</b><span>${mc.total ? "Per month" : "Add costs"}</span></button>
         </div>
-        ${maintEdit === "newitem" ? `<form class="gm-form" data-fnew>
+        <div class="gm-tabs"><button type="button" data-mt="schedule" class="${maintTab==="schedule"?"on":""}">Maintenance</button><button type="button" data-mt="costs" class="${maintTab==="costs"?"on":""}">Costs</button><button type="button" data-mt="history" class="${maintTab==="history"?"on":""}">History <em>${m.log.length}</em></button></div>
+        ${maintTab === "schedule" ? `
+        <div class="gm-keys">${keys.map(({it,st})=>itemHTML(it, st, true)).join("")}</div>
+        ${keys.map(({it})=>formsFor(it)).join("")}
+        <details class="gm-other"${restAlert || (maintEdit && rest.some(x=>maintEdit.endsWith(x.it.id))) || maintEdit==="newitem" ? " open" : ""}>
+          <summary>Other maintenance <span>${rest.length} items${restAlert ? ` · <b>${restAlert} need attention</b>` : ""}</span></summary>
+          <div class="gm-list">${rest.map(({it,st})=>itemHTML(it, st, false) + formsFor(it)).join("")}</div>
+          ${maintEdit === "newitem" ? `<form class="gm-form" data-fnew>
             <label class="w">What<input type="text" name="name" placeholder="e.g. Differential fluid" required></label>
             <label>Every (miles)<input type="text" name="miles" inputmode="numeric" placeholder="—"></label>
             <label>Every (months)<input type="text" name="months" inputmode="numeric" placeholder="—"></label>
             <div class="gm-fbtns"><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Add</button></div></form>`
-          : `<button type="button" class="gm-add" data-newitem>+ Add a maintenance item</button>`}`
+          : `<button type="button" class="gm-add" data-newitem>+ Add a maintenance item</button>`}
+        </details>`
+        : maintTab === "costs" ? `
+        <div class="gm-q">
+          <div class="gm-qh"><span class="gm-qn">1</span>How much is insurance?</div>
+          <div class="gm-row"><span class="gm-money"><i>$</i><input type="text" inputmode="decimal" data-cost="insurance" value="${escapeHtml(c.insurance||"")}" placeholder="0"></span>
+            ${seg("insPer", c.insPer||"mo", [["mo","a month"],["6mo","every 6 months"],["yr","a year"]])}</div>
+        </div>
+        <div class="gm-q">
+          <div class="gm-qh"><span class="gm-qn">2</span>Do you own it, or is it financed or leased?</div>
+          ${seg("own", c.own||"", [["owned","Paid off"],["financed","Financed"],["leased","Leased"]])}
+        </div>
+        ${c.own === "financed" || c.own === "leased" ? `
+        <div class="gm-q">
+          <div class="gm-qh"><span class="gm-qn">3</span>${c.own === "leased" ? "Your lease" : "Your loan"}</div>
+          <div class="gm-grid">
+            <label>Monthly payment<span class="gm-money"><i>$</i><input type="text" inputmode="decimal" data-cost="payment" value="${escapeHtml(c.payment||"")}" placeholder="0"></span></label>
+            <label>${c.own === "leased" ? "Money factor / rate" : "Interest rate (APR)"}<span class="gm-money r"><input type="text" inputmode="decimal" data-cost="apr" value="${escapeHtml(c.apr||"")}" placeholder="0"><i>%</i></span></label>
+            <label><span>Payments left <em>(optional)</em></span><input type="text" inputmode="numeric" data-cost="monthsLeft" value="${escapeHtml(c.monthsLeft||"")}" placeholder="months"></label>
+            <label><span>${c.own === "leased" ? "Leasing company" : "Lender"} <em>(optional)</em></span><input type="text" data-cost="lender" value="${escapeHtml(c.lender||"")}" placeholder="e.g. Chase"></label>
+          </div>
+        </div>` : ""}
+        <div class="gm-total">
+          <div><span>Insurance</span><b>${money(mc.ins)}<small>/mo</small></b></div>
+          ${c.own === "financed" || c.own === "leased" ? `<div><span>${c.own === "leased" ? "Lease" : "Loan"} payment</span><b>${money(mc.pay)}<small>/mo</small></b></div>` : ""}
+          <div class="all"><span>Total to own this vehicle</span><b>${money(mc.total)}<small>/mo</small></b><em>${money(mc.total*12)} a year${(c.own==="financed"||c.own==="leased") && +c.monthsLeft ? ` · ${c.monthsLeft} payments left (${money((parseFloat(String(c.payment).replace(/[$,]/g,""))||0) * (+c.monthsLeft))})` : ""}</em></div>
+        </div>`
         : `
         ${maintEdit === "newlog" ? `<form class="gm-form" data-flog>
             <label class="w">What was done<input type="text" name="title" placeholder="e.g. Replaced alternator" required></label>
@@ -12357,7 +12451,7 @@ function hydrateGarageFull(scope){
             <span class="gm-cost">${+l.cost ? "$"+(+l.cost).toLocaleString(undefined,{maximumFractionDigits:2}) : ""}</span>
             <button type="button" class="gm-more" data-ldel="${l.id}" title="Delete" aria-label="Delete">✕</button>
           </div>`).join("") : `<div class="gar-empty-note">Nothing logged yet. Repairs, services and upgrades show up here.</div>`}</div>
-        ${m.log.length ? `<div class="gm-foot">Total spent on this vehicle: <b>$${Math.round(spentAll).toLocaleString()}</b></div>` : ""}`}
+        ${m.log.length ? `<div class="gm-foot">Spent in ${yr}: <b>$${Math.round(spentYr).toLocaleString()}</b> · All time: <b>$${Math.round(spentAll).toLocaleString()}</b></div>` : ""}`}
       </div>`);
     sheet.classList.add("gm-sheet");
     sheet.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", ()=>{ sheet.classList.remove("gm-sheet"); maintEdit = null; closeSheet(); }));
@@ -12367,6 +12461,11 @@ function hydrateGarageFull(scope){
     odo.addEventListener("change", ()=>{ const n = num(odo.value); v.mileage = n != null ? String(Math.round(n)) : ""; rerender(); });
     odo.addEventListener("keydown", e=>{ if(e.key==="Enter") odo.blur(); });
     sheet.querySelectorAll("[data-mt]").forEach(b=>b.addEventListener("click", ()=>{ maintTab = b.dataset.mt; maintEdit = null; openMaint(); }));
+    sheet.querySelectorAll("[data-seg]").forEach(b=>b.addEventListener("click", ()=>{ v.costs[b.dataset.seg] = b.dataset.v; save(); openMaint(); }));
+    sheet.querySelectorAll("[data-cost]").forEach(inp=>{
+      inp.addEventListener("change", ()=>{ v.costs[inp.dataset.cost] = inp.value.trim().replace(/^\$/,""); save(); const k = inp.dataset.cost; openMaint(); const again = sheet.querySelector(`[data-cost="${k}"]`); });
+      inp.addEventListener("keydown", e=>{ if(e.key==="Enter") inp.blur(); });
+    });
     sheet.querySelectorAll("[data-done]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = "done:"+b.dataset.done; openMaint(); }));
     sheet.querySelectorAll("[data-iedit]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = maintEdit === "edit:"+b.dataset.iedit ? null : "edit:"+b.dataset.iedit; openMaint(); }));
     sheet.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = null; openMaint(); }));
