@@ -1875,6 +1875,7 @@
   .pf-rv-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .pf-rv-row input:not([type=checkbox]){height:30px;border-radius:7px;border:1px solid rgba(124,180,255,.3);background:rgba(4,12,24,.7);color:#e6eef8;font:inherit;font-size:12.5px;padding:0 8px;width:100px;}
   .pf-rv-row .pf-rv-sym{width:110px;font-weight:600;} .pf-rv-row small{font-size:11px;color:#93a8c2;}
+  .pf-rv-row.unk .pf-rv-sym{border-color:#e5484d;} .pf-rv-row.unk b{color:#ff8a95;font-weight:600;}
   .pf-rv-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
@@ -9182,27 +9183,110 @@ async function pfImageToDataUrl(file){
     return c.toDataURL("image/jpeg", .88);
   } finally { URL.revokeObjectURL(url); }
 }
+/* in-browser text recognition (Tesseract): finds the Symbol and Quantity columns by their headers and
+   pairs each ticker with the number under "Quantity" on the same row. No server, no AI needed. */
+let pfTessLoading = null;
+function pfLoadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(!pfTessLoading) pfTessLoading = new Promise((res, rej)=>{
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    sc.onload = ()=>res(); sc.onerror = ()=>{ pfTessLoading = null; rej(new Error("Couldn't load the text reader.")); };
+    document.head.appendChild(sc);
+  });
+  return pfTessLoading;
+}
+/* grayscale, light text on dark -> dark on light, 2x bigger, full contrast: what the reader likes */
+async function pfPrepForOcr(file){
+  const url = URL.createObjectURL(file);
+  try{
+    const im = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(2, 4200 / Math.max(im.naturalWidth, im.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth*k); c.height = Math.round(im.naturalHeight*k);
+    const ctx = c.getContext("2d", {willReadFrequently:true});
+    ctx.imageSmoothingQuality = "high"; ctx.drawImage(im, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data;
+    let sum = 0; const g = new Uint8ClampedArray(px.length/4);
+    for(let i = 0, j = 0; i < px.length; i += 4, j++){ g[j] = .3*px[i] + .59*px[i+1] + .11*px[i+2]; sum += g[j]; }
+    const dark = sum / g.length < 128;
+    let lo = 255, hi = 0;
+    for(let j = 0; j < g.length; j++){ if(dark) g[j] = 255 - g[j]; if(g[j] < lo) lo = g[j]; if(g[j] > hi) hi = g[j]; }
+    const span = (hi - lo) || 1;
+    for(let i = 0, j = 0; i < px.length; i += 4, j++){ const v = (g[j]-lo) * 255 / span; px[i] = px[i+1] = px[i+2] = v; }
+    ctx.putImageData(d, 0, 0);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function pfOcrHoldings(file, onProgress){
+  await pfLoadTesseract();
+  const canvas = await pfPrepForOcr(file);
+  const r = await Tesseract.recognize(canvas, "eng", {logger:m=>{ if(m.status === "recognizing text" && onProgress) onProgress(m.progress); }});
+  const W = (r.data.words || []).filter(w=>w.text && w.text.trim()).map(w=>({x:w.bbox.x0, y:w.bbox.y0, w:w.bbox.x1-w.bbox.x0, h:w.bbox.y1-w.bbox.y0, t:w.text.trim()}));
+  const q = W.find(w=>/^(quantity|qty\.?|shares|quantity:)$/i.test(w.t));
+  if(!q) return null;                                         /* no Quantity column: let the AI try */
+  const s = W.find(w=>/^(symbol|ticker)$/i.test(w.t) && Math.abs(w.y - q.y) < q.h*2);
+  const TICK = /^[A-Z]{1,5}([.\-][A-Z]{1,4})?$/, NUM = /^(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/;
+  const qR = q.x + q.w, seen = new Set(), out = [];
+  for(const a of W){
+    const t = a.t.toUpperCase().replace(/[^A-Z.\-]/g, "");
+    if(a.y <= q.y + q.h/2 || !TICK.test(t) || seen.has(t)) continue;
+    if(s && !(a.x >= s.x - 40 && a.x <= s.x + s.w + 120)) continue;
+    if(["CLOSE","BUY","SELL","TOTAL","CASH"].includes(t)) continue;
+    const yc = a.y + a.h/2;
+    const cands = W.filter(w=>NUM.test(w.t) && Math.abs(w.y + w.h/2 - yc) < Math.max(a.h, w.h)*.8 && w.x + w.w >= q.x - 80 && w.x + w.w <= qR + 50);
+    if(!cands.length) continue;
+    const c = cands.sort((m,n)=>Math.abs(m.x+m.w-qR) - Math.abs(n.x+n.w-qR))[0];
+    const shares = parseFloat(c.t.replace(/,/g, ""));
+    if(shares > 0){ seen.add(t); out.push({sym:t, shares}); }
+  }
+  return out;
+}
 async function pfScan(scope, file){
   const msg = scope.querySelector("#pf-msg"), box = scope.querySelector("#pf-review");
   if(!file || !/^image\//.test(file.type)){ msg.textContent = "That isn't an image."; return; }
   if(!MEDULLA_AI_PROXY_URL){ msg.textContent = "Reading screenshots needs the Medulla Worker."; return; }
   msg.textContent = "Reading your screenshot…";
-  let found;
-  try{
+  let found = null;
+  try{ found = await pfOcrHoldings(file, p=>{ msg.textContent = `Reading your screenshot… ${Math.round(p*100)}%`; }); }catch(e){ found = null; }
+  if(!found || !found.length) try{
+    msg.textContent = "Reading your screenshot (AI)…";
     const image = await pfImageToDataUrl(file);
     const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/portfolio/scan", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({image})});
     if(r.status === 404 || r.status === 405) throw new Error("The Worker hasn't been updated yet — run the deploy once.");
     const d = await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(d.error === "rate_limited" ? "Too many scans in a minute — wait a moment." : "Couldn't read that screenshot — try a clearer one.");
+    if(!r.ok) throw new Error(d.error === "rate_limited" ? "Too many scans in a minute — wait a moment." : "Couldn't read that screenshot — make sure the Symbol and Quantity columns are in it.");
     found = d.holdings || [];
   }catch(e){ msg.textContent = e.message; return; }
   if(!found.length){ msg.textContent = "No positions with share counts found in that screenshot."; return; }
+  /* check each ticker exists; fix common misreads (VOOO -> VOO, 0 <-> O, 1 <-> I) */
+  msg.textContent = "Checking tickers…";
+  try{
+    const look = async syms=>{ const r = await fetch(`${MEDULLA_AI_PROXY_URL.replace(/\/+$/,"")}/stocks/quotes?s=${encodeURIComponent(syms.join(","))}&range=1d`); return r.ok ? ((await r.json()).quotes || {}) : null; };
+    const q = await look(found.map(h=>h.sym));
+    if(q){
+      const bad = found.filter(h=>!q[h.sym] || q[h.sym].error);
+      const variants = sym=>{
+        const v = new Set();
+        for(let i = 0; i < sym.length; i++){ if(sym[i] === sym[i-1]) v.add(sym.slice(0,i) + sym.slice(i+1)); }
+        [["0","O"],["O","0"],["1","I"],["I","1"],["5","S"],["8","B"]].forEach(([a,b])=>{ if(sym.includes(a)) v.add(sym.split(a).join(b)); });
+        if(sym.length > 2) v.add(sym.slice(0,-1));
+        v.delete(sym); return [...v];
+      };
+      const tries = [...new Set(bad.flatMap(h=>variants(h.sym)))];
+      const q2 = tries.length ? (await look(tries.slice(0, 40)) || {}) : {};
+      bad.forEach(h=>{
+        const fix = variants(h.sym).find(v=>q2[v] && !q2[v].error);
+        if(fix) h.sym = fix; else h.unknown = true;
+      });
+      found.forEach(h=>{ const d = q[h.sym] || q2[h.sym]; if(d && d.name) h.name = d.name; });
+    }
+  }catch(e){}
   msg.textContent = `Found ${found.length} position${found.length===1?"":"s"} — check them, then add.`;
   box.hidden = false;
   box.innerHTML = `<div class="pf-rv-head"><b>From your screenshot</b><span>Ticker and quantity only — prices come in live. Untick anything wrong, fix any number, then add.</span></div>
     ${found.map((h,i)=>{ const have = pfData.holdings.find(x=>x.sym === h.sym);
-      return `<label class="pf-rv-row"><input type="checkbox" data-rv="${i}" checked>
-        <input class="pf-rv-sym" value="${escapeHtml(h.sym)}"><input class="pf-rv-sh" type="number" step="any" value="${h.shares}"><small>shares · ${have ? `was ${+have.shares}` : "new"}</small></label>`; }).join("")}
+      return `<label class="pf-rv-row${h.unknown ? " unk" : ""}"><input type="checkbox" data-rv="${i}"${h.unknown ? "" : " checked"}>
+        <input class="pf-rv-sym" value="${escapeHtml(h.sym)}"><input class="pf-rv-sh" type="number" step="any" value="${h.shares}"><small>shares · ${h.unknown ? "<b>ticker not found — check it</b>" : escapeHtml(h.name || "")}${have ? ` · was ${+have.shares}` : " · new"}</small></label>`; }).join("")}
     <div class="pf-rv-acts"><button type="button" class="ph-btn outline sm" id="pf-rv-cancel">Cancel</button><button type="button" class="ph-btn primary sm" id="pf-rv-ok">Add to portfolio</button></div>`;
   box.querySelector("#pf-rv-cancel").addEventListener("click", ()=>{ box.hidden = true; box.innerHTML = ""; msg.textContent = ""; });
   box.querySelector("#pf-rv-ok").addEventListener("click", ()=>{
