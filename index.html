@@ -10321,16 +10321,22 @@ function hydrateGarageFull(scope){
   $g("#gar-next").addEventListener("click", ()=>step(1));
   $g("#gar-close-btn").addEventListener("click", ()=>closeModal());
 
-  /* wheel / trackpad: one vehicle per deliberate scroll, not one per wheel tick */
-  let wheelAcc = 0, wheelLock = 0;
+  /* wheel / trackpad: the very first bit of any scroll moves one vehicle right away; a single
+     notch's burst of events (and trackpad momentum) only counts once, while a longer, continuous
+     scroll keeps moving one vehicle per stretch. A pause ends the scroll. */
+  let wheelAcc = 0, wheelArmed = true, wheelQuiet = null;
   root.addEventListener("wheel", e=>{
     if(!$g("#gar-sheet").hidden) return;
-    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    let d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     if(!d) return;
     e.preventDefault();
-    if(Date.now() < wheelLock) return;
+    if(e.deltaMode === 1) d *= 16; else if(e.deltaMode === 2) d *= 400;
+    clearTimeout(wheelQuiet);
+    wheelQuiet = setTimeout(()=>{ wheelArmed = true; wheelAcc = 0; }, 140);
+    if(wheelAcc && Math.sign(d) !== Math.sign(wheelAcc)){ wheelAcc = 0; wheelArmed = true; }   /* reversed: move back right away */
     wheelAcc += d;
-    if(Math.abs(wheelAcc) > 60){ step(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; wheelLock = Date.now() + 380; }
+    if(wheelArmed && Math.abs(wheelAcc) >= 4){ step(wheelAcc > 0 ? 1 : -1); wheelArmed = false; wheelAcc = 0; }
+    else if(!wheelArmed && Math.abs(wheelAcc) >= 240){ step(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; }
   }, {passive:false});
   /* swipe */
   let touchX = null;
