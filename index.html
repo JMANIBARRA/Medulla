@@ -2711,7 +2711,7 @@
   .db-search-results button{display:flex;width:100%;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:none;background:none;color:var(--text-primary);font:inherit;font-size:14px;cursor:pointer;text-align:left;}
   .db-search-results button.sel, .db-search-results button:hover{background:rgba(90,169,255,.14);}
   .db-search-results small{margin-left:auto;color:var(--text-dim);font-size:12px;}
-  .db-search-wrap{position:relative;}
+  .db-search-wrap{position:relative;visibility:hidden;pointer-events:none;} /* one box: the chat at the bottom does search, commands and questions */
   .db-header-right{display:flex;align-items:center;gap:18px;padding:0 26px 0 24px;}
   .db-icon-btn{position:relative;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;color:#c3d4ea;cursor:pointer;}
   .db-icon-btn:hover{border-color:var(--db-edge);background:rgba(12,26,48,.6);}
@@ -3362,7 +3362,7 @@
 
   <div id="ai-dock">
     <form id="ai-form">
-      <input id="ai-input" type="text" placeholder="Ask me a question" autocomplete="off" />
+      <input id="ai-input" type="text" placeholder="Ask, search, or type a command…" autocomplete="off" />
       <!-- No longer a submit button — sending a message is just Enter in the input field (the
            form still submits on Enter with zero submit buttons present, since it has exactly one
            text field; see setupAiGroqKeyPopover for the explicit belt-and-suspenders handler too).
@@ -4226,7 +4226,7 @@ const I18N_ES = {
   "Drag to move": "Arrastra para mover",
   "Move Globe": "Mover globo",
   "Drop here to remove": "Suelta aquí para eliminar",
-  "Ask me a question": "Hazme una pregunta",
+  "Ask, search, or type a command…": "Pregunta, busca o escribe un comando…",
   "Send": "Enviar",
   "Mute/unmute background ambience — hover for volume, or use your keyboard's volume keys": "Silenciar o activar el ambiente de fondo — pasa el cursor para ver el volumen, o usa las teclas de volumen de tu teclado",
   "Ambient volume": "Volumen ambiental",
@@ -20756,7 +20756,7 @@ function wireDbSearch(){
   input.addEventListener("blur", ()=>setTimeout(()=>list.classList.remove("open"), 120));
   window.addEventListener("keydown", e=>{
     if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==="k" && document.body.classList.contains("dash-mode")){
-      e.preventDefault(); input.focus(); input.select();
+      e.preventDefault(); const ai = document.getElementById("ai-input"); if(ai){ ai.focus(); ai.select(); }
     }
   });
 }
