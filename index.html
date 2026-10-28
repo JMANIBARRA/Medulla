@@ -3202,6 +3202,11 @@
   .db-main.win-mode .db-edit-ui .rz{display:none;}
   .db-editbar label.snap{display:flex;align-items:center;gap:6px;font-size:13px;color:#c9d7ea;}
   .db-edit-ui{display:none;}
+  /* hover any window: a small – next to its grip sends it to Apps */
+  .db-main.win-mode > .db-panel:not(.db-win-moving):hover > .db-edit-ui{display:block;position:absolute;inset:0;}
+  .db-main.win-mode > .db-panel > .db-edit-ui .lbl{display:none;}
+  .db-main.win-mode > .db-panel > .db-edit-ui .x{top:3px;right:auto;left:calc(50% + 30px);width:22px;height:22px;font-size:15px;opacity:.75;}
+  .db-main.win-mode > .db-panel > .db-edit-ui .x:hover{opacity:1;}
   .db-editing .db-edit-ui{
     display:block;position:absolute;inset:0;z-index:20;border-radius:inherit;cursor:grab;touch-action:none;
     background:rgba(40,110,230,.06);outline:2px dashed color-mix(in srgb, var(--accent) 55%, transparent);outline-offset:-2px;
@@ -20897,7 +20902,7 @@ function buildDashboard(){
       <div class="db-status-line"><span id="db-status-time"></span><span class="db-status-dot" id="db-status-net">System Online</span></div>
       <button class="db-edit-btn" id="db-layouts-btn" type="button" title="Switch or save dashboard layouts" aria-haspopup="true">${dbIcon("grid")}<span>Layouts</span>${dbIcon("down")}</button>
       <button class="db-edit-btn" id="db-save-btn" type="button" title="Save how the dashboard looks right now">${dbIcon("check")}<span>Save layout</span></button>
-      <button class="db-edit-btn" id="db-edit-btn" type="button" title="Move, resize, hide or add dashboard panels">${dbIcon("grid")}<span>Edit layout</span></button>
+
       <button class="db-profile" id="db-profile" type="button" title="Account">
         <span class="db-avatar" id="db-avatar"></span>
         <span id="db-profile-name">Guest</span>
@@ -21710,7 +21715,7 @@ function dbLayoutsHTML(){
     <div class="lp-list">${dbPresets.some(Boolean) ? dbPresets.map((p,i)=>p ? card("m:"+i, p.name, "Slot " + (i+1) + " · saved " + new Date(p.t).toLocaleDateString("en-US",{month:"short", day:"numeric"}), "pr-mine", i) : "").join("") : `<div class="lp-empty">Nothing saved yet — use <b>Save layout</b> in the top bar.</div>`}</div>
     <div class="lp-sec">Ready-made</div>
     <div class="lp-chips">${DB_BUILTIN_PRESETS.map(p=>`<div class="lp-chip lp-card${cur==="b:"+p.key ? " on" : ""}" data-k="b:${p.key}" role="button" tabindex="0" title="${dbEsc(p.desc)}"><span class="lp-thumb pr-${p.key}"><i></i><i></i><i></i><i></i><i></i></span><b>${dbEsc(p.name)}</b></div>`).join("")}</div>
-    ${document.getElementById("dashboard").classList.contains("db-editing") ? "" : `<button type="button" class="lp-edit">✎ Edit layout</button>`}`;
+    <button type="button" class="lp-edit">↺ Reset to the original layout</button>`;
 }
 function dbToggleSave(anchor){
   let pop = document.getElementById("db-save-pop");
@@ -21791,7 +21796,7 @@ function dbToggleLayouts(anchor){
       if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Delete?"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent = "✕"; } }, 3000); return; }
       dbPresets[+b.dataset.del] = null; saveJSON(NS+"dashPresets", dbPresets); render();
     }));
-    const le = pop.querySelector(".lp-edit"); if(le) le.addEventListener("click", ()=>{ close(); setDbEditing(true); });
+    const le = pop.querySelector(".lp-edit"); if(le) le.addEventListener("click", ()=>{ dbApplyBuiltin(DB_BUILTIN_PRESETS[0]); render(); });
     place();
   };
   const close = ()=>{ pop.remove(); document.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", onKey, true); window.removeEventListener("resize", place); };
@@ -21825,7 +21830,7 @@ function dbAddEditUI(el){
   if(el.querySelector(":scope > .db-edit-ui")) return;
   const ui = document.createElement("div");
   ui.className = "db-edit-ui";
-  ui.innerHTML = `<span class="lbl">${dbEsc(DB_PANELS[id].label)}</span>${DB_PANELS[id].fixed || id==="apps" ? "" : `<button type="button" class="x" title="Minimize to Apps">–</button>`}<span class="rz" title="Drag to resize"></span>`;
+  ui.innerHTML = `<span class="lbl">${dbEsc(DB_PANELS[id].label)}</span>${DB_PANELS[id].fixed || id==="apps" ? "" : `<button type="button" class="x" title="Send to Apps">–</button>`}<span class="rz" title="Drag to resize"></span>`;
   el.appendChild(ui);
   ui.addEventListener("pointerdown", e=>{
     if(e.button!==0 || e.target.closest(".x")) return;
@@ -21842,7 +21847,7 @@ function wireDbLayout(){
   main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(dbAddEditUI);
   $("#db-layouts-btn").addEventListener("click", e=>dbToggleLayouts(e.currentTarget));
   $("#db-save-btn").addEventListener("click", e=>dbToggleSave(e.currentTarget));
-  $("#db-edit-btn").addEventListener("click", ()=>setDbEditing(!document.getElementById("dashboard").classList.contains("db-editing")));
+  if($("#db-edit-btn")) $("#db-edit-btn").addEventListener("click", ()=>setDbEditing(!document.getElementById("dashboard").classList.contains("db-editing")));
   window.addEventListener("keydown", e=>{
     if(e.key==="Escape" && document.getElementById("dashboard").classList.contains("db-editing")) setDbEditing(false);
   });
