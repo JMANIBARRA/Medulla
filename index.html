@@ -8902,9 +8902,31 @@ function garSplitName(v){
   if(alias[first]) return {make:alias[first], model:name.slice(first.length).trim()};
   return {make:"", model:name};
 }
+/* brand look-alikes: a model/year with no exact drawing uses the same brand's closest sedan by year,
+   so a 2023 BMW 530i still looks like a BMW rather than a generic car */
+const GAR_BRAND_SEDANS = [
+  {match:/\b(bmw|bimmer)\b|\b[1-8]\d{2}(i|is|d|e|xi|ci)\b|\bm[2-8]\b/, list:[[1962,"bmw_1500_nk"],[1984,"bmw_3_e30"],[1989,"bmw_5_e34"],[1997,"bmw_5_e39"],[2006,"bmw_3_e90"],[2012,"bmw_3_f30"],[2022,"bmw_i4"]]},
+  {match:/\b(mercedes|benz|amg)\b/, list:[[1959,"mb_w111"],[1973,"mb_s_w116"],[1984,"mb_190e_w201"],[1986,"mb_e_w124"],[2000,"mb_s_w220"],[2004,"mb_cls_c219"],[2015,"mb_c_w205"],[2022,"mb_eqs"]]},
+  {match:/\baudi\b/, list:[[1965,"audi_72"],[1968,"audi_100_c1"],[1982,"audi_100_c3"],[1996,"audi_a4_b5"],[1997,"audi_a8_d2"],[2012,"audi_a7"],[2015,"audi_a3_sedan"]]},
+];
+function garBrandFile(v, t){
+  if(!["sedan","coupe","liftback","sportscar"].includes(t)) return null;
+  const n = String(v.vehicle||"").toLowerCase(), y = garYear(v) || new Date().getFullYear();
+  const b = GAR_BRAND_SEDANS.find(b=>b.match.test(n));
+  if(!b) return null;
+  let pick = b.list[0][1];
+  for(const [from, f] of b.list) if(y >= from) pick = f;
+  /* the i4 / EQS drawings are EVs: only for an EV of that brand, otherwise the newest regular sedan */
+  if(/i4|eqs/.test(pick) && !GAR_EV.test(n) && !/\bi4\b|\beqs\b/.test(n)){
+    const reg = b.list.filter(([,f])=>!/i4|eqs/.test(f)); pick = reg[reg.length-1][1];
+    for(const [from, f] of reg) if(y >= from) pick = f;
+  }
+  return pick;
+}
 function garDrawFor(v){
   const exact = garModelFile(v);
   if(exact) return exact;
+  { const brand = garBrandFile(v, resolveVehicleType(v)); if(brand) return brand; }
   const t = resolveVehicleType(v);
   if(GAR_TRUCK_TYPES.has(t)) return garTruckFile(v, t);
   if(t === "sedan") return garSedanFile(v);
