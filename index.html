@@ -1684,6 +1684,52 @@
   .gar-sheet{position:absolute;left:50%;bottom:0;z-index:7;width:min(620px,100%);max-height:88%;display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .22s cubic-bezier(.2,.8,.2,1);
     border-radius:20px 20px 0 0;background:linear-gradient(180deg,#0f2141,#0a1730);border:1px solid rgba(90,169,255,.3);border-bottom:none;box-shadow:0 -20px 50px rgba(0,0,0,.5);}
   .gar-sheet.open{transform:translate(-50%,0);}
+  #modal-panel.modal-custom.modal-traffic{width:min(1100px,96vw);max-height:94vh;}
+  #modal-panel.modal-custom.modal-traffic #modal-body{padding:0;}
+  .tf{padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px;}
+  .tf-head{display:flex;align-items:center;gap:14px;}
+  .tf-head > div{flex:1;} .tf-head h2{margin:0;font-size:22px;} .tf-head p{margin:2px 0 0;font-size:13px;color:var(--text-dim);}
+  .tf-hic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(90,169,255,.14);color:#9fd0ff;} .tf-hic svg{width:22px;height:22px;}
+  .tf-from{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--text-dim);}
+  .tf-seg{display:flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:12px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .tf-seg button{height:32px;padding:0 12px;border:none;border-radius:9px;background:none;color:#c3d4ea;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .tf-seg button.on{background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;}
+  .tf-when{margin-left:auto;font-weight:600;color:#cfe0f5;}
+  .tf-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;min-height:420px;}
+  .tf-list{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:60vh;}
+  .tf-card{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(130,153,184,.14);cursor:pointer;transition:border-color .15s,background .15s;}
+  .tf-card:hover{border-color:rgba(124,180,255,.4);} .tf-card.on{border-color:#4d9bff;background:rgba(47,139,255,.12);}
+  .tf-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:rgba(90,169,255,.12);}
+  .tf-ct{min-width:0;} .tf-ct b{display:block;font-size:15px;} .tf-ct small{display:block;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tf-time{text-align:right;} .tf-time b{display:block;font-size:18px;font-weight:700;color:#7ee2b8;} .tf-time b.busy{color:#ffc46b;} .tf-time b.rush{color:#ff8a95;}
+  .tf-time small{display:block;font-size:11.5px;color:var(--text-dim);}
+  .tf-links{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;} .tf-links a{font-size:12px;font-weight:600;color:#7fbcff;text-decoration:none;} .tf-links a:hover{text-decoration:underline;}
+  .tf-dim{color:var(--text-dim);font-size:12.5px;}
+  .tf-del{position:absolute;top:6px;right:6px;height:22px;min-width:22px;padding:0 6px;border-radius:999px;border:1px solid rgba(130,153,184,.25);background:#0d1d36;color:var(--text-dim);font-size:11px;cursor:pointer;opacity:0;}
+  .tf-card:hover .tf-del,.tf-del.armed{opacity:1;} .tf-del.armed{color:#ff8a95;border-color:#ff8a95;}
+  @media (hover:none){ .tf-del{opacity:1;} }
+  .tf-note{padding:10px 12px;border-radius:12px;background:rgba(255,176,64,.08);border:1px solid rgba(255,176,64,.3);color:#ffd28a;font-size:12.5px;}
+  .tf-empty{padding:26px 18px;border-radius:14px;border:1px dashed rgba(124,180,255,.3);text-align:center;display:flex;flex-direction:column;gap:6px;} .tf-empty b{font-size:15px;} .tf-empty span{font-size:13px;color:var(--text-dim);}
+  .tf-map{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(124,180,255,.18);background:#0a1628;min-height:360px;}
+  .tf-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;filter:invert(.9) hue-rotate(180deg) saturate(.8) brightness(.95);}
+  .tf-map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--text-dim);font-size:13px;}
+  .tf-map-empty[hidden]{display:none;}
+  .tf-addbtn{width:100%;height:44px;border-radius:12px;border:1px dashed rgba(124,180,255,.35);background:transparent;color:#9fd0ff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+  .tf-addbtn:hover{background:rgba(47,139,255,.1);}
+  .tf-form{display:grid;grid-template-columns:auto minmax(140px,.6fr) minmax(0,1.4fr);gap:10px;align-items:start;padding:14px;border-radius:14px;background:rgba(47,139,255,.07);border:1px solid rgba(77,155,255,.35);}
+  .tf-icons{display:flex;flex-wrap:wrap;gap:4px;max-width:150px;}
+  .tf-icons button{width:34px;height:34px;border-radius:9px;border:1px solid rgba(130,153,184,.22);background:rgba(9,20,38,.7);font-size:16px;cursor:pointer;}
+  .tf-icons button.on{border-color:#4d9bff;background:rgba(47,139,255,.25);}
+  .tf-form input{width:100%;box-sizing:border-box;height:40px;border-radius:10px;padding:0 12px;font-size:14px;}
+  .tf-addr{position:relative;}
+  .tf-res{display:flex;flex-direction:column;margin-top:4px;border-radius:10px;overflow:hidden;}
+  .tf-res button{text-align:left;padding:9px 10px;border:none;border-bottom:1px solid rgba(130,153,184,.12);background:#0d1d36;color:var(--text-primary);font:inherit;font-size:13px;cursor:pointer;}
+  .tf-res button:hover{background:#163059;}
+  .tf-fbtns{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;}
+  .tf-fbtns button{height:36px;padding:0 16px;border-radius:10px;border:1px solid rgba(130,153,184,.25);background:transparent;color:#cfe0f5;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .tf-fbtns .pri{background:linear-gradient(180deg,#2f8bff,#1462e0);border-color:transparent;color:#fff;} .tf-fbtns .pri:disabled{opacity:.45;cursor:default;}
+  .tf-picked{grid-column:1/-1;font-size:12.5px;color:#7ee2b8;}
+  @media (max-width:820px){ .tf-body{grid-template-columns:1fr;} .tf-map{min-height:300px;} .tf-form{grid-template-columns:1fr;} .tf-icons{max-width:none;} .tf-when{margin-left:0;} }
   .gar-sheet.gm-sheet{width:min(720px,100%);}
   .gar-btn{position:relative;}
   .gar-maint-badge{position:absolute;top:-6px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#ffb040;color:#1a1100;font-style:normal;font-size:11.5px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730;}
@@ -3704,7 +3750,7 @@ const WIDGET_DEFS = [
   {id:"chrono", title:"Chrono", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Digital / analog clock toggle plus a 25/50/90 min focus timer that logs total focused minutes."},
   {id:"bluetooth", title:"Bluetooth", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"navigator.bluetooth battery_service telemetry for paired peripherals."},
   {id:"banking", title:"Finance", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"A quick-launch popover of banks and brokerages (Chase, Fidelity, Robinhood, Vanguard, and whatever else you add) — official sites only, opened in a new isolated tab. No scraping."},
-  {id:"traffic", title:"Traffic", profiles:["main"], built:false, accent:"var(--accent-rust)", spec:"Public DOT/511 traffic camera grid plus a Ring dashboard launcher."},
+  {id:"traffic", title:"Traffic", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Your saved places with drive times, a route map, and one tap to live traffic in Google Maps or Waze."},
   {id:"garage", title:"Garage", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Add vehicles you own, keep a running garage list."},
   {id:"phone", title:"Phone", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Saved contacts you can call with one click via tel: links — add a name and number, tap to dial."},
   {id:"career", title:"Career", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Resume/cover letter editor, salary target tracker, and job feed deep-links."},
@@ -7209,6 +7255,7 @@ function hydrateFullView(id, scope){
   if(id==="claudeprojects") return hydrateClaudeProjectsFull(scope);
   if(id==="fitness") return hydrateFitnessFull(scope);
   if(id==="garage") return hydrateGarageFull(scope);
+  if(id==="traffic") return hydrateTrafficFull(scope);
   if(id==="phone") return hydratePhoneFull(scope);
   if(id==="career") return hydrateCareerFull(scope);
   if(id==="networth") return hydrateNetworthFull(scope);
@@ -7225,7 +7272,7 @@ function openModal(def){
   if(typeof dbSuspendPinned === "function") dbSuspendPinned(def.id);
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth" || def.id==="traffic");
   document.getElementById("modal-panel").classList.toggle("modal-networth", def.id==="networth");
   document.getElementById("modal-panel").classList.toggle("modal-phone", def.id==="phone");
   document.getElementById("modal-panel").classList.toggle("modal-sports", def.id==="sports");
@@ -7234,6 +7281,7 @@ function openModal(def){
   document.getElementById("modal-panel").classList.toggle("modal-market", def.id==="market");
   document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
   document.getElementById("modal-panel").classList.toggle("modal-fitness", def.id==="fitness");
+  document.getElementById("modal-panel").classList.toggle("modal-traffic", def.id==="traffic");
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
@@ -7267,6 +7315,7 @@ const INDEX_ASSETS = {
 const COIN_NAMES = {bitcoin:"BTC", ethereum:"ETH", solana:"SOL", dogecoin:"DOGE", cardano:"ADA"};
 
 function renderMini(id){
+  if(id==="traffic") return `<div style="text-align:center;"><small style="color:var(--text-dim)">Saved places</small><div style="font-size:20px;font-weight:700;">${trafficData.places.length}</div></div>`;
   if(id==="networth") return `<div style="text-align:center;"><small style="color:var(--text-dim)">Holdings</small><div style="font-size:20px;font-weight:700;">${pfData.holdings.length}</div></div>`;
   if(id==="career") return careerMiniHTML();
   if(id==="market"){
@@ -7604,6 +7653,7 @@ function renderFull(id){
     </div>`;
   }
   if(id==="garage") return garageFullHTML();
+  if(id==="traffic") return trafficFullHTML();
   if(id==="career") return careerFullHTML();
   if(id==="networth") return networthFullHTML();
   if(id==="phone") return phoneFullHTML();
@@ -11880,6 +11930,176 @@ function wireGarAssets(container, onFail){
   });
 }
 
+/* ================= TRAFFIC =================
+   Saved places (Home, Work, ...) with drive time/distance from where you are (OSRM, free) and a
+   rush-hour estimate; the map and live traffic come from Google Maps / Waze. Place search: OpenStreetMap. */
+let trafficData = loadJSON(NS+"traffic", {places:[], from:"home"});
+if(!Array.isArray(trafficData.places)) trafficData.places = [];
+const TF_ICONS = {home:"🏠", work:"💼", school:"🎓", gym:"🏋️", family:"❤️", food:"🍽️", other:"📍"};
+const tfSave = ()=>saveJSON(NS+"traffic", trafficData);
+const tfRouteCache = {};
+function tfFmtMin(sec){ const m = Math.round(sec/60); return m < 60 ? `${m} min` : `${Math.floor(m/60)} hr ${m%60 ? (m%60)+" min" : ""}`.trim(); }
+function tfRange(lo, hi){
+  const a = Math.max(1, Math.round(lo/60)), b = hi ? Math.max(a, Math.round(hi/60)) : a;
+  const hm = m=>`${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`;
+  if(b < 60) return a === b ? `${a} min` : `${a}–${b} min`;
+  return a === b ? hm(a) : `${hm(a)}–${hm(b)}`;
+}
+function tfRushFactor(d){
+  const day = d.getDay(), h = d.getHours() + d.getMinutes()/60;
+  if(day === 0 || day === 6) return (h >= 11 && h <= 19) ? 1.12 : 1.04;
+  if(h >= 7 && h < 9.5) return 1.4;
+  if(h >= 16 && h < 19) return 1.45;
+  if((h >= 6 && h < 7) || (h >= 9.5 && h < 11) || (h >= 15 && h < 16) || (h >= 19 && h < 20)) return 1.2;
+  return 1.05;
+}
+async function tfRoute(a, b){
+  const k = `${a.lat.toFixed(4)},${a.lon.toFixed(4)};${b.lat.toFixed(4)},${b.lon.toFixed(4)}`;
+  if(tfRouteCache[k]) return tfRouteCache[k];
+  const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
+  const d = await r.json();
+  if(!d.routes || !d.routes[0]) throw new Error("no route");
+  return tfRouteCache[k] = {sec:d.routes[0].duration, m:d.routes[0].distance};
+}
+async function tfSearch(q){
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us&q=${encodeURIComponent(q)}`, {headers:{"Accept-Language":"en"}});
+  const d = await r.json();
+  return (d||[]).map(x=>({lat:+x.lat, lon:+x.lon, label:x.display_name.split(", ").slice(0,3).join(", ")}));
+}
+function tfGoogle(a, b){ return `https://www.google.com/maps/dir/?api=1${a ? `&origin=${a.lat},${a.lon}` : ""}&destination=${b.lat},${b.lon}&travelmode=driving`; }
+function tfWaze(b){ return `https://waze.com/ul?ll=${b.lat},${b.lon}&navigate=yes`; }
+function tfEmbed(a, b){ return a ? `https://maps.google.com/maps?saddr=${a.lat},${a.lon}&daddr=${b.lat},${b.lon}&layer=t&output=embed` : `https://maps.google.com/maps?q=${b.lat},${b.lon}&z=13&layer=t&output=embed`; }
+function trafficFullHTML(){
+  return `<div class="tf">
+    <div class="tf-head">
+      <span class="tf-hic">${dbIcon ? dbIcon("traffic") : ""}</span>
+      <div><h2>Traffic</h2><p>Drive times to your places, with live traffic one tap away</p></div>
+      <button type="button" class="ph-x" id="tf-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="tf-from"><span>Leaving from</span><div class="tf-seg" id="tf-from"></div><span class="tf-when" id="tf-when"></span></div>
+    <div class="tf-body">
+      <div class="tf-list" id="tf-list"></div>
+      <div class="tf-map"><iframe id="tf-map" title="Route map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div class="tf-map-empty" id="tf-map-empty">Pick a place to see the route and traffic.</div></div>
+    </div>
+    <div class="tf-add" id="tf-add"></div>
+  </div>`;
+}
+function hydrateTrafficFull(scope){
+  const $t = q=>scope.querySelector(q);
+  let alive = true, sel = trafficData.places[0] ? trafficData.places[0].id : null, here = null, hereErr = "", adding = false, results = [], picked = null, searchT = 0;
+  $t("#tf-close").addEventListener("click", ()=>closeModal());
+  const origin = ()=>{
+    if(trafficData.from === "here") return here;
+    const p = trafficData.places.find(x=>x.id === trafficData.from); return p || null;
+  };
+  function renderFrom(){
+    const opts = [["here","📍 Where I am"]].concat(trafficData.places.map(p=>[p.id, `${TF_ICONS[p.icon]||"📍"} ${p.name}`]));
+    if(!opts.some(o=>o[0]===trafficData.from)) trafficData.from = "here";
+    $t("#tf-from").innerHTML = opts.map(([k,l])=>`<button type="button" data-from="${k}" class="${trafficData.from===k?"on":""}">${escapeHtml(l)}</button>`).join("");
+    $t("#tf-from").querySelectorAll("[data-from]").forEach(b=>b.addEventListener("click", ()=>{ trafficData.from = b.dataset.from; tfSave(); if(trafficData.from==="here" && !here) locate(); renderFrom(); renderList(); renderMap(); }));
+    const now = new Date(), f = tfRushFactor(now);
+    $t("#tf-when").textContent = f >= 1.35 ? "🔴 Rush hour now" : f >= 1.15 ? "🟠 Busier than usual" : "🟢 Light traffic time";
+  }
+  function locate(){
+    if(!navigator.geolocation){ hereErr = "Location isn't available in this browser."; renderList(); return; }
+    hereErr = "Finding you…"; renderList();
+    navigator.geolocation.getCurrentPosition(p=>{ here = {lat:p.coords.latitude, lon:p.coords.longitude}; hereErr = ""; if(alive){ renderList(); renderMap(); } },
+      ()=>{ hereErr = "Allow location access, or pick a saved place to leave from."; if(alive) renderList(); }, {timeout:10000, maximumAge:300000});
+  }
+  async function renderList(){
+    const box = $t("#tf-list"), o = origin();
+    if(!trafficData.places.length){
+      box.innerHTML = `<div class="tf-empty"><b>Add the places you drive to</b><span>Home, work, school, the gym — then you'll see how long each drive takes.</span></div>`;
+      return;
+    }
+    const f = tfRushFactor(new Date());
+    box.innerHTML = (o ? "" : `<div class="tf-note">${escapeHtml(hereErr || "Choose where you're leaving from above.")}</div>`) + trafficData.places.map(p=>{
+      const same = o && trafficData.from === p.id;
+      return `<div class="tf-card${sel===p.id?" on":""}${same?" same":""}" data-p="${p.id}" role="button" tabindex="0">
+        <span class="tf-ic">${TF_ICONS[p.icon]||"📍"}</span>
+        <div class="tf-ct"><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.label||"")}</small></div>
+        <div class="tf-time" data-time="${p.id}">${same ? `<span class="tf-dim">You're here</span>` : o ? `<span class="tf-dim">…</span>` : ""}</div>
+        <button type="button" class="tf-del" data-del="${p.id}" title="Remove" aria-label="Remove">✕</button>
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-p]").forEach(c=>{
+      const go = ()=>{ sel = c.dataset.p; box.querySelectorAll(".tf-card").forEach(x=>x.classList.toggle("on", x===c)); renderMap(); };
+      c.addEventListener("click", e=>{ if(!e.target.closest(".tf-del,a")) go(); });
+      c.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
+    });
+    box.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Remove?"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent = "✕"; } }, 3000); return; }
+      trafficData.places = trafficData.places.filter(x=>x.id!==b.dataset.del);
+      if(trafficData.from === b.dataset.del) trafficData.from = "here";
+      if(sel === b.dataset.del) sel = trafficData.places[0] ? trafficData.places[0].id : null;
+      tfSave(); renderFrom(); renderList(); renderMap();
+    }));
+    if(!o) return;
+    for(const p of trafficData.places){
+      if(trafficData.from === p.id) continue;
+      const cell = box.querySelector(`[data-time="${p.id}"]`);
+      try{
+        const r = await tfRoute(o, p);
+        if(!alive || !cell.isConnected) return;
+        const lo = r.sec * f, hi = r.sec * (f + .12);
+        const busy = f >= 1.35 ? "rush" : f >= 1.15 ? "busy" : "ok";
+        cell.innerHTML = `<b class="${busy}">${tfRange(lo, f >= 1.15 ? hi : null)}</b><small>${(r.m/1609.34).toFixed(1)} mi · ${tfFmtMin(r.sec)} with no traffic</small>
+          <span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a><a href="${tfWaze(p)}" target="_blank" rel="noopener">Waze ↗</a></span>`;
+      }catch(e){ if(cell.isConnected) cell.innerHTML = `<span class="tf-dim">Couldn't get a route</span><span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a></span>`; }
+    }
+  }
+  function renderMap(){
+    const p = trafficData.places.find(x=>x.id===sel), fr = $t("#tf-map"), em = $t("#tf-map-empty");
+    if(!p){ fr.removeAttribute("src"); em.hidden = false; return; }
+    const o = origin(); em.hidden = true;
+    const src = tfEmbed(o && trafficData.from !== p.id ? o : null, p);
+    if(fr.getAttribute("src") !== src) fr.src = src;
+  }
+  function renderAdd(){
+    const box = $t("#tf-add");
+    if(!adding){ box.innerHTML = `<button type="button" class="tf-addbtn" id="tf-addbtn">+ Add a place</button>`; box.querySelector("#tf-addbtn").addEventListener("click", ()=>{ adding = true; picked = null; results = []; renderAdd(); }); return; }
+    box.innerHTML = `<div class="tf-form">
+      <div class="tf-icons">${Object.entries(TF_ICONS).map(([k,v])=>`<button type="button" data-ic="${k}" class="${(box._ic||"home")===k?"on":""}" title="${k}">${v}</button>`).join("")}</div>
+      <input type="text" id="tf-name" placeholder="Name (e.g. Work)" value="${escapeHtml(box._name||"")}" autocomplete="off">
+      <div class="tf-addr"><input type="text" id="tf-q" placeholder="Search an address or place" value="${escapeHtml(box._q||"")}" autocomplete="off">
+        <div class="tf-res" id="tf-res">${results.map((r,i)=>`<button type="button" data-r="${i}">${escapeHtml(r.label)}</button>`).join("")}</div></div>
+      <div class="tf-fbtns"><button type="button" id="tf-cancel">Cancel</button><button type="button" class="pri" id="tf-save"${picked ? "" : " disabled"}>Save place</button></div>
+      ${picked ? `<div class="tf-picked">✓ ${escapeHtml(picked.label)}</div>` : ""}
+    </div>`;
+    box.querySelectorAll("[data-ic]").forEach(b=>b.addEventListener("click", ()=>{ box._ic = b.dataset.ic; const n = box.querySelector("#tf-name"); if(!n.value.trim()) box._name = b.title[0].toUpperCase()+b.title.slice(1); else box._name = n.value; box._q = box.querySelector("#tf-q").value; renderAdd(); }));
+    const q = box.querySelector("#tf-q"), nm = box.querySelector("#tf-name");
+    nm.addEventListener("input", ()=>{ box._name = nm.value; });
+    q.addEventListener("input", ()=>{
+      box._q = q.value; picked = null; box.querySelector("#tf-save").disabled = true;
+      clearTimeout(searchT);
+      if(q.value.trim().length < 3){ box.querySelector("#tf-res").innerHTML = ""; return; }
+      searchT = setTimeout(async ()=>{
+        try{ results = await tfSearch(q.value.trim()); }catch(e){ results = []; }
+        if(!alive) return;
+        const rb = box.querySelector("#tf-res"); if(!rb) return;
+        rb.innerHTML = results.length ? results.map((r,i)=>`<button type="button" data-r="${i}">${escapeHtml(r.label)}</button>`).join("") : `<div class="tf-dim" style="padding:8px 10px;">No matches — try adding the city.</div>`;
+        rb.querySelectorAll("[data-r]").forEach(b=>b.addEventListener("click", ()=>{ picked = results[+b.dataset.r]; box._q = picked.label; results = []; renderAdd(); }));
+      }, 450);
+    });
+    box.querySelectorAll("#tf-res [data-r]").forEach(b=>b.addEventListener("click", ()=>{ picked = results[+b.dataset.r]; box._q = picked.label; results = []; renderAdd(); }));
+    box.querySelector("#tf-cancel").addEventListener("click", ()=>{ adding = false; box._name = box._q = ""; renderAdd(); });
+    box.querySelector("#tf-save").addEventListener("click", ()=>{
+      if(!picked) return;
+      const icon = box._ic || "home", name = (nm.value.trim() || icon[0].toUpperCase()+icon.slice(1));
+      const id = "p" + Date.now();
+      trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, label:picked.label});
+      if(trafficData.places.length === 1 && icon === "home" && trafficData.from === "home") trafficData.from = "here";
+      tfSave(); sel = id; adding = false; box._name = box._q = ""; box._ic = "";
+      renderAdd(); renderFrom(); renderList(); renderMap();
+    });
+    (box._q ? q : nm).focus();
+  }
+  if(!trafficData.from || trafficData.from === "home") trafficData.from = "here";
+  renderFrom(); renderAdd(); renderList(); renderMap();
+  if(trafficData.from === "here") locate();
+  const tick = setInterval(()=>{ if(alive) renderFrom(); }, 60000);
+  return ()=>{ alive = false; clearInterval(tick); };
+}
 function garageFullHTML(){
   return `
   <div class="gar-root" id="gar-root">
