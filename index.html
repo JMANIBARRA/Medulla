@@ -7876,46 +7876,31 @@ function sportsSectionHeader(label){
   return `<div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:6px 0 2px;">${label}</div>`;
 }
 function hydrateSportsMini(scope){
-  let first = true;
   async function refresh(){
     const el = scope.querySelector("#sport-mini-list");
-    if(!el) return; /* widget torn down mid-fetch */
-    if(first) el.textContent = "Loading scores…";
-    const popular = await fetchPopularScores();
+    if(!el) return;
+    if(!el.innerHTML) el.textContent = "Loading scores…";
+    const today = scDates(0), yday = scDates(-1);
+    const leagues = SC_TABS.filter(t=>t.lg && t.key !== "tennis").flatMap(t=>t.lg).filter(([,lg])=>!["wta","uefa.champions","wnba"].includes(lg));
+    const games = [];
+    await Promise.all(leagues.map(async ([sport, league, label])=>{
+      for(const d of [today, yday]){
+        try{ const b = await scBoard(sport, league, d); (b.events||[]).forEach(ev=>(ev.competitions||[]).forEach(c=>{ const g = scGame(ev, c, sport, label); if(g) games.push(g); })); }catch(e){}
+      }
+    }));
     const el2 = scope.querySelector("#sport-mini-list");
     if(!el2) return;
-    const byRecency = (a,b)=> new Date(b.ev.dateEvent) - new Date(a.ev.dateEvent);
-    const live = popular.filter(p=>!isEventFinished(p.ev)).sort(byRecency).slice(0,3);
-    const finished = popular.filter(p=>isEventFinished(p.ev)).sort(byRecency).slice(0,2);
-    let html = "";
-    if(live.length) html += sportsSectionHeader("Live / Today") + live.map(p=>formatScoreLine(p.ev)).join("");
-    /* Grouped by the day each game actually happened ("Today"/"Yesterday"/"N days ago") instead
-       of one flat "Finished" label — these two most-recent finished games can easily be from
-       different days (e.g. nothing played today, so the last Heat game shown might be from
-       Tuesday while the last Dolphins game is from Sunday), and a single "Finished" header
-       covering both was misleading about when either actually happened. */
-    if(finished.length){
-      const dayGroups = {};
-      finished.forEach(p=>{
-        const label = relativeDayLabel(p.ev.dateEvent) || "Finished";
-        (dayGroups[label] = dayGroups[label] || []).push(p);
-      });
-      Object.entries(dayGroups).forEach(([label, items])=>{
-        html += sportsSectionHeader(label) + items.map(p=>formatScoreLine(p.ev)).join("");
-      });
-    }
-    el2.innerHTML = html || `<div style="color:var(--text-dim);">Scores unavailable right now.</div>`;
-    first = false;
+    const rank = g=>(scIsFav(g) ? 0 : 2) + (g.state === "in" ? 0 : g.state === "post" ? 1 : 3);
+    const list = games.filter(g=>g.state !== "pre").sort((a,b)=>rank(a)-rank(b) || new Date(b.date)-new Date(a.date)).slice(0, 6);
+    el2.innerHTML = list.length ? list.map(g=>`<div style="display:flex;justify-content:space-between;gap:8px;white-space:nowrap;font-size:clamp(10px, calc(var(--w, 270px) * 0.048), 17px);line-height:1.6;">
+        <span style="overflow:hidden;text-overflow:ellipsis;">${g.state === "in" ? '<span style="color:#36d39a">●</span> ' : ""}${escapeHtml(g.a.name)} ${escapeHtml(String(g.a.score))}–${escapeHtml(String(g.b.score))} ${escapeHtml(g.b.name)}</span>
+        <span style="color:var(--text-dim);">${escapeHtml(g.state === "in" ? g.detail : "Final")}</span></div>`).join("")
+      : `<div style="color:var(--text-dim);">No games right now.</div>`;
   }
   refresh();
-  const intervalId = setInterval(refresh, SPORTS_REFRESH_MS);
+  const intervalId = setInterval(refresh, 60000);
   return function cleanup(){ clearInterval(intervalId); };
 }
-
-/* Sports always works with zero setup (a shared public demo key covers it), unlike every other
-   keyed widget here — so this never gates a "not ready" state the way YouTube's does. Just a
-   small, always-present "add your own key" collapsed behind a link, same shape as Market's
-   Twelve Data setup, for the ~30 requests/minute demo-key ceiling shared across everyone using it. */
 function renderSportsDbKeySetup(container){
   if(!container) return;
   container.innerHTML = `<a href="#" id="sport-key-toggle" style="font-size:11px;color:var(--accent-teal);">Manage API Key Settings</a>
@@ -7940,13 +7925,26 @@ const SP_LEAGUES = [
   {sport:"soccer", league:"eng.1", label:"Premier League"}, {sport:"football", league:"college-football", label:"NCAAF"},
   {sport:"basketball", league:"mens-college-basketball", label:"NCAAM"},
 ];
-let spViaWorker = false;
+/* Straight from ESPN. Only when the browser can't reach ESPN at all (blocked / network error, not
+   just one league answering with an error) is the Medulla Worker tried, for that one request. */
+let spDirectBroken = false;
 async function espnGet(path){
-  const direct = ()=>fetch("https://site.api.espn.com" + path).then(r=>{ if(!r.ok) throw new Error("espn " + r.status); return r.json(); });
-  const viaWorker = ()=>fetch(`${MEDULLA_AI_PROXY_URL}/espn?p=${encodeURIComponent(path)}`).then(r=>{ if(!r.ok) throw new Error("worker " + r.status); return r.json(); });
-  if(spViaWorker && MEDULLA_AI_PROXY_URL) return viaWorker();
-  try{ return await direct(); }
-  catch(e){ if(!MEDULLA_AI_PROXY_URL) throw e; spViaWorker = true; return viaWorker(); }
+  const viaWorker = async ()=>{
+    const r = await fetch(`${MEDULLA_AI_PROXY_URL}/espn?p=${encodeURIComponent(path)}`);
+    if(!r.ok) throw new Error("worker " + r.status);
+    return r.json();
+  };
+  if(spDirectBroken && MEDULLA_AI_PROXY_URL){ try{ return await viaWorker(); }catch(e){ spDirectBroken = false; } }
+  let r;
+  try{ r = await fetch("https://site.api.espn.com" + path); }
+  catch(e){
+    if(!MEDULLA_AI_PROXY_URL) throw e;
+    const d = await viaWorker();          /* throws if the Worker can't help either */
+    spDirectBroken = true;
+    return d;
+  }
+  if(!r.ok) throw new Error("espn " + r.status);
+  return r.json();
 }
 const SP_TEAMS_STORE = NS + "sportsTeamsEspn";
 let spTeamIndex = loadJSON(SP_TEAMS_STORE, null);
@@ -8044,21 +8042,24 @@ function scGame(ev, comp, sport, label){
   return {id:String(comp.id || ev.id), sport, label, date:ev.date || comp.date, state:st.state, name:st.name || "", detail:st.shortDetail || st.detail || "",
     a:side(cs[0]), b:side(cs[1]), extra:sit.downDistanceText || (sport === "basketball" && ev.competitions && comp.series && comp.series.summary) || "", league:label};
 }
+let scLastFailed = false;
 async function scLoadGames(){
   const tabs = scState.tab === "all" ? SC_TABS.filter(t=>t.lg) : SC_TABS.filter(t=>t.key === scState.tab);
   const leagues = tabs.flatMap(t=>t.lg).filter(([sp,lg])=>scState.tab !== "all" || !["wta","uefa.champions","wnba"].includes(lg));
   const dates = scDates(scState.day);
-  const out = [];
+  const out = []; let ok = 0;
   await Promise.all(leagues.map(async ([sport, league, label])=>{
     try{
       const d = await scBoard(sport, league, dates);
+      ok++;
       (d.events||[]).forEach(ev=>{
         if(sport === "tennis"){
           (ev.groupings||[]).forEach(g=>(g.competitions||[]).forEach(c=>{ const x = scGame(ev, c, sport, label); if(x) out.push(x); }));
         } else (ev.competitions||[]).forEach(c=>{ const x = scGame(ev, c, sport, label); if(x) out.push(x); });
       });
-    }catch(e){}
+    }catch(e){ console.warn("[Sports]", league, e && e.message); }
   }));
+  scLastFailed = !ok && leagues.length > 0;
   return out;
 }
 function scFavTeams(){
@@ -8154,6 +8155,7 @@ async function scRender(scope){
   root.querySelector("#sc-livetag").hidden = !games.some(g=>g.state === "in");
   const shown = scState.all ? games : games.slice(0, 8);
   grid.innerHTML = shown.length ? shown.map(scCardHTML).join("")
+    : scLastFailed ? `<div class="sc-dim">Couldn't reach the scores service right now — tap refresh to try again.</div>`
     : `<div class="sc-dim">${q ? `No games match “${escapeHtml(scState.q)}”.` : scState.day > 0 ? "No upcoming games this week." : "No games on this day."}</div>`;
   grid.querySelectorAll("[data-pin]").forEach(b=>b.addEventListener("click", ()=>{
     const id = b.dataset.pin, i = sportsData.pinned.indexOf(id);
