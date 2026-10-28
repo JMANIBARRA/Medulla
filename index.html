@@ -9203,7 +9203,7 @@ async function pfScan(scope, file){
     ${found.map((h,i)=>{ const have = pfData.holdings.find(x=>x.sym === h.sym);
       return `<label class="pf-rv-row"><input type="checkbox" data-rv="${i}" checked>
         <input class="pf-rv-sym" value="${escapeHtml(h.sym)}"><input class="pf-rv-sh" type="number" step="any" value="${h.shares}"><input class="pf-rv-cost" type="number" step="any" value="${h.cost ?? ""}" placeholder="avg cost">
-        <small>${have ? `replaces ${+have.shares} sh` : "new"}</small></label>`; }).join("")}
+        <small>${h.mv ? `$${Number(h.mv).toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2})} in screenshot · ` : ""}${have ? `replaces ${+have.shares} sh` : "new"}</small></label>`; }).join("")}
     <div class="pf-rv-acts"><button type="button" class="ph-btn outline sm" id="pf-rv-cancel">Cancel</button><button type="button" class="ph-btn primary sm" id="pf-rv-ok">Add to portfolio</button></div>`;
   box.querySelector("#pf-rv-cancel").addEventListener("click", ()=>{ box.hidden = true; box.innerHTML = ""; msg.textContent = ""; });
   box.querySelector("#pf-rv-ok").addEventListener("click", ()=>{
