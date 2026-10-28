@@ -2911,6 +2911,7 @@
   .db-tile svg{width:24px;height:24px;flex:none;color:#d6e5f7;}
   .db-tile span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
+  .db-tile .db-ext{flex:none;width:14px;text-align:center;color:#9fb4d0;font-size:13px;line-height:1;overflow:visible;}
   .db-tile:hover{border-color:var(--db-edge-strong);background:rgba(20,44,80,.6);box-shadow:0 0 18px -8px var(--accent);}
 
   /* chat slot — the real #ai-dock is moved in here while the dashboard shows */
@@ -3445,8 +3446,8 @@ const WIDGET_DEFS = [
   {id:"sports", title:"Sports Center", profiles:["main"], built:true, accent:"var(--accent-amber)", spec:"Followed teams, live-ish scores, and league news."},
   {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
   {id:"calendar", title:"Calendar", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Today's date and whatever events you've added for it — click through to a full month view to browse other days and add events."},
-  {id:"youtube", title:"Video", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
-  {id:"youtubeoauth", title:"Video (Google)", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
+  {id:"youtube", title:"YouTube", link:"https://www.youtube.com", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
+  {id:"youtubeoauth", title:"Video (Google)", retired:true, profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
 ];
 
 /* default layout coordinates */
@@ -5834,7 +5835,7 @@ function linkWidgetDefs(){
   }));
 }
 function widgetsForActiveProfile(){
-  return WIDGET_DEFS.filter(w=>w.profiles.includes(profiles.active)).concat(linkWidgetDefs());
+  return WIDGET_DEFS.filter(w=>!w.retired && w.profiles.includes(profiles.active)).concat(linkWidgetDefs());
 }
 
 /* Removes a widget from the screen entirely — distinct from minimizing (which still leaves its
@@ -6779,6 +6780,8 @@ window.addEventListener("keydown",(e)=>{
 });
 
 function openModal(def){
+  /* quick-link apps (YouTube) just open their site in a new tab */
+  if(def.link){ window.open(def.link, "_blank", "noopener"); return; }
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
   document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth");
@@ -19901,7 +19904,7 @@ function dbProfileId(){
 
 function buildDashboard(){
   const root = document.getElementById("dashboard");
-  const tileDefs = WIDGET_DEFS.filter(d=>!DB_PANEL_WIDGETS.has(d.id));
+  const tileDefs = WIDGET_DEFS.filter(d=>!d.retired && !DB_PANEL_WIDGETS.has(d.id));
   root.innerHTML = `
   <header class="db-header">
     <div class="db-logo"><i aria-hidden="true"></i>MEDULLA</div>
@@ -19982,7 +19985,7 @@ function buildDashboard(){
     </section>
 
     <section class="db-panel db-apps" id="db-apps" data-panel="apps">
-      ${tileDefs.map(d=>`<button type="button" class="db-tile" data-open="${d.id}" title="${dbEsc(d.title)}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${dbIcon("chev",'class="chev"')}</button>`).join("")}
+      ${tileDefs.map(d=>`<button type="button" class="db-tile" data-open="${d.id}" title="${dbEsc(d.title)}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${d.link ? '<span class="chev db-ext" aria-hidden="true">↗</span>' : dbIcon("chev",'class="chev"')}</button>`).join("")}
     </section>
 
     <section class="db-panel db-chat" id="db-chat-slot" data-panel="chat"></section>
@@ -20072,7 +20075,7 @@ function wireDbSearch(){
   function render(){
     const q = input.value.trim().toLowerCase();
     if(!q){ list.classList.remove("open"); items = []; return; }
-    const apps = WIDGET_DEFS.filter(d=>d.title.toLowerCase().includes(q) || d.id.includes(q)).slice(0,6)
+    const apps = WIDGET_DEFS.filter(d=>!d.retired).filter(d=>d.title.toLowerCase().includes(q) || d.id.includes(q)).slice(0,6)
       .map(d=>({kind:"app", id:d.id, label:d.title, hint:"Open"}));
     if(/^settings?/.test(q)) apps.unshift({kind:"app", id:"settings", label:"Settings", hint:"Open"});
     items = [...apps, {kind:"ask", label:`Ask Medulla: “${input.value.trim()}”`, hint:"Enter"}];
