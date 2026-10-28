@@ -1793,6 +1793,20 @@
 
 
 
+
+  /* ---- sidebar page mode: a section fills the dashboard area instead of a pop-up ---- */
+  body.db-page #dashboard{z-index:101;background:none;pointer-events:none;}
+  body.db-page #dashboard .db-header, body.db-page #dashboard .db-side, body.db-page #dashboard .db-search-results{pointer-events:auto;}
+  body.db-page #db-main{visibility:hidden;}
+  body.db-page #modal-overlay{
+    padding:var(--pg-t,76px) 0 0 var(--pg-l,216px);align-items:stretch;justify-content:stretch;backdrop-filter:none;
+    background:radial-gradient(ellipse 60% 50% at 30% 0%, rgba(40,105,210,.16), transparent 70%), radial-gradient(ellipse 50% 60% at 100% 100%, rgba(30,80,180,.12), transparent 70%), var(--bg-deep);
+  }
+  body.db-page #modal-panel, body.db-page #modal-panel.modal-custom{
+    width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;margin:0;
+    border:0 !important;border-radius:0 !important;box-shadow:none !important;background:transparent;overflow:auto;
+  }
+  body.db-page #modal-panel.modal-custom #modal-body{min-height:100%;}
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-phone #modal-body{padding:0;}
@@ -6263,6 +6277,11 @@ let modalCloseCleanup = null;
 function closeModal(){
   modalOverlay.classList.remove("open");
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+  /* leaving a sidebar page goes back to the Home dashboard */
+  if(document.body.classList.contains("db-page")){
+    document.body.classList.remove("db-page");
+    if(typeof dbSetNavActive === "function") dbSetNavActive("home");
+  }
 }
 $("#modal-close").addEventListener("click", closeModal);
 modalOverlay.addEventListener("click",(e)=>{ if(e.target===modalOverlay) closeModal(); });
@@ -8479,9 +8498,9 @@ function careerJobCard(job, i){
 function careerSearchLinks(){
   const s = careerData.salary, q = encodeURIComponent((s.field || careerData.resume.title || "jobs").split(/[\/,&]/)[0].trim()), loc = encodeURIComponent(s.location || "");
   return [
-    {id:"li", title:`${decodeURIComponent(q)} jobs`, company:"LinkedIn", location:s.location || "Anywhere", url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${loc}`},
-    {id:"in", title:`${decodeURIComponent(q)} jobs`, company:"Indeed", location:s.location || "Anywhere", url:`https://www.indeed.com/jobs?q=${q}&l=${loc}&salaryType=%24${Math.round(s.min/1000)}%2C000`},
-    {id:"gg", title:`${decodeURIComponent(q)} jobs`, company:"Google Jobs", location:s.location || "Anywhere", url:`https://www.google.com/search?q=${q}+jobs+${loc}&ibp=htl;jobs`},
+    {id:"li", title:(decodeURIComponent(q) === "jobs" ? "Job search" : `${decodeURIComponent(q)} jobs`), company:"LinkedIn", location:s.location || "Anywhere", url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${loc}`},
+    {id:"in", title:(decodeURIComponent(q) === "jobs" ? "Job search" : `${decodeURIComponent(q)} jobs`), company:"Indeed", location:s.location || "Anywhere", url:`https://www.indeed.com/jobs?q=${q}&l=${loc}&salaryType=%24${Math.round(s.min/1000)}%2C000`},
+    {id:"gg", title:(decodeURIComponent(q) === "jobs" ? "Job search" : `${decodeURIComponent(q)} jobs`), company:"Google Jobs", location:s.location || "Anywhere", url:`https://www.google.com/search?q=${q}+jobs+${loc}&ibp=htl;jobs`},
   ];
 }
 async function careerRenderFeed(scope){
@@ -18539,9 +18558,12 @@ function buildDashboard(){
   root.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>dbOpenWidget(b.dataset.open)));
   root.querySelectorAll("#db-nav [data-nav]").forEach(b=>b.addEventListener("click", ()=>{
     const key = b.dataset.nav;
-    if(key==="home"){ document.getElementById("db-main").scrollTo({top:0, behavior:"smooth"}); return; }
-    dbSetNavActive(key);
-    dbOpenWidget(key);
+    if(key==="home"){
+      if(document.body.classList.contains("db-page")){ closeModal(); return; }
+      document.getElementById("db-main").scrollTo({top:0, behavior:"smooth"}); return;
+    }
+    if(key==="settings"){ dbOpenWidget(key); return; }
+    dbOpenPage(key);
   }));
   $("#db-mkt").addEventListener("click", ()=>dbOpenWidget("market"));
   $("#db-weather").addEventListener("click", ()=>dbOpenWidget("weather"));
@@ -18557,6 +18579,24 @@ function buildDashboard(){
   wireDbLayout();
 }
 
+/* sidebar sections open as a full page in place of the dashboard (the header and sidebar stay);
+   tiles on the Home dashboard still open the smaller pop-up window */
+function dbPositionPage(){
+  const m = document.getElementById("db-main"), o = document.getElementById("modal-overlay");
+  if(!m || !o) return;
+  const r = m.getBoundingClientRect();
+  o.style.setProperty("--pg-l", Math.max(0, r.left) + "px");
+  o.style.setProperty("--pg-t", Math.max(0, r.top) + "px");
+}
+function dbOpenPage(key){
+  if(modalOverlay.classList.contains("open")) closeModal();
+  document.body.classList.add("db-page");
+  dbPositionPage();
+  dbOpenWidget(key);
+  dbSetNavActive(key);
+  modalOverlay.scrollTop = 0; document.getElementById("modal-panel").scrollTop = 0;
+}
+window.addEventListener("resize", ()=>{ if(document.body.classList.contains("db-page")) dbPositionPage(); });
 function dbSetNavActive(key){
   document.querySelectorAll("#db-nav [data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.nav===key));
 }
