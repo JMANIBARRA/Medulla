@@ -10330,14 +10330,41 @@ function hydrateGarageFull(scope){
   }
   function garSnapVisuals(){
     const m = new Map();
-    garVisualEls().forEach(([i, el])=>{ if(!m.has(i)) m.set(i, el.getBoundingClientRect()); });
+    garVisualEls().forEach(([i, el])=>{
+      if(m.has(i)) return;
+      const panel = el.closest(".gar-panel");
+      m.set(i, {r:el.getBoundingClientRect(), panel, ghost:panel ? panel.cloneNode(true) : null, pr:panel ? panel.getBoundingClientRect() : null});
+    });
     return m;
+  }
+  /* a side panel whose vehicle leaves the row: a copy of it slides out past its edge and fades */
+  function garExitGhost(snap, dir){
+    if(!snap || !snap.ghost || !snap.pr) return;
+    const g = snap.ghost, r = snap.pr;
+    g.removeAttribute("data-i"); g.classList.remove("l1","l2","r1","r2");
+    Object.assign(g.style, {position:"fixed", left:r.left+"px", top:r.top+"px", width:r.width+"px", height:r.height+"px", margin:"0",
+      transform:"none", zIndex:"1", pointerEvents:"none", opacity:"0.8", transition:"none"});
+    (document.getElementById("gar-side") || document.body).appendChild(g);
+    void g.offsetWidth;
+    g.style.transition = "translate .5s cubic-bezier(.3,.75,.3,1), opacity .4s ease";
+    g.style.translate = `${-dir * 110}px 0px`; g.style.opacity = "0";
+    setTimeout(()=>g.remove(), 550);
   }
   function garFlipVisuals(before, dir){
     const ease = "cubic-bezier(.3,.75,.3,1)";
     garVisualEls().forEach(([i, el])=>{
-      const now = el.getBoundingClientRect(), old = before.get(i);
+      const now = el.getBoundingClientRect(), snap = before.get(i);
+      let old = snap && snap.r;
+      /* moving against the scroll direction means it wrapped round from the far end: don't fly it
+         across the screen — the old one slides out its edge, this one slides in at its new edge */
+      const outer = !!el.closest(".gar-panel.l2, .gar-panel.r2");
       el.style.transition = "none";
+      /* only the pedestal and the two nearest panels move; the outer panels (and anything that
+         wrapped round) simply appear in place */
+      if(outer || (old && now.width && dir * ((old.left + old.width/2) - (now.left + now.width/2)) < -40)){
+        el.style.translate = ""; el.style.scale = ""; el.style.opacity = "";
+        return;
+      }
       if(old && now.width){
         const dx = (old.left + old.width/2) - (now.left + now.width/2);
         const dy = (old.top + old.height/2) - (now.top + now.height/2);
