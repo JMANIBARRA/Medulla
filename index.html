@@ -1675,6 +1675,54 @@
   .gar-sheet{position:absolute;left:50%;bottom:0;z-index:7;width:min(620px,100%);max-height:88%;display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .22s cubic-bezier(.2,.8,.2,1);
     border-radius:20px 20px 0 0;background:linear-gradient(180deg,#0f2141,#0a1730);border:1px solid rgba(90,169,255,.3);border-bottom:none;box-shadow:0 -20px 50px rgba(0,0,0,.5);}
   .gar-sheet.open{transform:translate(-50%,0);}
+  .gar-sheet.gm-sheet{width:min(720px,100%);}
+  .gar-btn{position:relative;}
+  .gar-maint-badge{position:absolute;top:-6px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#ffb040;color:#1a1100;font-style:normal;font-size:11.5px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730;}
+  .gar-maint-badge.over{background:#ff5d6c;color:#fff;}
+  .gar-maint-pill{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;}
+  .gar-maint-pill.soon{background:rgba(255,176,64,.18);color:#ffc46b;} .gar-maint-pill.over{background:rgba(255,93,108,.2);color:#ff8a95;}
+  .gm{display:flex;flex-direction:column;gap:12px;padding:2px 20px 20px;overflow:auto;}
+  .gm-top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:8px;}
+  .gm-odo{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:#a9bcd6;}
+  .gm-odo input{height:40px;border-radius:10px;padding:0 12px;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.25);color:var(--text-primary);font:inherit;font-size:15px;font-weight:600;}
+  .gm-stat{border-radius:12px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(130,153,184,.16);display:flex;flex-direction:column;justify-content:center;}
+  .gm-stat b{font-size:18px;} .gm-stat span{font-size:11px;color:#a9bcd6;}
+  .gm-stat.over{border-color:rgba(255,93,108,.5);} .gm-stat.over b{color:#ff8a95;}
+  .gm-stat.soon{border-color:rgba(255,176,64,.5);} .gm-stat.soon b{color:#ffc46b;}
+  .gm-tabs{display:flex;gap:4px;padding:3px;border-radius:12px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .gm-tabs button{flex:1;height:34px;border:none;border-radius:9px;background:none;color:#c3d4ea;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .gm-tabs button.on{background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;}
+  .gm-tabs em{font-style:normal;font-size:11px;opacity:.8;margin-left:4px;}
+  .gm-list{display:flex;flex-direction:column;gap:6px;}
+  .gm-item,.gm-log{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(130,153,184,.12);}
+  .gm-item.over{border-color:rgba(255,93,108,.45);background:rgba(255,93,108,.06);}
+  .gm-item.soon{border-color:rgba(255,176,64,.45);background:rgba(255,176,64,.05);}
+  .gm-dot{flex:none;width:10px;height:10px;border-radius:50%;background:#36d39a;}
+  .gm-item.over .gm-dot{background:#ff5d6c;box-shadow:0 0 8px #ff5d6c;} .gm-item.soon .gm-dot{background:#ffb040;} .gm-item.unknown .gm-dot{background:#5d6f8a;}
+  .gm-txt{flex:1;min-width:0;}
+  .gm-txt b{display:block;font-size:14px;font-weight:600;}
+  .gm-txt small{display:block;font-size:11.5px;color:#a9bcd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gm-due{display:block;font-size:12px;font-weight:600;margin-top:2px;color:#7ee2b8;}
+  .gm-item.over .gm-due{color:#ff8a95;} .gm-item.soon .gm-due{color:#ffc46b;} .gm-item.unknown .gm-due{color:#8ea3c0;font-weight:500;}
+  .gm-done{flex:none;height:32px;padding:0 12px;border-radius:999px;border:1px solid rgba(54,211,154,.45);background:rgba(54,211,154,.1);color:#7ee2b8;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .gm-done:hover{background:rgba(54,211,154,.22);}
+  .gm-more{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid rgba(130,153,184,.22);background:transparent;color:#a9bcd6;cursor:pointer;font-size:13px;}
+  .gm-more.armed{width:auto;padding:0 10px;border-radius:999px;color:#ff8a95;border-color:#ff8a95;}
+  .gm-form{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px;border-radius:12px;background:rgba(47,139,255,.07);border:1px solid rgba(77,155,255,.35);}
+  .gm-form label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:#a9bcd6;min-width:0;}
+  .gm-form label.w{grid-column:1/-1;}
+  .gm-form input,.gm-form select{height:36px;border-radius:9px;padding:0 10px;background:rgba(9,20,38,.85);border:1px solid rgba(130,153,184,.25);color:var(--text-primary);font:inherit;font-size:13.5px;color-scheme:dark;min-width:0;}
+  .gm-fbtns{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;}
+  .gm-fbtns button{height:34px;padding:0 14px;border-radius:9px;border:1px solid rgba(130,153,184,.25);background:transparent;color:#cfe0f5;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .gm-fbtns .pri{background:linear-gradient(180deg,#2f8bff,#1462e0);border-color:transparent;color:#fff;}
+  .gm-fbtns .del{margin-right:auto;color:#ff8a95;border-color:rgba(255,93,108,.4);}
+  .gm-add{height:40px;border-radius:12px;border:1px dashed rgba(124,180,255,.35);background:transparent;color:#9fd0ff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .gm-add:hover{background:rgba(47,139,255,.1);}
+  .gm-kind{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.03em;padding:3px 8px;border-radius:999px;background:rgba(90,169,255,.18);color:#9fd0ff;}
+  .gm-kind.repair{background:rgba(255,93,108,.18);color:#ff8a95;} .gm-kind.upgrade{background:rgba(176,124,255,.2);color:#cdb0ff;}
+  .gm-cost{flex:none;font-family:var(--font-mono);font-size:13px;font-weight:600;}
+  .gm-foot{font-size:12.5px;color:#a9bcd6;text-align:right;}
+  @media (max-width:640px){ .gm-top{grid-template-columns:1fr 1fr;} .gm-odo{grid-column:1/-1;} .gm-form{grid-template-columns:1fr 1fr;} .gm-done{padding:0 9px;} }
   .gar-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;}
   .gar-sheet-head h4{margin:0;font-size:17px;font-weight:600;}
   .gar-sheet-x{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#c9d7ea;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.25);}
@@ -10778,6 +10826,41 @@ function garMileageLabel(m){
   if(n >= 10000) return `${Math.round(n/1000)}k mi`;
   return `${n.toLocaleString("en-US")} mi`;
 }
+/* ================= MAINTENANCE =================
+   Per vehicle: v.maint = {items:[{id,name,miles,months,lastDate,lastMiles}], log:[{id,date,title,kind,miles,cost,notes}]}.
+   An item is due when either its mileage or its time interval runs out (whichever comes first). */
+const GAR_MAINT_DEFAULTS = {
+  car: [["Oil & filter change",5000,6],["Tire rotation",6000,6],["Engine air filter",15000,12],["Cabin air filter",15000,12],["Brake pads & rotors check",12000,12],["Brake fluid",0,24],["Coolant flush",60000,60],["Transmission fluid",60000,60],["Spark plugs",60000,72],["Wiper blades",0,12],["Battery check",0,12],["Registration & inspection",0,12]],
+  moto: [["Oil & filter change",3000,6],["Chain clean & lube",500,1],["Tire check / replace",8000,24],["Brake pads",8000,12],["Brake fluid",0,24],["Coolant",0,24],["Air filter",6000,12],["Spark plugs",8000,24],["Valve clearance check",15000,36],["Registration",0,12]],
+  boat: [["Engine service / oil",0,12],["Lower unit gear oil",0,12],["Water pump impeller",0,24],["Fuel filter",0,12],["Battery check",0,6],["Trailer wheel bearings",0,12],["Trailer tires & lights",0,12],["Hull clean & wax",0,6],["Registration",0,12]],
+};
+function garMaintKind(v){ const t = typeof resolveVehicleType === "function" ? resolveVehicleType(v) : ""; return ["boat","jonboat"].includes(t) ? "boat" : GARAGE_MOTO_TYPES.includes(t) ? "moto" : "car"; }
+function garMiles(v){ const r = String(v.mileage||"").trim().toLowerCase().replace(/,/g,""); const k = r.match(/^([\d.]+)\s*k/); if(k) return Math.round(parseFloat(k[1])*1000); const n = parseFloat(r); return isFinite(n) ? Math.round(n) : null; }
+function garMaint(v){
+  if(!v.maint) v.maint = {items: GAR_MAINT_DEFAULTS[garMaintKind(v)].map(([name,miles,months],i)=>({id:"m"+Date.now()+i, name, miles, months, lastDate:"", lastMiles:null})), log:[]};
+  if(!Array.isArray(v.maint.log)) v.maint.log = [];
+  return v.maint;
+}
+function garAddMonths(dateStr, m){ const d = new Date(dateStr+"T12:00:00"); d.setMonth(d.getMonth()+m); return d; }
+function garMaintStatus(v, it){
+  const cur = garMiles(v), today = new Date(); today.setHours(12,0,0,0);
+  if(!it.lastDate && it.lastMiles == null) return {state:"unknown", label:"Not logged yet", sort:3};
+  let dueDate = null, dueMiles = null, daysLeft = Infinity, milesLeft = Infinity;
+  if(it.months && it.lastDate){ dueDate = garAddMonths(it.lastDate, it.months); daysLeft = Math.round((dueDate - today)/864e5); }
+  if(it.miles && it.lastMiles != null){ dueMiles = it.lastMiles + it.miles; if(cur != null) milesLeft = dueMiles - cur; }
+  const over = daysLeft < 0 || milesLeft < 0;
+  const soon = !over && (daysLeft <= 30 || milesLeft <= Math.max(300, (it.miles||0)*0.1));
+  const parts = [];
+  if(dueMiles != null) parts.push(milesLeft === Infinity ? `at ${dueMiles.toLocaleString()} mi` : milesLeft < 0 ? `${(-milesLeft).toLocaleString()} mi overdue` : `in ${milesLeft.toLocaleString()} mi`);
+  if(dueDate) parts.push(daysLeft < 0 ? `${-daysLeft} day${daysLeft===-1?"":"s"} overdue` : daysLeft === 0 ? "today" : `by ${dueDate.toLocaleDateString("en-US",{month:"short", day:"numeric", year: dueDate.getFullYear()!==today.getFullYear() ? "numeric" : undefined})}`);
+  return {state: over ? "over" : soon ? "soon" : "ok", label: (over ? "Overdue · " : "Due ") + (parts.join(" or ") || "—"), sort: over ? 0 : soon ? 1 : 2, dueDate};
+}
+function garMaintSummary(v){
+  if(!v.maint) return null;
+  let over = 0, soon = 0;
+  v.maint.items.forEach(it=>{ const s = garMaintStatus(v, it).state; if(s==="over") over++; else if(s==="soon") soon++; });
+  return {over, soon};
+}
 function garSpecs(v){ return [v.year, v.doors ? `${v.doors}-door` : "", v.drive, v.engine, garMileageLabel(v.mileage)].filter(Boolean); }
 /* the vehicle's picture: its photo if it has one on this device, else the body-style silhouette
    rendered as a glowing hologram (the silhouette is used as a mask over a gradient) */
@@ -11727,7 +11810,8 @@ function garageFullHTML(){
     <div class="gar-browse" id="gar-browse"><span>Scroll to browse vehicles</span></div>
     <div class="gar-dots" id="gar-dots"></div>
     <div class="gar-actions">
-      <button type="button" class="gar-btn" id="gar-customize">${GAR_ICONS.wrench}<span>Customize</span></button>
+      <button type="button" class="gar-btn" id="gar-customize">${GAR_ICONS.camera}<span>Customize</span></button>
+      <button type="button" class="gar-btn" id="gar-maint">${GAR_ICONS.wrench}<span>Maintenance</span><em class="gar-maint-badge" id="gar-maint-badge" hidden></em></button>
       <button type="button" class="gar-btn" id="gar-manage">${GAR_ICONS.gear}<span>Manage</span></button>
       <button type="button" class="gar-btn primary" id="gar-add">${GAR_ICONS.plus}<span>Add Vehicle</span></button>
     </div>
@@ -11778,7 +11862,11 @@ function hydrateGarageFull(scope){
       credit.hidden = false;
     } else { credit.hidden = true; credit.removeAttribute("href"); }
     $g("#gar-name").textContent = v.vehicle;
-    $g("#gar-specs").innerHTML = garSpecs(v).map(s=>`<span>${escapeHtml(s)}</span>`).join("") || `<span class="dim">Add details with Customize</span>`;
+    $g("#gar-specs").innerHTML = (garSpecs(v).map(s=>`<span>${escapeHtml(s)}</span>`).join("") || `<span class="dim">Add details with Customize</span>`);
+    const ms = garMaintSummary(v), badge = $g("#gar-maint-badge");
+    if(badge){ const n = ms ? ms.over + ms.soon : 0; badge.hidden = !n; badge.textContent = n; badge.classList.toggle("over", !!(ms && ms.over)); }
+    if(ms && (ms.over || ms.soon)) $g("#gar-specs").insertAdjacentHTML("beforeend", `<button type="button" class="gar-maint-pill ${ms.over ? "over" : "soon"}" data-open-maint>${ms.over ? `⚠ ${ms.over} overdue` : `${ms.soon} due soon`}</button>`);
+    const mp = $g("[data-open-maint]"); if(mp) mp.addEventListener("click", ()=>openMaint());
     car.innerHTML = garShowcaseHTML(v);
     if(asset && (asset.kind === "model" || asset.kind === "sketchfab")){ st.textContent = "Loading 3D model…"; st.classList.add("on"); }
     else if(!asset && garAutoWaiting(v)){ st.textContent = `Finding a 3D ${v.vehicle}…`; st.classList.add("on"); }
@@ -11966,6 +12054,7 @@ function hydrateGarageFull(scope){
   /* ---------- sheets: vehicle form + manage list ---------- */
   const sheet = $g("#gar-sheet"), backdrop = $g("#gar-sheet-backdrop");
   function openSheet(html){
+    sheet.classList.remove("gm-sheet");
     sheet.innerHTML = html;
     sheet.hidden = false; backdrop.hidden = false;
     requestAnimationFrame(()=>{ sheet.classList.add("open"); backdrop.classList.add("open"); });
@@ -12198,6 +12287,132 @@ function hydrateGarageFull(scope){
       removeVehicle(Number(b.dataset.del)); openManage();
     }));
   }
+  /* ---------- maintenance & repairs ---------- */
+  let maintTab = "schedule", maintEdit = null;
+  function openMaint(){
+    const v = vehicles()[garageSelectedIndex];
+    if(!v){ openForm(null); return; }
+    const m = garMaint(v); save();
+    const cur = garMiles(v);
+    const items = m.items.map(it=>({it, st:garMaintStatus(v, it)})).sort((a,b)=>a.st.sort-b.st.sort || (a.st.dueDate||Infinity)-(b.st.dueDate||Infinity));
+    const sum = garMaintSummary(v);
+    const yr = new Date().getFullYear();
+    const spentYr = m.log.filter(l=>(l.date||"").startsWith(String(yr))).reduce((t,l)=>t+(+l.cost||0),0);
+    const spentAll = m.log.reduce((t,l)=>t+(+l.cost||0),0);
+    const today = new Date().toISOString().slice(0,10);
+    const fmtD = d=>d ? new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short", day:"numeric", year:"numeric"}) : "";
+    const every = it=>[it.miles ? `${it.miles.toLocaleString()} mi` : "", it.months ? (it.months % 12 === 0 ? `${it.months/12} yr` : `${it.months} mo`) : ""].filter(Boolean).join(" / ");
+    openSheet(`
+      <div class="gar-sheet-head"><h4>${escapeHtml(v.vehicle)} · Maintenance</h4><button type="button" class="gar-sheet-x" data-close aria-label="Close">${GAR_ICONS.close}</button></div>
+      <div class="gm">
+        <div class="gm-top">
+          <label class="gm-odo"><span>Current mileage</span><input type="text" inputmode="numeric" id="gm-odo" value="${cur != null ? cur.toLocaleString() : ""}" placeholder="e.g. 84,200"></label>
+          <div class="gm-stat ${sum.over ? "over" : ""}"><b>${sum.over}</b><span>Overdue</span></div>
+          <div class="gm-stat ${sum.soon ? "soon" : ""}"><b>${sum.soon}</b><span>Due soon</span></div>
+          <div class="gm-stat"><b>$${Math.round(spentYr).toLocaleString()}</b><span>Spent ${yr}</span></div>
+        </div>
+        <div class="gm-tabs"><button type="button" data-mt="schedule" class="${maintTab==="schedule"?"on":""}">Schedule</button><button type="button" data-mt="history" class="${maintTab==="history"?"on":""}">History &amp; repairs <em>${m.log.length}</em></button></div>
+        ${maintTab === "schedule" ? `
+        <div class="gm-list">${items.map(({it,st})=>`
+          <div class="gm-item ${st.state}">
+            <span class="gm-dot"></span>
+            <div class="gm-txt"><b>${escapeHtml(it.name)}</b><small>Every ${escapeHtml(every(it) || "—")}${it.lastDate || it.lastMiles != null ? ` · last ${[fmtD(it.lastDate), it.lastMiles != null ? it.lastMiles.toLocaleString()+" mi" : ""].filter(Boolean).join(" at ")}` : ""}</small><span class="gm-due">${escapeHtml(st.label)}</span></div>
+            <button type="button" class="gm-done" data-done="${it.id}">✓ Done</button>
+            <button type="button" class="gm-more" data-iedit="${it.id}" title="Edit" aria-label="Edit">✎</button>
+          </div>
+          ${maintEdit === "done:"+it.id ? `<form class="gm-form" data-fdone="${it.id}">
+              <label>Date<input type="date" name="date" value="${today}" max="${today}"></label>
+              <label>Mileage<input type="text" name="miles" inputmode="numeric" value="${cur != null ? cur : ""}"></label>
+              <label>Cost<input type="text" name="cost" inputmode="decimal" placeholder="$"></label>
+              <label class="w">Notes<input type="text" name="notes" placeholder="Shop, parts, anything to remember"></label>
+              <div class="gm-fbtns"><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>` : ""}
+          ${maintEdit === "edit:"+it.id ? `<form class="gm-form" data-fedit="${it.id}">
+              <label class="w">Name<input type="text" name="name" value="${escapeHtml(it.name)}"></label>
+              <label>Every (miles)<input type="text" name="miles" inputmode="numeric" value="${it.miles||""}" placeholder="—"></label>
+              <label>Every (months)<input type="text" name="months" inputmode="numeric" value="${it.months||""}" placeholder="—"></label>
+              <label>Last done<input type="date" name="lastDate" value="${it.lastDate||""}" max="${today}"></label>
+              <label>At mileage<input type="text" name="lastMiles" inputmode="numeric" value="${it.lastMiles ?? ""}"></label>
+              <div class="gm-fbtns"><button type="button" class="del" data-idel="${it.id}">Delete</button><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>` : ""}`).join("")}
+        </div>
+        ${maintEdit === "newitem" ? `<form class="gm-form" data-fnew>
+            <label class="w">What<input type="text" name="name" placeholder="e.g. Differential fluid" required></label>
+            <label>Every (miles)<input type="text" name="miles" inputmode="numeric" placeholder="—"></label>
+            <label>Every (months)<input type="text" name="months" inputmode="numeric" placeholder="—"></label>
+            <div class="gm-fbtns"><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Add</button></div></form>`
+          : `<button type="button" class="gm-add" data-newitem>+ Add a maintenance item</button>`}`
+        : `
+        ${maintEdit === "newlog" ? `<form class="gm-form" data-flog>
+            <label class="w">What was done<input type="text" name="title" placeholder="e.g. Replaced alternator" required></label>
+            <label>Type<select name="kind"><option value="repair">Repair</option><option value="service">Service</option><option value="upgrade">Upgrade</option></select></label>
+            <label>Date<input type="date" name="date" value="${today}" max="${today}"></label>
+            <label>Mileage<input type="text" name="miles" inputmode="numeric" value="${cur != null ? cur : ""}"></label>
+            <label>Cost<input type="text" name="cost" inputmode="decimal" placeholder="$"></label>
+            <label class="w">Notes<input type="text" name="notes" placeholder="Shop, parts, warranty…"></label>
+            <div class="gm-fbtns"><button type="button" data-cancel>Cancel</button><button type="submit" class="pri">Save</button></div></form>`
+          : `<button type="button" class="gm-add" data-newlog>+ Log a repair or service</button>`}
+        <div class="gm-list">${m.log.length ? m.log.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(l=>`
+          <div class="gm-log">
+            <span class="gm-kind ${l.kind}">${l.kind === "repair" ? "Repair" : l.kind === "upgrade" ? "Upgrade" : "Service"}</span>
+            <div class="gm-txt"><b>${escapeHtml(l.title)}</b><small>${[fmtD(l.date), l.miles ? (+l.miles).toLocaleString()+" mi" : "", l.notes].filter(Boolean).map(escapeHtml).join(" · ")}</small></div>
+            <span class="gm-cost">${+l.cost ? "$"+(+l.cost).toLocaleString(undefined,{maximumFractionDigits:2}) : ""}</span>
+            <button type="button" class="gm-more" data-ldel="${l.id}" title="Delete" aria-label="Delete">✕</button>
+          </div>`).join("") : `<div class="gar-empty-note">Nothing logged yet. Repairs, services and upgrades show up here.</div>`}</div>
+        ${m.log.length ? `<div class="gm-foot">Total spent on this vehicle: <b>$${Math.round(spentAll).toLocaleString()}</b></div>` : ""}`}
+      </div>`);
+    sheet.classList.add("gm-sheet");
+    sheet.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", ()=>{ sheet.classList.remove("gm-sheet"); maintEdit = null; closeSheet(); }));
+    const rerender = ()=>{ save(); render(); openMaint(); };
+    const num = x=>{ const n = parseFloat(String(x||"").replace(/[$,\s]/g,"")); return isFinite(n) ? n : null; };
+    const odo = sheet.querySelector("#gm-odo");
+    odo.addEventListener("change", ()=>{ const n = num(odo.value); v.mileage = n != null ? String(Math.round(n)) : ""; rerender(); });
+    odo.addEventListener("keydown", e=>{ if(e.key==="Enter") odo.blur(); });
+    sheet.querySelectorAll("[data-mt]").forEach(b=>b.addEventListener("click", ()=>{ maintTab = b.dataset.mt; maintEdit = null; openMaint(); }));
+    sheet.querySelectorAll("[data-done]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = "done:"+b.dataset.done; openMaint(); }));
+    sheet.querySelectorAll("[data-iedit]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = maintEdit === "edit:"+b.dataset.iedit ? null : "edit:"+b.dataset.iedit; openMaint(); }));
+    sheet.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click", ()=>{ maintEdit = null; openMaint(); }));
+    const nb = sheet.querySelector("[data-newitem]"); if(nb) nb.addEventListener("click", ()=>{ maintEdit = "newitem"; openMaint(); });
+    const nl = sheet.querySelector("[data-newlog]"); if(nl) nl.addEventListener("click", ()=>{ maintEdit = "newlog"; openMaint(); });
+    const fd = sheet.querySelector("[data-fdone]");
+    if(fd){ fd.querySelector("[name=cost]").focus(); fd.addEventListener("submit", e=>{
+      e.preventDefault();
+      const it = m.items.find(x=>x.id===fd.dataset.fdone), f = Object.fromEntries(new FormData(fd));
+      it.lastDate = f.date || today; it.lastMiles = num(f.miles);
+      if(it.lastMiles != null && (cur == null || it.lastMiles > cur)) v.mileage = String(it.lastMiles);
+      m.log.push({id:"l"+Date.now(), date:it.lastDate, title:it.name, kind:"service", miles:it.lastMiles, cost:num(f.cost)||0, notes:f.notes||""});
+      maintEdit = null; rerender();
+    }); }
+    const fe = sheet.querySelector("[data-fedit]");
+    if(fe) fe.addEventListener("submit", e=>{
+      e.preventDefault();
+      const it = m.items.find(x=>x.id===fe.dataset.fedit), f = Object.fromEntries(new FormData(fe));
+      Object.assign(it, {name:f.name.trim() || it.name, miles:num(f.miles)||0, months:num(f.months)||0, lastDate:f.lastDate||"", lastMiles:num(f.lastMiles)});
+      maintEdit = null; rerender();
+    });
+    sheet.querySelectorAll("[data-idel]").forEach(b=>b.addEventListener("click", ()=>{
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Delete?"; return; }
+      m.items = m.items.filter(x=>x.id!==b.dataset.idel); maintEdit = null; rerender();
+    }));
+    const fn = sheet.querySelector("[data-fnew]");
+    if(fn){ fn.querySelector("[name=name]").focus(); fn.addEventListener("submit", e=>{
+      e.preventDefault(); const f = Object.fromEntries(new FormData(fn));
+      if(!num(f.miles) && !num(f.months)){ fn.querySelector("[name=months]").focus(); return; }
+      m.items.push({id:"m"+Date.now(), name:f.name.trim(), miles:num(f.miles)||0, months:num(f.months)||0, lastDate:"", lastMiles:null});
+      maintEdit = "edit:"+m.items[m.items.length-1].id; rerender();
+    }); }
+    const fl = sheet.querySelector("[data-flog]");
+    if(fl){ fl.querySelector("[name=title]").focus(); fl.addEventListener("submit", e=>{
+      e.preventDefault(); const f = Object.fromEntries(new FormData(fl));
+      const mi = num(f.miles);
+      if(mi != null && (cur == null || mi > cur)) v.mileage = String(mi);
+      m.log.push({id:"l"+Date.now(), date:f.date||today, title:f.title.trim(), kind:f.kind, miles:mi, cost:num(f.cost)||0, notes:f.notes||""});
+      maintEdit = null; rerender();
+    }); }
+    sheet.querySelectorAll("[data-ldel]").forEach(b=>b.addEventListener("click", ()=>{
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Delete?"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent = "✕"; } }, 3000); return; }
+      m.log = m.log.filter(x=>x.id!==b.dataset.ldel); rerender();
+    }));
+  }
+  $g("#gar-maint").addEventListener("click", ()=>{ maintTab = "schedule"; maintEdit = null; openMaint(); });
   $g("#gar-customize").addEventListener("click", ()=>{ if(vehicles().length) openForm(garageSelectedIndex); else openForm(null); });
   $g("#gar-manage").addEventListener("click", openManage);
   $g("#gar-add").addEventListener("click", ()=>openForm(null));
