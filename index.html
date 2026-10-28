@@ -1008,6 +1008,12 @@
   .fx-dp-stats b{color:var(--text-primary);font-size:15px;margin-right:3px;}
   .fx-dp-list{display:flex;flex-direction:column;gap:8px;}
   .fx-dp-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(124,180,255,.1);}
+  .fx-dp-row{cursor:grab;user-select:none;-webkit-user-select:none;transition:transform .18s ease;position:relative;}
+  .fx-dp-row.dragging{transition:none;z-index:2;cursor:grabbing;background:#1b3560;border-color:#4d9bff;box-shadow:0 14px 30px -10px rgba(0,0,0,.7);}
+  .fx-dp-list.sorting{cursor:grabbing;}
+  .fx-grip{color:var(--text-dim);font-size:13px;letter-spacing:-3px;padding:6px 6px 6px 0;margin-left:-4px;cursor:grab;touch-action:none;flex:none;opacity:.6;}
+  .fx-dp-row:hover .fx-grip{opacity:1;}
+  .fx-dp-tip{margin-right:auto;align-self:center;font-size:12px;color:var(--text-dim);}
   .fx-dp-row .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11.5px;font-weight:700;background:rgba(90,169,255,.16);color:#9fd0ff;flex:none;}
   .fx-dp-row .nm{flex:1;min-width:0;}
   .fx-dp-row .nm b{display:block;font-size:14.5px;font-weight:600;}
@@ -18917,9 +18923,9 @@ function fxFillDayPop(scope, ov, day, editing){
     : `
       ${ex.length ? `<div class="fx-dp-stats"><span><b>${ex.length}</b> exercises</span>${sets?`<span><b>${sets}</b> sets</span>`:""}</div>
       <div class="fx-dp-list">${ex.map((e,i)=>`
-        <div class="fx-dp-row"><span class="n">${i+1}</span><span class="nm"><b>${escapeHtml(e.name)}</b><small>${classifyMuscleGroup(e.name)}</small></span>${e.sets?`<span class="st">${escapeHtml(e.sets)}</span>`:""}</div>`).join("")}</div>`
+        <div class="fx-dp-row" data-i="${i}"><span class="fx-grip" title="Drag to reorder">⋮⋮</span><span class="n">${i+1}</span><span class="nm"><b>${escapeHtml(e.name)}</b><small>${classifyMuscleGroup(e.name)}</small></span>${e.sets?`<span class="st">${escapeHtml(e.sets)}</span>`:""}</div>`).join("")}</div>`
       : `<div class="fx-dp-empty">${isRest ? `<b>☾</b>Rest &amp; recover.<br><span>Nothing planned — add exercises if you want to train.</span>` : `Nothing here yet.`}</div>`}
-      <div class="fx-dp-foot"><button type="button" class="fx-pill" data-act="edit">✎ Edit exercises</button></div>`}`;
+      <div class="fx-dp-foot">${ex.length>1?`<span class="fx-dp-tip">Drag to reorder</span>`:""}<button type="button" class="fx-pill" data-act="edit">✎ Edit exercises</button></div>`}`;
   const refreshGrid = ()=>{ const g = scope.querySelector("#fit-plan-grid-full"); if(g) renderPlanGrid(g, plan.days, fitnessPlanGridOpts(scope)); };
   const ta = ov.querySelector(".fx-dp-ta");
   if(ta){
@@ -18932,6 +18938,54 @@ function fxFillDayPop(scope, ov, day, editing){
   }));
   const act = ov.querySelector("[data-act]");
   if(act) act.addEventListener("click", ()=>fxFillDayPop(scope, ov, day, act.dataset.act==="edit"));
+  const list = ov.querySelector(".fx-dp-list");
+  if(list && ex.length > 1) fxWireReorder(list, ex, order=>{
+    if(!plan.notes) plan.notes = {};
+    plan.notes[day] = formatExerciseListForDisplay(order.map(e=>e.sets ? `${e.name} ${e.sets}` : e.name).join("\n"));
+    saveJSON(NS+"fitness", fitnessData);
+    refreshGrid();
+    fxFillDayPop(scope, ov, day, false);
+  });
+}
+/* Drag-to-reorder rows: whole row with a mouse, the ⋮⋮ grip on touch (so the list still scrolls). */
+function fxWireReorder(list, items, onDone){
+  const rows = [...list.children];
+  rows.forEach((row, i)=>row.addEventListener("pointerdown", e=>{
+    if(e.button !== 0) return;
+    if(e.pointerType !== "mouse" && !e.target.closest(".fx-grip")) return;
+    e.preventDefault();
+    const rects = rows.map(r=>r.getBoundingClientRect());
+    const step = rows.length > 1 ? rects[1].top - rects[0].top : rects[0].height + 8;
+    const startY = e.clientY;
+    let dragging = false, target = i;
+    const move = ev=>{
+      const dy = ev.clientY - startY;
+      if(!dragging){ if(Math.abs(dy) < 4) return; dragging = true; row.classList.add("dragging"); list.classList.add("sorting"); }
+      const minDy = rects[0].top - rects[i].top, maxDy = rects[rects.length-1].top - rects[i].top;
+      const cdy = Math.max(minDy - step*.4, Math.min(maxDy + step*.4, dy));
+      row.style.transform = `translateY(${cdy}px) scale(1.02)`;
+      target = Math.max(0, Math.min(rows.length-1, Math.round(i + cdy/step)));
+      rows.forEach((r, j)=>{
+        if(j===i) return;
+        let shift = 0;
+        if(i < target && j > i && j <= target) shift = -step;
+        if(target < i && j >= target && j < i) shift = step;
+        r.style.transform = shift ? `translateY(${shift}px)` : "";
+      });
+    };
+    const up = ()=>{
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+      if(!dragging) return;
+      row.style.transition = "transform .15s"; row.style.transform = `translateY(${(target-i)*step}px)`;
+      setTimeout(()=>{
+        list.classList.remove("sorting");
+        if(target === i){ rows.forEach(r=>{ r.style.transform = ""; r.style.transition = ""; }); row.classList.remove("dragging"); return; }
+        const order = items.slice(); const [m] = order.splice(i, 1); order.splice(target, 0, m);
+        onDone(order);
+      }, 150);
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+  }));
 }
 function renderFitnessPlanDayDetail(scope){
   const day = fitnessSelectedPlanDay;
