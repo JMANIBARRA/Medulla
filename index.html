@@ -2911,6 +2911,39 @@
   .db-tile svg{width:24px;height:24px;flex:none;color:#d6e5f7;}
   .db-tile span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
+  .db-apps-list{display:contents;}
+  .db-tile{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .db-tile-ph{opacity:.25;border-style:dashed !important;}
+  .db-tile-hold{transform:scale(.97);border-color:#4d9bff !important;}
+  .db-tile-ghost{position:fixed;z-index:9800;pointer-events:none;margin:0;opacity:.95;box-shadow:0 18px 40px -12px rgba(0,0,0,.8);border-color:#4d9bff !important;background:#14305a !important;transition:transform .12s;}
+  .db-tile-ghost.db-ghost-out{transform:scale(1.06);}
+  .db-tile-ghost.db-ghost-out::after{content:"Drop to add to dashboard";position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:#2f8bff;padding:3px 9px;border-radius:999px;}
+  body.db-tile-dragging, body.db-tile-dragging *{cursor:grabbing !important;}
+  .db-panel.db-drop-target{outline:2px dashed #ffb040;outline-offset:-2px;}
+  .db-panel.db-drop-target::before{content:"Replace";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;font-size:13px;font-weight:700;color:#1a1100;background:#ffb040;padding:6px 14px;border-radius:999px;pointer-events:none;}
+  .db-confirm{z-index:9900;}
+  .db-confirm-box{width:min(380px,100%);border-radius:18px;padding:20px;background:linear-gradient(180deg,#0f2140,#081428);border:1px solid rgba(124,180,255,.22);box-shadow:0 30px 80px -20px rgba(0,0,0,.7);}
+  .db-confirm-box p{margin:0 0 16px;font-size:15px;line-height:1.5;}
+  .db-confirm-box p span{font-size:12.5px;color:var(--text-dim);}
+  .db-confirm-box div{display:flex;justify-content:flex-end;gap:8px;}
+  .db-tile-min{border-style:dashed;}
+  .db-tile .db-pin{display:none;flex:none;width:22px;height:22px;border-radius:50%;place-items:center;font-style:normal;font-size:16px;font-weight:700;line-height:1;color:#fff;background:#2f8bff;}
+  .db-editing .db-tile .db-pin{display:grid;}
+  .db-editing .db-tile .db-pin + .chev, .db-editing .db-tile .db-pin + .db-ext{display:none;}
+  .db-editing .db-tile:has(.db-pin){border-color:rgba(77,155,255,.55);}
+  .db-apppanel{display:flex;flex-direction:column;padding:14px 14px 12px;overflow:hidden;}
+  .db-app-head{display:flex;align-items:center;gap:10px;flex:none;padding:0 4px 10px;}
+  .db-app-head span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .db-app-full{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(124,180,255,.22);background:rgba(255,255,255,.04);color:#cfe0f5;cursor:pointer;font-size:14px;}
+  .db-app-full:hover{background:rgba(90,169,255,.15);}
+  .db-app-body{flex:1;min-height:0;overflow:auto;border-radius:12px;scrollbar-width:thin;}
+  .db-app-body .ph-x, .db-app-body [aria-label="Close"], .db-app-body #nw-close, .db-app-body #sc-close, .db-app-body #cr-close, .db-app-body #ph-close{display:none !important;}
+  .db-apppanel.own-head{padding:0;}
+  .db-apppanel.own-head .db-app-head{position:absolute;bottom:12px;right:12px;z-index:5;padding:0;}
+  .db-apppanel.own-head .db-app-full{background:#0d1d36;box-shadow:0 6px 16px -6px rgba(0,0,0,.7);}
+  .db-apppanel.own-head .db-app-head > svg, .db-apppanel.own-head .db-app-head > span{display:none;}
+  .db-apppanel.own-head .db-app-body{border-radius:inherit;}
+  .db-app-err{padding:20px;color:var(--text-dim);font-size:13px;text-align:center;}
   .db-tile .db-ext{flex:none;width:14px;text-align:center;color:#9fb4d0;font-size:13px;line-height:1;overflow:visible;}
   .db-tile:hover{border-color:var(--db-edge-strong);background:rgba(20,44,80,.6);box-shadow:0 0 18px -8px var(--accent);}
 
@@ -3041,7 +3074,8 @@
   /* in window mode the panels move by their top area / resize by their edges directly; the edit
      overlay is only for hiding panels, so it doesn't block them */
   .db-main.win-mode .db-edit-ui{background:transparent;cursor:default;pointer-events:none;}
-  .db-main.win-mode .db-edit-ui .x{pointer-events:auto;}
+  .db-main.win-mode .db-edit-ui{z-index:31;}
+  .db-main.win-mode .db-edit-ui .x{pointer-events:auto;right:14px;top:12px;}
   .db-main.win-mode .db-edit-ui .rz{display:none;}
   .db-editbar label.snap{display:flex;align-items:center;gap:6px;font-size:13px;color:#c9d7ea;}
   .db-edit-ui{display:none;}
@@ -3052,7 +3086,8 @@
   .db-editing .db-edit-ui:hover{background:rgba(40,110,230,.12);}
   .db-edit-ui .lbl{position:absolute;left:12px;bottom:10px;padding:3px 9px;border-radius:7px;font-size:12px;font-weight:600;color:#fff;background:color-mix(in srgb, var(--accent) 70%, #0a1f45);pointer-events:none;}
   .db-edit-ui .x{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(9,20,38,.9);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;}
-  .db-edit-ui .x:hover{background:var(--bad);border-color:var(--bad);}
+  .db-edit-ui .x:hover{background:#2f8bff;border-color:#2f8bff;}
+  .db-edit-ui .x{font-size:18px;font-weight:700;}
   .db-edit-ui .rz{position:absolute;right:0;bottom:0;width:26px;height:26px;cursor:nwse-resize;touch-action:none;}
   .db-edit-ui .rz::after{content:"";position:absolute;right:6px;bottom:6px;width:11px;height:11px;border-right:3px solid #fff;border-bottom:3px solid #fff;border-radius:0 0 4px 0;opacity:.85;}
   .db-panel.db-dragging{z-index:50;box-shadow:0 30px 60px rgba(0,0,0,.6), 0 0 40px -10px var(--accent);opacity:.92;pointer-events:none;}
@@ -6686,6 +6721,7 @@ let modalCloseCleanup = null;
 function closeModal(){
   modalOverlay.classList.remove("open");
   if(modalCloseCleanup){ modalCloseCleanup(); modalCloseCleanup=null; }
+  if(typeof dbResumePinned === "function") setTimeout(dbResumePinned, 0);
   /* leaving a sidebar page goes back to the Home dashboard */
   if(document.body.classList.contains("db-page")){
     document.body.classList.remove("db-page");
@@ -6779,9 +6815,32 @@ window.addEventListener("keydown",(e)=>{
   }
 });
 
+/* Mounts an app's full view into any container (the pop-up, or a panel pinned on the dashboard). Returns its cleanup, if any. */
+function hydrateFullView(id, scope){
+  if(id==="market") return hydrateMarketFull(scope);
+  if(id==="sports") return hydrateSportsFull(scope);
+  if(id==="weather") return hydrateWeatherFull(scope);
+  if(id==="mail") return hydrateMailFull(scope);
+  if(id==="chrono") return hydrateChronoFull(scope);
+  if(id==="scratchpad") return hydrateScratchpadFull(scope);
+  if(id==="arcade") return hydrateArcadeFull(scope);
+  if(id==="banking") return hydrateBankingFull(scope);
+  if(id==="claudeprojects") return hydrateClaudeProjectsFull(scope);
+  if(id==="fitness") return hydrateFitnessFull(scope);
+  if(id==="garage") return hydrateGarageFull(scope);
+  if(id==="phone") return hydratePhoneFull(scope);
+  if(id==="career") return hydrateCareerFull(scope);
+  if(id==="networth") return hydrateNetworthFull(scope);
+  if(id==="bluetooth") return hydrateBluetoothFull(scope);
+  if(id==="calendar") return hydrateCalendarFull(scope);
+  if(id==="youtube") return hydrateYouTubeFull(scope);
+  if(id==="youtubeoauth") return hydrateYouTubeOAuthFull(scope);
+  return null;
+}
 function openModal(def){
   /* quick-link apps (YouTube) just open their site in a new tab */
   if(def.link){ window.open(def.link, "_blank", "noopener"); return; }
+  if(typeof dbSuspendPinned === "function") dbSuspendPinned(def.id);
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
   document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth");
@@ -6796,24 +6855,7 @@ function openModal(def){
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
-    if(def.id==="market") modalCloseCleanup = hydrateMarketFull(modalBody);
-    if(def.id==="sports") modalCloseCleanup = hydrateSportsFull(modalBody);
-    if(def.id==="weather") modalCloseCleanup = hydrateWeatherFull(modalBody);
-    if(def.id==="mail") hydrateMailFull(modalBody);
-    if(def.id==="chrono") modalCloseCleanup = hydrateChronoFull(modalBody);
-    if(def.id==="scratchpad") hydrateScratchpadFull(modalBody);
-    if(def.id==="arcade") modalCloseCleanup = hydrateArcadeFull(modalBody);
-    if(def.id==="banking") hydrateBankingFull(modalBody);
-    if(def.id==="claudeprojects") hydrateClaudeProjectsFull(modalBody);
-    if(def.id==="fitness") hydrateFitnessFull(modalBody);
-    if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
-    if(def.id==="phone") hydratePhoneFull(modalBody);
-    if(def.id==="career") hydrateCareerFull(modalBody);
-    if(def.id==="networth") modalCloseCleanup = hydrateNetworthFull(modalBody);
-    if(def.id==="bluetooth") hydrateBluetoothFull(modalBody);
-    if(def.id==="calendar") hydrateCalendarFull(modalBody);
-    if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
-    if(def.id==="youtubeoauth") modalCloseCleanup = hydrateYouTubeOAuthFull(modalBody);
+    modalCloseCleanup = hydrateFullView(def.id, modalBody) || null;
   } else {
     modalBody.innerHTML = `<span class="placeholder-tag">not built yet</span>
       <p style="color:var(--text-dim);margin-top:10px;line-height:1.6;">${def.spec}</p>
@@ -19902,9 +19944,282 @@ function dbProfileId(){
   return `${hex.slice(0,4)}-${hex.slice(4,8)}`;
 }
 
+/* ================= MODULAR DASHBOARD =================
+   Any dashboard panel can be minimized into the Apps panel (it shows there as a tile), and any app
+   can be pinned onto the dashboard as its own live window. A pinned app runs its full view inside
+   the window; opening the same app as a pop-up borrows the view and gives it back on close. */
+let dbPinned = (loadJSON(NS+"dashPinned", [])||[]).filter(id=>WIDGET_DEFS.some(d=>d.id===id && d.built && !d.link && !d.retired));
+const dbPinnedMounts = {};
+let dbLastFreed = null;               /* where the last minimized window was: the next pinned app goes there */
+const DB_PANEL_OPEN = {id:"holoportrait", balance:"@balance", weather:"weather", clock:"chrono", calendar:"calendar", market:"market", forecast:"weather", world:"@restore"};
+const DB_PANEL_ICON = {id:"ai", balance:"dollar", weather:"weather", clock:"focus", calendar:"calendar", market:"market", forecast:"weather", world:"globe", apps:"grid"};
+function dbPinId(appId){ return "app-" + appId; }
+function dbSavePinned(){ saveJSON(NS+"dashPinned", dbPinned); }
+function dbRegisterPinned(appId){
+  const def = WIDGET_DEFS.find(d=>d.id===appId);
+  DB_PANELS[dbPinId(appId)] = {label:def ? def.title : appId, x:0, y:200, w:6, h:20, minW:3, minH:8, app:appId};
+}
+function dbPinnedPanelHTML(appId){
+  const def = WIDGET_DEFS.find(d=>d.id===appId) || {title:appId};
+  const own = ["banking","arcade","market","garage","career","sports","phone","networth"].includes(appId);
+  return `<section class="db-panel db-apppanel${own ? " own-head" : ""}" data-panel="${dbPinId(appId)}" data-app="${appId}">
+    <div class="db-title db-app-head">${dbIcon(DB_TILE_ICONS[appId]||"grid")}<span>${dbEsc(def.title)}</span>
+      <button type="button" class="db-app-full" title="Open full size" aria-label="Open ${dbEsc(def.title)} full size">⤢</button></div>
+    <div class="db-app-body"></div>
+  </section>`;
+}
+function dbMountPinned(appId){
+  const el = document.querySelector(`#db-main > .db-panel[data-app="${appId}"]`);
+  if(!el || dbPinnedMounts[appId]) return;
+  const body = el.querySelector(".db-app-body");
+  try{
+    body.innerHTML = renderFull(appId);
+    dbPinnedMounts[appId] = {cleanup: hydrateFullView(appId, body) || null};
+  }catch(e){ body.innerHTML = `<div class="db-app-err">Couldn't load ${dbEsc(appId)} here.</div>`; dbPinnedMounts[appId] = {cleanup:null}; }
+}
+function dbUnmountPinned(appId){
+  const m = dbPinnedMounts[appId]; if(!m) return;
+  try{ if(m.cleanup) m.cleanup(); }catch(e){}
+  delete dbPinnedMounts[appId];
+  const el = document.querySelector(`#db-main > .db-panel[data-app="${appId}"] .db-app-body`);
+  if(el) el.innerHTML = `<div class="db-app-err">Open in the pop-up — it'll come back here when you close it.</div>`;
+}
+let dbSuspended = null;
+function dbSuspendPinned(appId){ if(dbPinned.includes(appId)){ dbUnmountPinned(appId); dbSuspended = appId; } }
+function dbResumePinned(){
+  if(!dbSuspended || document.getElementById("modal-overlay").classList.contains("open")) return;
+  const a = dbSuspended; dbSuspended = null; dbMountPinned(a);
+}
+function dbWirePinnedPanel(el){
+  const appId = el.dataset.app;
+  el.querySelector(".db-app-full").addEventListener("click", e=>{ e.stopPropagation(); dbOpenWidget(appId); });
+}
+/* first free spot that fits w×h (or the bottom) */
+function dbWinFindSpot(main, w, h){
+  const ids = dbWinVisibleIds(), W = main.clientWidth;
+  const boxes = ids.map(id=>dbWin.items[id]).filter(Boolean);
+  const bottom = boxes.reduce((m,b)=>Math.max(m, b.y+b.h), 0);
+  if(dbLastFreed){
+    const f = {...dbLastFreed};
+    if(f.x + f.w <= W && !boxes.some(b=>dbWinHit(b, f))) return f;
+  }
+  for(let y = 0; y <= bottom; y += 8) for(let x = 0; x + w <= W; x += 8){
+    const t = {x, y, w, h};
+    if(!boxes.some(b=>dbWinHit(b, t))) return t;
+  }
+  return {x:0, y:bottom + DB_WIN_GAP, w, h};
+}
+function dbPlaceNewWindow(id, size, at){
+  const main = document.getElementById("db-main");
+  if(!main || !main.classList.contains("win-mode")){ delete dbWin.items[id]; return; }
+  const W = main.clientWidth;
+  const w = Math.min(size.w, W), h = size.h;
+  if(at){
+    /* dropped at a spot: go exactly there, everything else makes room */
+    const box = {x:Math.max(0, Math.min(W - w, at.x)), y:Math.max(0, at.y), w, h, z:++dbWin.top};
+    dbWin.items[id] = box;
+    const boxes = {}; dbWinVisibleIds().forEach(k=>{ if(dbWin.items[k]) boxes[k] = dbWin.items[k]; });
+    boxes[id] = box;
+    dbWinMakeRoom(main, [id], boxes);
+  } else {
+    const spot = dbWinFindSpot(main, w, h);
+    dbWin.items[id] = {...spot, z:++dbWin.top};
+  }
+  dbLastFreed = null;
+  dbWinSave();
+}
+function dbScrollTo(id){
+  const el = document.querySelector(`#db-main > .db-panel[data-panel="${id}"]`);
+  if(el) setTimeout(()=>el.scrollIntoView({behavior:"smooth", block:"nearest"}), 60);
+}
+function dbPinApp(appId, at){
+  if(dbPinned.includes(appId)) return;
+  const def = WIDGET_DEFS.find(d=>d.id===appId);
+  if(!def || !def.built || def.link) return;
+  dbPinned.push(appId); dbSavePinned();
+  dbRegisterPinned(appId);
+  const id = dbPinId(appId), main = document.getElementById("db-main");
+  const tmp = document.createElement("div"); tmp.innerHTML = dbPinnedPanelHTML(appId).trim();
+  const el = tmp.firstElementChild;
+  main.insertBefore(el, main.querySelector(':scope > .db-panel[data-panel="chat"]'));
+  dbAddEditUI(el); dbWinWire(main); dbWirePinnedPanel(el);
+  const p = DB_PANELS[id];
+  dbLayout.items[id] = {x:0, y:Math.max(0, ...dbVisibleItems(dbLayout).map(i=>i.y+i.h)), w:p.w, h:p.h};
+  dbClampItem(id, dbLayout.items[id]); dbSaveLayout();
+  dbPlaceNewWindow(id, at ? {w:at.w||560, h:at.h||540} : {w: dbLastFreed ? dbLastFreed.w : 560, h: dbLastFreed ? dbLastFreed.h : 560}, at);
+  applyDbLayout();
+  dbMountPinned(appId);
+  dbRenderApps(); renderDbEditbar(); dbScrollTo(id);
+}
+function dbUnpinApp(appId){
+  const id = dbPinId(appId);
+  const box = dbWin.items[id]; if(box) dbLastFreed = {x:box.x, y:box.y, w:box.w, h:box.h};
+  dbUnmountPinned(appId);
+  const el = document.querySelector(`#db-main > .db-panel[data-panel="${id}"]`); if(el) el.remove();
+  dbPinned = dbPinned.filter(a=>a!==appId); dbSavePinned();
+  delete DB_PANELS[id]; delete dbLayout.items[id]; delete dbWin.items[id];
+  dbSaveLayout(); dbWinSave(); applyDbLayout(); dbRenderApps(); renderDbEditbar();
+}
+function dbMinimizePanel(id){
+  if(DB_PANELS[id] && DB_PANELS[id].app) return dbUnpinApp(DB_PANELS[id].app);
+  const box = dbWin.items[id]; if(box) dbLastFreed = {x:box.x, y:box.y, w:box.w, h:box.h};
+  if(!dbLayout.hidden.includes(id)) dbLayout.hidden.push(id);
+  dbCompact(dbVisibleItems(dbLayout));
+  dbSaveLayout(); applyDbLayout(); dbRenderApps(); renderDbEditbar();
+}
+function dbRestorePanel(id, at){
+  const p = DB_PANELS[id], it = dbLayout.items[id];
+  dbLayout.hidden = dbLayout.hidden.filter(h=>h!==id);
+  Object.assign(it, {w:p.w, h:p.h, x:0, y:Math.max(0, ...dbVisibleItems(dbLayout).filter(i=>i!==it).map(i=>i.y+i.h))});
+  dbClampItem(id, it);
+  dbCompact(dbVisibleItems(dbLayout));
+  const old = dbWin.items[id];
+  dbPlaceNewWindow(id, at && at.w ? {w:at.w, h:at.h} : old ? {w:old.w, h:old.h} : {w:360, h:300}, at);
+  dbSaveLayout(); applyDbLayout(); dbRenderApps(); renderDbEditbar();
+  if(id==="world") startDbGlobe();
+  dbScrollTo(id);
+}
+/* Apps panel: minimized dashboard panels and every app not on the dashboard, in your saved order */
+let dbAppsOrder = loadJSON(NS+"appsOrder", []) || [];
+function dbRenderApps(){
+  const list = document.getElementById("db-apps-list"); if(!list) return;
+  const rank = k=>{ const i = dbAppsOrder.indexOf(k); return i < 0 ? 1e6 : i; };
+  const mins = (dbLayout ? dbLayout.hidden.filter(id=>DB_PANELS[id] && !DB_PANELS[id].fixed) : []);
+  const apps = WIDGET_DEFS.filter(d=>!d.retired && !DB_PANEL_WIDGETS.has(d.id) && !dbPinned.includes(d.id));
+  const pinnable = d=>d.built && !d.link;
+  const tileMin = id=>`<button type="button" class="db-tile db-tile-min" data-key="min:${id}" data-min="${id}" title="${dbEsc(DB_PANELS[id].label)} — drag onto the dashboard to put it back">${dbIcon(DB_PANEL_ICON[id]||"grid")}<span>${dbEsc(DB_PANELS[id].label)}</span><em class="db-pin" title="Add to dashboard">+</em>${dbIcon("chev",'class="chev"')}</button>`;
+  const tileApp = d=>`<button type="button" class="db-tile" data-key="app:${d.id}" data-open="${d.id}" title="${dbEsc(d.title)}${pinnable(d) ? " — drag onto the dashboard to make it a widget" : ""}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${pinnable(d) ? `<em class="db-pin" title="Add to dashboard">+</em>` : ""}${d.link ? '<span class="chev db-ext" aria-hidden="true">↗</span>' : dbIcon("chev",'class="chev"')}</button>`;
+  const all = [...mins.map(id=>({k:"min:"+id, h:tileMin(id), i:-1})), ...apps.map((d,i)=>({k:"app:"+d.id, h:tileApp(d), i}))];
+  all.sort((a,b)=>rank(a.k)-rank(b.k) || a.i-b.i);
+  list.innerHTML = all.map(t=>t.h).join("");
+  const editing = ()=>document.getElementById("dashboard").classList.contains("db-editing");
+  list.querySelectorAll(".db-tile").forEach(b=>dbWireTileDrag(b));
+  list.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>{
+    if(b.dataset.dragged){ delete b.dataset.dragged; return; }
+    const id = b.dataset.open, d = WIDGET_DEFS.find(x=>x.id===id);
+    if(editing() && d && pinnable(d)) dbPinApp(id); else dbOpenWidget(id);
+  }));
+  list.querySelectorAll("[data-min]").forEach(b=>b.addEventListener("click", ()=>{
+    if(b.dataset.dragged){ delete b.dataset.dragged; return; }
+    const id = b.dataset.min, act = DB_PANEL_OPEN[id];
+    if(editing() || act==="@restore" || !act) dbRestorePanel(id);
+    else if(act==="@balance") dbOpenBreakdown();
+    else dbOpenWidget(act);
+  }));
+}
+/* ---- drag a tile: reorder inside Apps, drop on the dashboard to make it a widget, drop on a
+   widget to swap the two (after asking). Mouse: just drag. Touch: press and hold, then drag. ---- */
+function dbTileTarget(key){
+  if(key.startsWith("min:")){ const id = key.slice(4); return {kind:"min", id, label:DB_PANELS[id] ? DB_PANELS[id].label : id, can:true}; }
+  const id = key.slice(4), d = WIDGET_DEFS.find(x=>x.id===id);
+  return {kind:"app", id, label:d ? d.title : id, can:!!(d && d.built && !d.link)};
+}
+function dbConfirm(text, yesLabel){
+  return new Promise(res=>{
+    const ov = document.createElement("div");
+    ov.className = "bd-ov db-confirm";
+    ov.innerHTML = `<div class="db-confirm-box" role="alertdialog"><p>${text}</p><div><button type="button" class="fx-pill" data-r="0">Cancel</button><button type="button" class="fx-ask-btn" data-r="1">${yesLabel||"Confirm"}</button></div></div>`;
+    document.body.appendChild(ov);
+    const done = v=>{ window.removeEventListener("keydown", onKey, true); ov.classList.remove("show"); setTimeout(()=>ov.remove(), 160); res(v); };
+    const onKey = e=>{ if(e.key==="Escape"){ e.preventDefault(); e.stopImmediatePropagation(); done(false); } if(e.key==="Enter"){ e.preventDefault(); done(true); } };
+    window.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", e=>{ const b = e.target.closest("[data-r]"); if(b) done(b.dataset.r==="1"); else if(e.target===ov) done(false); });
+    requestAnimationFrame(()=>{ ov.classList.add("show"); ov.querySelector('[data-r="1"]').focus(); });
+  });
+}
+function dbWireTileDrag(tile){
+  tile.addEventListener("pointerdown", e=>{
+    if(e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY, key = tile.dataset.key;
+    const list = tile.parentElement, main = document.getElementById("db-main"), appsPanel = document.getElementById("db-apps");
+    const info = dbTileTarget(key);
+    let dragging = false, ghost = null, ph = null, holdTimer = null, held = e.pointerType === "mouse";
+    if(!held) holdTimer = setTimeout(()=>{ held = true; tile.classList.add("db-tile-hold"); if(navigator.vibrate) navigator.vibrate(15); }, 350);
+    const begin = ()=>{
+      dragging = true;
+      const r = tile.getBoundingClientRect();
+      ghost = tile.cloneNode(true); ghost.classList.add("db-tile-ghost");
+      Object.assign(ghost.style, {width:r.width+"px", height:r.height+"px", left:r.left+"px", top:r.top+"px"});
+      ghost._ox = sx - r.left; ghost._oy = sy - r.top;
+      document.body.appendChild(ghost);
+      ph = tile; ph.classList.add("db-tile-ph");
+      document.body.classList.add("db-tile-dragging");
+      try{ tile.setPointerCapture(e.pointerId); }catch(err){}
+    };
+    let lastTarget = null;
+    const markTarget = el=>{ if(lastTarget === el) return; if(lastTarget) lastTarget.classList.remove("db-drop-target"); lastTarget = el; if(el) el.classList.add("db-drop-target"); };
+    const move = ev=>{
+      if(!dragging){
+        if(!held){ if(Math.hypot(ev.clientX-sx, ev.clientY-sy) > 10){ clearTimeout(holdTimer); cleanup(); } return; }
+        if(Math.hypot(ev.clientX-sx, ev.clientY-sy) < 6) return;
+        begin();
+      }
+      ev.preventDefault();
+      ghost.style.left = (ev.clientX - ghost._ox) + "px"; ghost.style.top = (ev.clientY - ghost._oy) + "px";
+      const overApps = appsPanel && appsPanel.contains(document.elementFromPoint(ev.clientX, ev.clientY));
+      ghost.classList.toggle("db-ghost-out", !overApps && info.can);
+      if(overApps){
+        markTarget(null);
+        /* reorder: put the placeholder before the tile nearest the pointer */
+        const tiles = [...list.querySelectorAll(".db-tile")].filter(t=>t!==ph);
+        let best = null, bd = Infinity;
+        tiles.forEach(t=>{ const r = t.getBoundingClientRect(); const d = Math.hypot(ev.clientX-(r.left+r.width/2), ev.clientY-(r.top+r.height/2)); if(d < bd){ bd = d; best = {t, r}; } });
+        if(best){
+          const after = ev.clientX > best.r.left + best.r.width/2;
+          const ref = after ? best.t.nextSibling : best.t;
+          if(ref !== ph && ref !== ph.nextSibling) list.insertBefore(ph, ref);
+        }
+      } else if(info.can){
+        const under = document.elementFromPoint(ev.clientX, ev.clientY);
+        const panel = under && under.closest("#db-main > .db-panel[data-panel]");
+        markTarget(panel && panel.dataset.panel !== "apps" && panel.dataset.panel !== "chat" ? panel : null);
+      }
+    };
+    const cleanup = ()=>{
+      clearTimeout(holdTimer);
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", cancel);
+      tile.classList.remove("db-tile-hold");
+    };
+    const finish = ()=>{
+      if(ghost) ghost.remove(); if(ph) ph.classList.remove("db-tile-ph");
+      document.body.classList.remove("db-tile-dragging"); markTarget(null);
+      tile.dataset.dragged = "1"; setTimeout(()=>{ delete tile.dataset.dragged; }, 400);
+    };
+    const cancel = ()=>{ cleanup(); if(dragging) finish(); };
+    const up = async ev=>{
+      cleanup();
+      if(!dragging) return;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const overApps = appsPanel && appsPanel.contains(under);
+      const target = lastTarget;
+      finish();
+      if(overApps || !info.can || !main.contains(under) && !target){
+        dbAppsOrder = [...list.querySelectorAll(".db-tile")].map(t=>t.dataset.key);
+        saveJSON(NS+"appsOrder", dbAppsOrder);
+        return;
+      }
+      const put = at=>{ if(info.kind === "min") dbRestorePanel(info.id, at); else dbPinApp(info.id, at); };
+      if(target){
+        const tid = target.dataset.panel, tl = DB_PANELS[tid] ? DB_PANELS[tid].label : tid;
+        const ok = await dbConfirm(`Replace <b>${dbEsc(tl)}</b> with <b>${dbEsc(info.label)}</b>?<br><span>${dbEsc(tl)} will move to Apps.</span>`, "Replace");
+        if(!ok) return;
+        const box = dbWin.items[tid] ? {...dbWin.items[tid]} : null;
+        dbMinimizePanel(tid);
+        put(box ? {x:box.x, y:box.y, w:box.w, h:box.h} : null);
+        return;
+      }
+      const mr = main.getBoundingClientRect();
+      const w = info.kind === "min" && dbWin.items[info.id] ? dbWin.items[info.id].w : 560;
+      const h = info.kind === "min" && dbWin.items[info.id] ? dbWin.items[info.id].h : 540;
+      put({x: ev.clientX - mr.left + main.scrollLeft - w/2, y: ev.clientY - mr.top + main.scrollTop - 24, w, h});
+    };
+    window.addEventListener("pointermove", move, {passive:false}); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", cancel);
+  });
+  tile.addEventListener("contextmenu", e=>{ if(tile.classList.contains("db-tile-hold")) e.preventDefault(); });
+}
 function buildDashboard(){
   const root = document.getElementById("dashboard");
-  const tileDefs = WIDGET_DEFS.filter(d=>!d.retired && !DB_PANEL_WIDGETS.has(d.id));
+  dbPinned.forEach(dbRegisterPinned);
   root.innerHTML = `
   <header class="db-header">
     <div class="db-logo"><i aria-hidden="true"></i>MEDULLA</div>
@@ -19985,8 +20300,9 @@ function buildDashboard(){
     </section>
 
     <section class="db-panel db-apps" id="db-apps" data-panel="apps">
-      ${tileDefs.map(d=>`<button type="button" class="db-tile" data-open="${d.id}" title="${dbEsc(d.title)}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${d.link ? '<span class="chev db-ext" aria-hidden="true">↗</span>' : dbIcon("chev",'class="chev"')}</button>`).join("")}
+      <div class="db-apps-list" id="db-apps-list"></div>
     </section>
+    ${dbPinned.map(dbPinnedPanelHTML).join("")}
 
     <section class="db-panel db-chat" id="db-chat-slot" data-panel="chat"></section>
 
@@ -20044,6 +20360,9 @@ function buildDashboard(){
   wireDbBalance();
   wireDbSearch();
   wireDbLayout();
+  document.querySelectorAll("#db-main > .db-apppanel").forEach(dbWirePinnedPanel);
+  dbRenderApps();
+  dbPinned.forEach(dbMountPinned);
 }
 
 /* sidebar sections open as a full page in place of the dashboard (the header and sidebar stay);
@@ -20663,50 +20982,39 @@ function setDbEditing(on){
 function renderDbEditbar(){
   const bar = document.getElementById("db-editbar");
   if(!bar) return;
-  bar.innerHTML = `<span class="hint">Drag a window by its top · resize from any edge or corner</span><label class="snap"><input type="checkbox" id="db-snap"${dbWin.snap ? " checked" : ""}> Snap &amp; guides</label>`
-    + dbLayout.hidden.map(id=>`<button type="button" class="add" data-add="${id}">+ ${DB_PANELS[id].label}</button>`).join("")
+  bar.innerHTML = `<span class="hint">Drag windows by the top · – sends one to Apps · drag an app onto the dashboard to add it</span><label class="snap"><input type="checkbox" id="db-snap"${dbWin.snap ? " checked" : ""}> Snap &amp; guides</label>`
+    + dbLayout.hidden.filter(id=>DB_PANELS[id]).map(id=>`<button type="button" class="add" data-add="${id}">+ ${DB_PANELS[id].label}</button>`).join("")
     + `<button type="button" data-act="reset">Reset layout</button><button type="button" class="done" data-act="done">Done</button>`;
-  bar.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click", ()=>{
-    const id = b.dataset.add, p = DB_PANELS[id], it = dbLayout.items[id];
-    dbLayout.hidden = dbLayout.hidden.filter(h=>h!==id);
-    Object.assign(it, {w:p.w, h:p.h, x:0, y:Math.max(0, ...dbVisibleItems(dbLayout).filter(i=>i!==it).map(i=>i.y+i.h))});
-    dbClampItem(id, it);
-    dbCompact(dbVisibleItems(dbLayout));
-    delete dbWin.items[id]; dbWinSave();
-    dbSaveLayout(); applyDbLayout(); renderDbEditbar();
-    if(id==="world") startDbGlobe();
-  }));
+  bar.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click", ()=>dbRestorePanel(b.dataset.add)));
   bar.querySelector('[data-act="reset"]').addEventListener("click", ()=>{
+    [...dbPinned].forEach(dbUnpinApp); dbLastFreed = null;
     dbLayout = dbDefaultLayout(); dbSaveLayout();
     dbWin.items = {}; dbWinSave();                       /* re-measured from the default arrangement */
-    applyDbLayout(); renderDbEditbar(); startDbGlobe();
+    applyDbLayout(); renderDbEditbar(); startDbGlobe(); dbRenderApps();
   });
   bar.querySelector("#db-snap").addEventListener("change", e=>{ dbWin.snap = e.target.checked; dbWinSave(); });
   bar.querySelector('[data-act="done"]').addEventListener("click", ()=>setDbEditing(false));
 }
+function dbAddEditUI(el){
+  const id = el.dataset.panel;
+  if(el.querySelector(":scope > .db-edit-ui")) return;
+  const ui = document.createElement("div");
+  ui.className = "db-edit-ui";
+  ui.innerHTML = `<span class="lbl">${dbEsc(DB_PANELS[id].label)}</span>${DB_PANELS[id].fixed || id==="apps" ? "" : `<button type="button" class="x" title="Minimize to Apps">–</button>`}<span class="rz" title="Drag to resize"></span>`;
+  el.appendChild(ui);
+  ui.addEventListener("pointerdown", e=>{
+    if(e.button!==0 || e.target.closest(".x")) return;
+    startDbDrag(e, el, e.target.closest(".rz") ? "resize" : "move");
+  });
+  const x = ui.querySelector(".x");
+  if(x) x.addEventListener("click", e=>{ e.stopPropagation(); dbMinimizePanel(el.dataset.panel); });
+  /* in edit mode a click anywhere on a panel is a drag, never "open this widget" */
+  ui.addEventListener("click", e=>e.stopPropagation());
+}
 function wireDbLayout(){
   dbLayout = dbLoadLayout();
   const main = document.getElementById("db-main");
-  main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(el=>{
-    const id = el.dataset.panel;
-    const ui = document.createElement("div");
-    ui.className = "db-edit-ui";
-    ui.innerHTML = `<span class="lbl">${DB_PANELS[id].label}</span>${DB_PANELS[id].fixed ? "" : `<button type="button" class="x" title="Hide this panel">×</button>`}<span class="rz" title="Drag to resize"></span>`;
-    el.appendChild(ui);
-    ui.addEventListener("pointerdown", e=>{
-      if(e.button!==0 || e.target.closest(".x")) return;
-      startDbDrag(e, el, e.target.closest(".rz") ? "resize" : "move");
-    });
-    const x = ui.querySelector(".x");
-    if(x) x.addEventListener("click", e=>{
-      e.stopPropagation();
-      dbLayout.hidden.push(id);
-      dbCompact(dbVisibleItems(dbLayout));
-      dbSaveLayout(); applyDbLayout(); renderDbEditbar();
-    });
-    /* in edit mode a click anywhere on a panel is a drag, never "open this widget" */
-    ui.addEventListener("click", e=>e.stopPropagation());
-  });
+  main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(dbAddEditUI);
   $("#db-edit-btn").addEventListener("click", ()=>setDbEditing(!document.getElementById("dashboard").classList.contains("db-editing")));
   window.addEventListener("keydown", e=>{
     if(e.key==="Escape" && document.getElementById("dashboard").classList.contains("db-editing")) setDbEditing(false);
