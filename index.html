@@ -18550,6 +18550,55 @@ function dbWinClamp(main, id, it){
   it.x = Math.max(0, Math.min(it.x, W - it.w));
   it.y = Math.max(0, it.y);
 }
+/* ---- no overlaps: whatever a window is moved/resized into gets out of the way ----
+   A neighbour shrinks on the side facing the window (keeping its far edge where it was); if it's
+   already at its minimum size it slides over instead, and as a last resort it moves down. Moved
+   windows can bump others in turn. `fixed` are placed first and never change. */
+const DB_WIN_GAP = 16;
+const dbWinHit = (a,b)=>a.x < b.x+b.w+DB_WIN_GAP-4 && b.x < a.x+a.w+DB_WIN_GAP-4 && a.y < b.y+b.h+DB_WIN_GAP-4 && b.y < a.y+a.h+DB_WIN_GAP-4;
+function dbWinMakeRoom(main, fixedIds, boxes){
+  const W = main.clientWidth, G = DB_WIN_GAP;
+  const placed = fixedIds.map(id=>boxes[id]);
+  /* others, top-to-bottom, left-to-right */
+  const rest = Object.keys(boxes).filter(id=>!fixedIds.includes(id)).sort((a,b)=>boxes[a].y-boxes[b].y || boxes[a].x-boxes[b].x);
+  for(const id of rest){
+    const o = boxes[id], min = dbWinMin(id);
+    for(let guard = 0; guard < 40; guard++){
+      const hit = placed.find(p=>dbWinHit(p, o));
+      if(!hit) break;
+      const ox = Math.min(hit.x+hit.w, o.x+o.w) - Math.max(hit.x, o.x);
+      const oy = Math.min(hit.y+hit.h, o.y+o.h) - Math.max(hit.y, o.y);
+      const right = o.x + o.w/2 >= hit.x + hit.w/2, below = o.y + o.h/2 >= hit.y + hit.h/2;
+      /* shrink the side facing the other window; if it can't get that small, it moves down below it
+         (always down, so a chain of bumps settles instead of bouncing back and forth) */
+      const tryX = ()=>{
+        if(right){
+          const nx = hit.x + hit.w + G, end = o.x + o.w;
+          if(end - nx >= min.w && nx + min.w <= W){ o.w = end - nx; o.x = nx; return true; }
+        } else {
+          const nw = hit.x - G - o.x;
+          if(nw >= min.w){ o.w = nw; return true; }
+        }
+        return false;
+      };
+      const tryY = ()=>{
+        if(below){
+          const ny = hit.y + hit.h + G, end = o.y + o.h;
+          if(end - ny >= min.h){ o.h = end - ny; o.y = ny; return true; }
+        } else {
+          const nh = hit.y - G - o.y;
+          if(nh >= min.h){ o.h = nh; return true; }
+        }
+        return false;
+      };
+      const pushDown = ()=>{ o.y = hit.y + hit.h + G; };
+      /* shrink along the axis where they overlap the least: that's the side they meet on */
+      if(ox <= oy){ if(!tryX() && !tryY()) pushDown(); } else { if(!tryY() && !tryX()) pushDown(); }
+    }
+    placed.push(o);
+  }
+}
+function dbWinVisibleIds(){ return Object.keys(dbWin.items).filter(id=>!dbLayout.hidden.includes(id)); }
 function dbWinApply(main){
   /* can't measure or clamp while the dashboard is hidden (sign-in screen, canvas view): wait */
   if(!main.clientWidth) return false;
@@ -18563,6 +18612,18 @@ function dbWinApply(main){
   }
   main.classList.remove("grid-mode", "flow-mode");
   main.classList.add("win-mode");
+  {
+    const ids = dbWinVisibleIds();
+    ids.forEach(id=>dbWinClamp(main, id, dbWin.items[id]));
+    const overl = ids.some(a=>ids.some(b=>a < b && dbWinHit(dbWin.items[a], dbWin.items[b])));
+    if(overl){
+      const order = ids.slice().sort((a,b)=>(dbWin.items[b].z||0)-(dbWin.items[a].z||0));
+      /* place one at a time, front-most first */
+      const boxes = {}; order.forEach(id=>boxes[id] = dbWin.items[id]);
+      dbWinMakeRoom(main, [order[0]], boxes);
+      dbWinSave();
+    }
+  }
   panels.forEach(el=>{
     const id = el.dataset.panel, it = dbWin.items[id];
     if(dbLayout.hidden.includes(id) || !it){ el.style.display = "none"; return; }
@@ -18590,7 +18651,7 @@ function dbWinSnap(main, id, box, edges){
   if(!dbWin.snap) return guides;
   const T = 8, others = Object.entries(dbWin.items).filter(([k])=>k!==id && !dbLayout.hidden.includes(k)).map(([,v])=>v);
   const xs = [0, main.clientWidth], ys = [0];
-  others.forEach(o=>{ xs.push(o.x, o.x+o.w, o.x+o.w/2); ys.push(o.y, o.y+o.h, o.y+o.h/2); });
+  others.forEach(o=>{ xs.push(o.x, o.x+o.w, o.x+o.w/2, o.x-DB_WIN_GAP, o.x+o.w+DB_WIN_GAP); ys.push(o.y, o.y+o.h, o.y+o.h/2, o.y-DB_WIN_GAP, o.y+o.h+DB_WIN_GAP); });
   const near = (v, list)=>{ let best = null; list.forEach(t=>{ const d = Math.abs(t - v); if(d <= T && (!best || d < best.d)) best = {t, d}; }); return best; };
   /* which edges move: "move" moves all of them together */
   const tryAxis = (axis)=>{
@@ -18632,6 +18693,7 @@ function dbWinStart(e, main, el, kind){
   e.preventDefault();
   dbWinFront(id);
   const sx = e.clientX, sy = e.clientY, s0 = {...it}, scroll0 = main.scrollTop, min = dbWinMin(id);
+  const others0 = {}; dbWinVisibleIds().forEach(k=>{ if(k !== id) others0[k] = {...dbWin.items[k]}; });
   const edges = kind === "move" ? {move:true} : {n:kind.includes("n"), s:kind.includes("s"), e:kind.includes("e"), w:kind.includes("w")};
   let started = kind !== "move", frame = 0, lastEv = null;
   const pid = e.pointerId;
@@ -18663,6 +18725,12 @@ function dbWinStart(e, main, el, kind){
       if(b.x + b.w > W) b.w = W - b.x;
     }
     Object.assign(it, {x:Math.round(b.x), y:Math.round(b.y), w:Math.round(b.w), h:Math.round(b.h)});
+    /* neighbours: back to where they started, then shrink/slide so nothing overlaps */
+    const boxes = {[id]: it};
+    for(const [k,v] of Object.entries(others0)){ Object.assign(dbWin.items[k], v); boxes[k] = dbWin.items[k]; }
+    dbWinMakeRoom(main, [id], boxes);
+    dbWinPanels(main).forEach(p=>{ const k = p.dataset.panel, v = dbWin.items[k]; if(k !== id && v && others0[k])
+      Object.assign(p.style, {left:v.x+"px", top:v.y+"px", width:v.w+"px", height:v.h+"px"}); });
     Object.assign(el.style, {left:it.x+"px", top:it.y+"px", width:it.w+"px", height:it.h+"px"});
     dbWinShowGuides(main, guides);
   };
