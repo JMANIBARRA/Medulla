@@ -15900,7 +15900,8 @@ const WSCENE_CLASSES = ["wscene-clear-day","wscene-clear-night","wscene-clouds",
 function applyWeatherScene(sceneEl, code, isDay, place){
   if(!sceneEl) return;
   sceneEl.classList.remove(...WSCENE_CLASSES);
-  const city = resolveCitySkyline(place);
+  /* the drawn city skylines are retired: every location uses the skyline photos for the conditions */
+  const city = null;
   if(city){
     sceneEl.classList.add("wscene-city");
     sceneEl.title = `${city.name} skyline`;
