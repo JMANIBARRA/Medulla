@@ -2912,6 +2912,8 @@
   .db-tile span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
   .db-apps-list{display:contents;}
+  .db-tile .db-favtile{position:relative;flex:none;width:24px;height:24px;display:grid;place-items:center;overflow:visible;}
+  .db-tile .db-favtile img{position:absolute;inset:0;width:24px;height:24px;border-radius:6px;background:#fff;padding:2px;box-sizing:border-box;object-fit:contain;}
   .db-tile{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   .db-tile-ph{opacity:.25;border-style:dashed !important;}
   .db-tile-hold{transform:scale(.97);border-color:#4d9bff !important;}
@@ -3482,6 +3484,8 @@ const WIDGET_DEFS = [
   {id:"weather", title:"Weather", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Current conditions and a short-range forecast for your approximate location (IP-based — no location permission prompt)."},
   {id:"calendar", title:"Calendar", profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Today's date and whatever events you've added for it — click through to a full month view to browse other days and add events."},
   {id:"youtube", title:"YouTube", link:"https://www.youtube.com", profiles:["main"], built:true, accent:"var(--accent-rust)", spec:"Paste a YouTube link to watch it in a window here, with its own volume control. Suggestions use a shared API key set in Settings."},
+  {id:"linkedin", title:"LinkedIn", link:"https://www.linkedin.com/feed/", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Opens LinkedIn in a new tab."},
+  {id:"facebook", title:"Facebook", link:"https://www.facebook.com", profiles:["main"], built:true, accent:"var(--accent-teal)", spec:"Opens Facebook in a new tab."},
   {id:"youtubeoauth", title:"Video (Google)", retired:true, profiles:["main"], built:true, accent:"var(--accent-violet)", spec:"Same player, but sign in with your own Google account instead of a shared API key — suggestions come from your actual subscriptions/home feed, not generic trending."},
 ];
 
@@ -20088,7 +20092,7 @@ function dbRenderApps(){
   const apps = WIDGET_DEFS.filter(d=>!d.retired && !DB_PANEL_WIDGETS.has(d.id) && !dbPinned.includes(d.id));
   const pinnable = d=>d.built && !d.link;
   const tileMin = id=>`<button type="button" class="db-tile db-tile-min" data-key="min:${id}" data-min="${id}" title="${dbEsc(DB_PANELS[id].label)} — drag onto the dashboard to put it back">${dbIcon(DB_PANEL_ICON[id]||"grid")}<span>${dbEsc(DB_PANELS[id].label)}</span><em class="db-pin" title="Add to dashboard">+</em>${dbIcon("chev",'class="chev"')}</button>`;
-  const tileApp = d=>`<button type="button" class="db-tile" data-key="app:${d.id}" data-open="${d.id}" title="${dbEsc(d.title)}${pinnable(d) ? " — drag onto the dashboard to make it a widget" : ""}">${dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${pinnable(d) ? `<em class="db-pin" title="Add to dashboard">+</em>` : ""}${d.link ? '<span class="chev db-ext" aria-hidden="true">↗</span>' : dbIcon("chev",'class="chev"')}</button>`;
+  const tileApp = d=>`<button type="button" class="db-tile" data-key="app:${d.id}" data-open="${d.id}" title="${dbEsc(d.title)}${pinnable(d) ? " — drag onto the dashboard to make it a widget" : ""}">${d.link ? `<span class="db-favtile">${dbIcon(DB_TILE_ICONS[d.id]||"globe")}<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(d.link).hostname)}&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></span>` : dbIcon(DB_TILE_ICONS[d.id]||"grid")}<span>${dbEsc(d.title)}</span>${pinnable(d) ? `<em class="db-pin" title="Add to dashboard">+</em>` : ""}${d.link ? '<span class="chev db-ext" aria-hidden="true">↗</span>' : dbIcon("chev",'class="chev"')}</button>`;
   const all = [...mins.map(id=>({k:"min:"+id, h:tileMin(id), i:-1})), ...apps.map((d,i)=>({k:"app:"+d.id, h:tileApp(d), i}))];
   all.sort((a,b)=>rank(a.k)-rank(b.k) || a.i-b.i);
   list.innerHTML = all.map(t=>t.h).join("");
