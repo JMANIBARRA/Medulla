@@ -97,7 +97,7 @@ async function marketNews(cors, ctx){
   const cache = caches.default, key = new Request("https://medulla-cache.internal/market/news");
   const hit = await cache.match(key);
   if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
-  const feeds = [["https://www.cnbc.com/id/100003114/device/rss/rss.html","CNBC"],["https://feeds.marketwatch.com/marketwatch/topstories/","MarketWatch"],["https://finance.yahoo.com/news/rssindex","Yahoo Finance"]];
+  const feeds = [["https://www.cnbc.com/id/100003114/device/rss/rss.html","CNBC"],["https://www.cnbc.com/id/15839135/device/rss/rss.html","CNBC"],["https://www.cnbc.com/id/10001147/device/rss/rss.html","CNBC"],["https://feeds.marketwatch.com/marketwatch/topstories/","MarketWatch"],["https://feeds.marketwatch.com/marketwatch/marketpulse/","MarketWatch"],["https://finance.yahoo.com/news/rssindex","Yahoo Finance"]];
   const items = [];
   await Promise.all(feeds.map(async ([u, src])=>{
     try{
@@ -113,8 +113,37 @@ async function marketNews(cors, ctx){
   }));
   if(!items.length) return json({error:"news_unavailable"}, 502, cors);
   items.sort((a,b)=>b.ts - a.ts);
-  const body = JSON.stringify({items:items.slice(0, 20)});
+  const seen = new Set(), uniq = items.filter(i=>{ const k = i.title.toLowerCase().slice(0, 70); if(seen.has(k)) return false; seen.add(k); return true; });
+  const body = JSON.stringify({items:uniq.slice(0, 80)});
   const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=600"}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, toCache));
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+/* Upcoming earnings: Nasdaq's public calendar for the next several weekdays, biggest companies first */
+async function marketEarnings(cors, ctx){
+  const cache = caches.default, key = new Request("https://medulla-cache.internal/market/earnings");
+  const hit = await cache.match(key);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const dates = [];
+  for(let d = new Date(); dates.length < 6; d = new Date(d.getTime() + 864e5)){
+    const wd = d.getUTCDay(); if(wd === 0 || wd === 6) continue;
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const capNum = s=>{ const n = parseFloat(String(s||"").replace(/[$,]/g, "")); return isFinite(n) ? n : 0; };
+  const days = await Promise.all(dates.map(async date=>{
+    try{
+      const r = await fetch(`https://api.nasdaq.com/api/calendar/earnings?date=${date}`, {headers:{...UA_HDRS, "Origin":"https://www.nasdaq.com", "Referer":"https://www.nasdaq.com/"}});
+      if(!r.ok) return {date, items:[]};
+      const d = await r.json();
+      const rows = (d && d.data && d.data.rows) || [];
+      const items = rows.map(x=>({sym:x.symbol, name:x.name, cap:capNum(x.marketCap), time:x.time, eps:x.epsForecast || ""}))
+        .filter(x=>x.sym && x.cap >= 5e9).sort((a,b)=>b.cap - a.cap).slice(0, 8);
+      return {date, items};
+    }catch(e){ return {date, items:[]}; }
+  }));
+  if(!days.some(d=>d.items.length)) return json({error:"earnings_unavailable"}, 502, cors);
+  const body = JSON.stringify({days, updated:Date.now()});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=10800"}});
   if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, toCache));
   return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
 }
@@ -588,6 +617,10 @@ export default {
     if(path === "/market/news"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return marketNews(cors, ctx);
+    }
+    if(path === "/market/earnings"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return marketEarnings(cors, ctx);
     }
     if(path === "/stocks/movers"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);

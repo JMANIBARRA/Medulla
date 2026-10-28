@@ -1811,6 +1811,20 @@
   a.mkt-trow:hover{background:rgba(90,169,255,.08);}
   .mkt-trow .mkt-badge{font-size:10px;letter-spacing:-.02em;}
   .mkt-trend-foot{padding:8px 4px 0;font-size:11.5px;color:var(--text-dim);}
+  .mkt-trend-wrap{display:flex;flex-direction:column;gap:6px;padding-top:6px;}
+  .mkt-trend-wrap[hidden]{display:none;}
+  .mkt-trend-sub{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .mkt-trend-sub .mkt-trend-tabs{margin:0;}
+  .mkt-trend-sub a{font-size:13px;color:#6fb2ff;text-decoration:none;white-space:nowrap;}
+  .mkt-newscard .mkt-trend-tabs{width:auto;max-width:100%;overflow-x:auto;scrollbar-width:none;}
+  .mkt-newscard .mkt-trend-tabs button{white-space:nowrap;}
+  .mkt-newscard .mkt-trending{max-height:420px;overflow:auto;scrollbar-width:thin;}
+  .mkt-etime{font-size:11.5px;color:var(--text-dim);white-space:nowrap;}
+  .mkt-newscard .mkt-trow.mkt-news{grid-template-columns:minmax(0,1fr);padding:11px 6px;}
+  .mkt-newscard .mkt-trow.mkt-news .mkt-tname b{font-size:14px;line-height:1.35;white-space:normal;}
+  .mkt-newscard .mkt-trow:not(.mkt-news){grid-template-columns:34px minmax(0,1fr) auto;}
+  .mkt-newscard .mkt-news-h{margin:12px 2px 4px;font-weight:700;color:#7fbcff;}
+  .mkt-newscard .mkt-news-h:first-child{margin-top:4px;}
   .mkt-trend-head a:hover{text-decoration:underline;}
   .mkt-trow{display:grid;grid-template-columns:28px 34px minmax(0,1fr) auto;align-items:center;column-gap:12px;padding:9px 4px;border-top:1px solid rgba(130,153,184,.1);}
   .mkt-rank{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:#c3d4ea;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.18);}
@@ -8125,6 +8139,19 @@ function marketFullHTML(){
         <div class="arc-tabs mkt-tabs" role="tablist">
           <button type="button" class="arc-tab" data-tab="watchlist">Watchlist</button>
           <button type="button" class="arc-tab" data-tab="indices">Indices</button>
+          <button type="button" class="arc-tab" data-tab="trending">Trending</button>
+        </div>
+        <div class="mkt-trend-wrap" id="mkt-trend-wrap" hidden>
+          <div class="mkt-trend-sub">
+            <div class="mkt-trend-tabs" id="mkt-trend-tabs" role="tablist">
+              <button type="button" data-mv="mostActive">Most active</button>
+              <button type="button" data-mv="gainers">Gainers</button>
+              <button type="button" data-mv="losers">Losers</button>
+            </div>
+            <a id="mkt-trend-all" href="https://finance.yahoo.com/markets/stocks/most-active/" target="_blank" rel="noopener noreferrer">View all →</a>
+          </div>
+          <div id="mkt-trending" class="mkt-trending"><div class="mkt-empty">Loading trending stocks…</div></div>
+          <div class="mkt-trend-foot" id="mkt-trend-foot"></div>
         </div>
         <div class="mkt-thead"><span>Asset</span><span>Price</span><span>24h change</span><span></span></div>
         <div class="mkt-rows" id="mkt-rows"></div>
@@ -8138,18 +8165,19 @@ function marketFullHTML(){
           <div id="mkt-twelvedata-setup"></div>
         </div>
       </section>
-      <section class="mkt-card mkt-trend">
+      <section class="mkt-card mkt-trend mkt-newscard">
         <div class="mkt-trend-head">
-          <span class="mkt-trend-icon">${MKT_ICONS.fire}</span><h3>Trending <small>US stocks</small></h3>
-          <a id="mkt-trend-all" href="https://finance.yahoo.com/markets/stocks/most-active/" target="_blank" rel="noopener noreferrer">View all →</a>
+          <span class="mkt-trend-icon">${MKT_ICONS.fire}</span><h3>Market news <small>what's moving stocks</small></h3>
+          <a id="mkt-news-all" href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank" rel="noopener noreferrer">More →</a>
         </div>
-        <div class="mkt-trend-tabs" id="mkt-trend-tabs" role="tablist">
-          <button type="button" data-mv="mostActive">Most active</button>
-          <button type="button" data-mv="gainers">Gainers</button>
-          <button type="button" data-mv="losers">Losers</button>
+        <div class="mkt-trend-tabs" id="mkt-news-tabs" role="tablist">
+          <button type="button" data-nv="top">Top stories</button>
+          <button type="button" data-nv="earnings">Earnings</button>
+          <button type="button" data-nv="leaders">Leadership</button>
+          <button type="button" data-nv="calendar">Upcoming earnings</button>
         </div>
-        <div id="mkt-trending" class="mkt-trending"><div class="mkt-empty">Loading trending stocks…</div></div>
-        <div class="mkt-trend-foot" id="mkt-trend-foot"></div>
+        <div id="mkt-news" class="mkt-trending"><div class="mkt-empty">Loading market news…</div></div>
+        <div class="mkt-trend-foot" id="mkt-news-foot"></div>
       </section>
     </div>
     <section class="mkt-card mkt-charts">
@@ -8194,6 +8222,11 @@ function hydrateMarketFull(scope){
     $s("#mkt-add-wrap").style.display = tab==="watchlist" ? "" : "none";
     $s("#mkt-add-status").style.display = tab==="watchlist" ? "" : "none";
     $s("#mkt-indices-extra").style.display = tab==="indices" ? "" : "none";
+    const isTrend = tab==="trending";
+    $s("#mkt-trend-wrap").hidden = !isTrend;
+    $s(".mkt-thead").style.display = isTrend ? "none" : "";
+    rows.style.display = isTrend ? "none" : "";
+    if(isTrend){ renderTrending(); return; }
     const idx = indexRows();
     if(tab==="indices"){
       rows.innerHTML = idx.map(rowHTML).join("");
@@ -8307,7 +8340,7 @@ function hydrateMarketFull(scope){
     if(!alive) return;
     if(!movers){
       /* no stock lists right now: show the latest market headlines instead of an error */
-      const news = await loadMarketNews();
+      const news = [];
       if(!alive) return;
       if(news.length){
         scope.querySelectorAll("#mkt-trend-tabs [data-mv]").forEach(b=>b.classList.remove("active"));
@@ -8332,6 +8365,57 @@ function hydrateMarketFull(scope){
     $s("#mkt-trend-foot").textContent = upd ? `US market data as of ${upd}${/ET|M$/.test(upd) ? "" : " ET"}${movers.source ? " · " + movers.source : ""}` : "";
   }
   scope.querySelectorAll("#mkt-trend-tabs [data-mv]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.movers = b.dataset.mv; saveUi(); renderTrending(); }));
+
+  /* ---------- market news (right): headlines sorted into earnings / leadership, plus the earnings calendar ---------- */
+  const NEWS_RE = {
+    earnings: /\b(earnings|eps|quarterly|quarter|q[1-4]\b|results|revenue|guidance|outlook|forecast|beats?|miss(es|ed)?|profit|sales)\b/i,
+    leaders: /\b(ceo|cfo|coo|cto|chief executive|chief financial|chairman|chairwoman|chair\b|president|founder|board|steps? down|resign|resigns|resignation|appoint|appoints|appointed|names|named|successor|succession|hires|ousted|fired|retire|retires|executive|exec)\b/i,
+  };
+  let earnCal = null, earnErr = "";
+  async function loadEarnings(){
+    if(!MEDULLA_AI_PROXY_URL || isFileOrigin()){ earnErr = "Needs the Medulla Worker."; return; }
+    try{
+      const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/market/earnings");
+      if(r.status === 404 || r.status === 405){ earnErr = "Redeploy your Medulla Worker to turn on the earnings calendar (git pull && cd proxy && npx wrangler deploy)."; return; }
+      const d = await r.json().catch(()=>({}));
+      if(!r.ok || !Array.isArray(d.days)){ earnErr = "The earnings calendar isn't available right now."; return; }
+      earnCal = d;
+    }catch(e){ earnErr = "Couldn't reach the earnings calendar right now."; }
+  }
+  function capStr(n){ return !n ? "" : n >= 1e12 ? "$"+(n/1e12).toFixed(2)+"T" : n >= 1e9 ? "$"+(n/1e9).toFixed(1)+"B" : "$"+(n/1e6).toFixed(0)+"M"; }
+  const EARN_TIME = {"time-pre-market":"Before open", "time-after-hours":"After close"};
+  async function renderNews(){
+    const box = $s("#mkt-news"); if(!box) return;
+    const which = ["top","earnings","leaders","calendar"].includes(mktUi.news) ? mktUi.news : "top";
+    scope.querySelectorAll("#mkt-news-tabs [data-nv]").forEach(b=>b.classList.toggle("active", b.dataset.nv===which));
+    const foot = $s("#mkt-news-foot");
+    if(which === "calendar"){
+      $s("#mkt-news-all").href = "https://www.nasdaq.com/market-activity/earnings";
+      if(!earnCal && !earnErr){ box.innerHTML = `<div class="mkt-empty">Loading the earnings calendar…</div>`; await loadEarnings(); if(!alive) return; }
+      if(!earnCal){ box.innerHTML = `<div class="mkt-empty">${escapeHtml(earnErr)}</div>`; foot.textContent = ""; return; }
+      box.innerHTML = earnCal.days.filter(d=>d.items && d.items.length).map(d=>{
+        const dt = new Date(d.date + "T12:00:00");
+        return `<div class="mkt-news-h">${dt.toLocaleDateString("en-US",{weekday:"long", month:"short", day:"numeric"})}</div>` + d.items.map(e=>`
+          <a class="mkt-trow" href="https://finance.yahoo.com/quote/${encodeURIComponent(e.sym)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(e.sym)}">
+            <span class="mkt-badge" style="${bankBadgeStyle(e.sym)}">${escapeHtml(e.sym.slice(0,4))}</span>
+            <span class="mkt-tname"><b>${escapeHtml(e.name || e.sym)}</b><span>${escapeHtml(e.sym)}${e.cap ? " · " + capStr(e.cap) : ""}${e.eps ? " · EPS est " + escapeHtml(e.eps) : ""}</span></span>
+            <span class="mkt-etime">${escapeHtml(EARN_TIME[e.time] || "")}</span>
+          </a>`).join("");
+      }).join("") || `<div class="mkt-empty">No big earnings reports in the next few days.</div>`;
+      foot.textContent = "Largest companies reporting soon · Nasdaq earnings calendar";
+      return;
+    }
+    $s("#mkt-news-all").href = "https://finance.yahoo.com/topic/stock-market-news/";
+    const all = await loadMarketNews();
+    if(!alive) return;
+    if(!all.length){ box.innerHTML = `<div class="mkt-empty">Market news isn't available right now.</div>`; foot.textContent = ""; return; }
+    const list = which === "top" ? all : all.filter(n=>NEWS_RE[which].test(n.title));
+    box.innerHTML = list.length ? list.slice(0, 12).map(n=>`<a class="mkt-trow mkt-news" href="${escapeHtml(n.link)}" target="_blank" rel="noopener noreferrer">
+        <span class="mkt-tname"><b>${escapeHtml(n.title)}</b><span>${escapeHtml(n.source)}${n.ts ? " · " + escapeHtml(mktAgo(n.ts)) : ""}</span></span></a>`).join("")
+      : `<div class="mkt-empty">No ${which === "earnings" ? "earnings" : "leadership"} headlines right now — check Top stories.</div>`;
+    foot.textContent = "Headlines from CNBC, MarketWatch and Yahoo Finance";
+  }
+  scope.querySelectorAll("#mkt-news-tabs [data-nv]").forEach(b=>b.addEventListener("click", ()=>{ mktUi.news = b.dataset.nv; saveUi(); renderNews(); }));
 
   /* ---------- charts ---------- */
   function chartAssets(){
@@ -8425,7 +8509,7 @@ function hydrateMarketFull(scope){
   window.addEventListener("twelvedata-key-changed", onKey);
   renderTwelveDataSetup($s("#mkt-twelvedata-setup"));
 
-  renderTable(); renderFilter(); renderCharts(); renderTrending();
+  renderTable(); renderFilter(); renderCharts(); renderNews();
   /* keep prices fresh while the window is open (CoinGecko's keyless limit is ~30/min, so once a minute) */
   const timer = setInterval(()=>{ if(!document.hidden){ coinMarketsCache.time = 0; renderTable(); } }, 60000);
   return function cleanup(){ alive = false; clearInterval(timer); window.removeEventListener("twelvedata-key-changed", onKey); };
