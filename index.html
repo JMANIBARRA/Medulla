@@ -1191,10 +1191,14 @@
   .gar-head h2{margin:0;font-size:24px;font-weight:800;letter-spacing:.16em;color:#fff;}
   .gar-head p{margin:2px 0 0;font-size:13px;color:#a9bcd6;}
   .gar-close{position:absolute;top:22px;right:24px;z-index:4;}
-  .gar-title{position:relative;z-index:3;display:flex;align-items:flex-start;justify-content:center;gap:clamp(20px,6vw,80px);padding-top:104px;}
-  .gar-title > .gar-arrow{margin-top:-6px;}   /* lined up with the name, not the (sometimes 2-line) details */
+  /* the arrows are pinned at fixed spots either side of the centre, so a longer or shorter vehicle
+     name can never move them (you can keep clicking the same place to cycle through) */
+  .gar-title{position:relative;z-index:3;display:block;padding-top:104px;--gar-tw:min(520px,52vw);}
+  .gar-title > .gar-arrow{position:absolute;top:98px;}
+  .gar-title > #gar-prev{left:calc(50% - var(--gar-tw)/2 - 52px - clamp(20px,6vw,80px));}
+  .gar-title > #gar-next{right:calc(50% - var(--gar-tw)/2 - 52px - clamp(20px,6vw,80px));}
   /* fixed-width title so the arrows stay put whatever the vehicle's name; long names shrink to fit */
-  .gar-title-text{text-align:center;min-width:0;width:min(520px,52vw);flex:none;}
+  .gar-title-text{text-align:center;min-width:0;width:var(--gar-tw);margin:0 auto;}
   .gar-title-text h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gar-title h3{margin:0;font-size:clamp(24px,3vw,34px);font-weight:700;letter-spacing:.04em;color:#fff;text-shadow:0 0 22px rgba(90,169,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gar-specs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:15px;color:#b9cbe6;}
@@ -1443,8 +1447,10 @@
     .gar-head h2{font-size:18px;}
     .gar-head p{font-size:11.5px;}
     .gar-close{top:14px;right:14px;}
-    .gar-title{padding-top:84px;gap:10px;padding-left:12px;padding-right:12px;}
-    .gar-title-text{max-width:none;width:auto;flex:1;}
+    .gar-title{padding-top:84px;padding-left:62px;padding-right:62px;}
+    .gar-title-text{width:auto;}
+    .gar-title > .gar-arrow{top:82px;}
+    .gar-title > #gar-prev{left:12px;} .gar-title > #gar-next{right:12px;}
     .gar-arrow{width:40px;height:40px;}
     .gar-specs{font-size:13px;gap:2px 10px;}
     .gar-specs span + span::before{margin-right:10px;}
