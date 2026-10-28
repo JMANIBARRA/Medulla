@@ -995,6 +995,40 @@
   .fx-detail-head b{font-size:15px;}
   .fx-detail-head small{color:var(--text-dim);font-size:12px;margin-right:auto;}
   .fx-detail textarea{width:100%;box-sizing:border-box;min-height:170px;white-space:pre;border-radius:10px;padding:10px 12px;font-family:var(--font-mono);font-size:13px;line-height:1.6;background:rgba(4,12,24,.6);border:1px solid rgba(124,180,255,.2);color:var(--text-primary);}
+  .ml{display:flex;flex-direction:column;gap:16px;}
+  .ml-head h3{margin:0;font-size:20px;font-weight:700;}
+  .ml-head p{margin:2px 0 0;font-size:13px;color:var(--text-dim);}
+  .ml-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
+  .ml-sub{font-size:12px;font-weight:700;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;margin:14px 2px 8px;}
+  .ml-card{position:relative;border-radius:16px;background:linear-gradient(180deg,rgba(25,48,84,.55),rgba(10,22,42,.55));border:1px solid rgba(124,180,255,.14);transition:border-color .15s,transform .15s;}
+  .ml-card:hover{border-color:rgba(124,180,255,.45);transform:translateY(-2px);}
+  .ml-card.hidden-inbox{opacity:.55;}
+  .ml-open{display:flex;align-items:center;gap:12px;padding:16px;color:inherit;text-decoration:none;}
+  .ml-logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;flex:none;box-shadow:0 6px 16px -8px rgba(0,0,0,.6);}
+  .ml-txt{flex:1;min-width:0;}
+  .ml-txt b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ml-txt small{display:block;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ml-go{font-size:12px;font-weight:700;color:#7fbcff;white-space:nowrap;}
+  .ml-acts{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+  .ml-card:hover .ml-acts,.ml-card:focus-within .ml-acts{opacity:1;}
+  .ml-card:hover .ml-go{opacity:0;}
+  .ml-acts button{height:26px;min-width:26px;padding:0 9px;border-radius:999px;border:1px solid rgba(124,180,255,.25);background:#0d1d36;color:#cfe0f5;font-size:11.5px;font-weight:600;cursor:pointer;}
+  .ml-acts button:hover{border-color:#4d9bff;}
+  .ml-acts button.armed{color:#ff8a8a;border-color:#ff8a8a;}
+  @media (hover:none){ .ml-acts{opacity:1;position:static;padding:0 12px 12px;justify-content:flex-end;} .ml-card:hover .ml-go{opacity:1;} }
+  .ml-empty{padding:22px;border-radius:14px;border:1px dashed rgba(124,180,255,.25);text-align:center;color:var(--text-dim);}
+  .ml-add{border-radius:16px;padding:16px;background:rgba(255,255,255,.025);border:1px solid rgba(124,180,255,.14);display:flex;flex-direction:column;gap:12px;}
+  .ml-add-title{font-size:14px;font-weight:700;}
+  .ml-presets{display:flex;flex-wrap:wrap;gap:8px;}
+  .ml-presets[hidden]{display:none;}
+  .ml-preset{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 6px;border-radius:999px;border:1px solid rgba(124,180,255,.22);background:rgba(255,255,255,.04);color:#cfe0f5;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .ml-preset:hover{border-color:#4d9bff;background:rgba(47,139,255,.12);}
+  .ml-preset span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800;}
+  .ml-form{display:flex;gap:8px;flex-wrap:wrap;}
+  .ml-form input{flex:1;min-width:160px;height:40px;border-radius:10px;padding:0 12px;font-size:13.5px;}
+  .ml-form .fx-ask-btn{height:40px;}
+  .ml-msg{font-size:12px;color:#9fd0ff;min-height:0;}
+  .ml-msg:empty{display:none;}
   .fx-daypop{z-index:9400;}
   .fx-dp{width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;border-radius:22px;background:linear-gradient(180deg,#0f2140,#081428);border:1px solid rgba(124,180,255,.2);box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:18px 20px 20px;transform:translateY(10px) scale(.98);transition:transform .2s;}
   .fx-daypop.show .fx-dp{transform:none;}
@@ -7156,12 +7190,19 @@ function renderFull(id){
   }
   if(id==="mail"){
     return `
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Inbox Directory</h3>
-    <div id="mail-full-list" style="margin:10px 0;"></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <input id="mail-label-input" type="text" placeholder="Label e.g. Work Gmail" style="flex:1;min-width:140px;"/>
-      <input id="mail-url-input" type="text" placeholder="https://mail.google.com" style="flex:2;min-width:180px;"/>
-      <button class="btn primary" id="mail-add-btn">Add</button>
+    <div class="ml">
+      <div class="ml-head"><div><h3>Your inboxes</h3><p>Click one to open it.</p></div></div>
+      <div id="mail-full-list"></div>
+      <div class="ml-add" id="ml-add">
+        <div class="ml-add-title">Add an inbox</div>
+        <div class="ml-presets" id="ml-presets"></div>
+        <div class="ml-form">
+          <input id="mail-label-input" type="text" placeholder="Name (e.g. Work email)" autocomplete="off"/>
+          <input id="mail-url-input" type="text" placeholder="Web address (e.g. mail.google.com)" autocomplete="off"/>
+          <button class="fx-ask-btn" id="mail-add-btn">Add</button>
+        </div>
+        <div class="ml-msg" id="ml-msg"></div>
+      </div>
     </div>`;
   }
   if(id==="chrono"){
@@ -17009,37 +17050,84 @@ function hydrateMailMini(scope){
     if(def) openModal(def);
   });
 }
+const ML_PRESETS = [
+  {label:"Gmail", url:"https://mail.google.com", c:"#ea4335"},
+  {label:"Outlook", url:"https://outlook.live.com", c:"#0f6cbd"},
+  {label:"Yahoo Mail", url:"https://mail.yahoo.com", c:"#6001d2"},
+  {label:"iCloud Mail", url:"https://www.icloud.com/mail", c:"#3d9cf5"},
+  {label:"ProtonMail", url:"https://mail.proton.me", c:"#6d4aff"},
+  {label:"Outlook (work)", url:"https://outlook.office.com/mail", c:"#0a58a8"},
+];
+function mlHost(u){ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return u; } }
+function mlColor(m){
+  const h = mlHost(m.url);
+  const p = ML_PRESETS.find(x=>mlHost(x.url)===h);
+  if(p) return p.c;
+  let n = 0; for(const ch of m.label) n = (n*31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${n},62%,48%)`;
+}
 function renderMailFullList(container){
-  container.innerHTML = mailData.length ? mailData.map((m,i)=>`
-    <div class="list-row">
-      <span>${m.hidden?'<span style="color:var(--text-dim);">(hidden) </span>':''}${m.label} — <a class="linkcard" href="${m.url}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-teal);">${m.url}</a></span>
-      <span style="display:flex;gap:4px;">
-        <button class="hbtn" style="width:auto;padding:0 6px;" data-act="toggle" data-i="${i}">${m.hidden?'show':'hide'}</button>
-        <button class="hbtn" data-act="del" data-i="${i}">✕</button>
-      </span>
-    </div>`).join("") : `<div style="color:var(--text-dim);">No inboxes yet.</div>`;
+  const card = (m,i)=>`
+    <div class="ml-card${m.hidden?" hidden-inbox":""}">
+      <a class="ml-open" href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer">
+        <span class="ml-logo" style="background:${mlColor(m)};">${escapeHtml((m.label.trim()[0]||"@").toUpperCase())}</span>
+        <span class="ml-txt"><b>${escapeHtml(m.label)}</b><small>${escapeHtml(mlHost(m.url))}</small></span>
+        <span class="ml-go">Open ↗</span>
+      </a>
+      <div class="ml-acts">
+        <button type="button" data-act="toggle" data-i="${i}" title="${m.hidden?"Show on dashboard":"Hide from dashboard"}">${m.hidden?"Show":"Hide"}</button>
+        <button type="button" data-act="del" data-i="${i}" title="Remove">✕</button>
+      </div>
+    </div>`;
+  const shown = mailData.map((m,i)=>({m,i})).filter(x=>!x.m.hidden), hid = mailData.map((m,i)=>({m,i})).filter(x=>x.m.hidden);
+  container.innerHTML = !mailData.length ? `<div class="ml-empty">No inboxes yet — add one below.</div>`
+    : `<div class="ml-grid">${shown.map(x=>card(x.m,x.i)).join("")}</div>`
+      + (hid.length ? `<div class="ml-sub">Hidden</div><div class="ml-grid">${hid.map(x=>card(x.m,x.i)).join("")}</div>` : "");
   container.querySelectorAll("[data-act]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       const i = Number(btn.dataset.i);
-      if(btn.dataset.act==="del") mailData.splice(i,1);
-      else mailData[i].hidden = !mailData[i].hidden;
+      if(btn.dataset.act==="del"){
+        if(!btn.classList.contains("armed")){ btn.classList.add("armed"); btn.textContent = "Remove?"; setTimeout(()=>{ if(btn.isConnected){ btn.classList.remove("armed"); btn.textContent = "✕"; } }, 3000); return; }
+        mailData.splice(i,1);
+      } else mailData[i].hidden = !mailData[i].hidden;
       saveJSON(NS+"maillinks", mailData);
       renderMailFullList(container);
+      mlRenderPresets(container.closest(".ml"));
     });
   });
 }
+function mlRenderPresets(root){
+  const box = root && root.querySelector("#ml-presets"); if(!box) return;
+  const have = new Set(mailData.map(m=>mlHost(m.url)));
+  const left = ML_PRESETS.filter(p=>!have.has(mlHost(p.url)));
+  box.innerHTML = left.map((p,i)=>`<button type="button" class="ml-preset" data-p="${ML_PRESETS.indexOf(p)}"><span style="background:${p.c};">${p.label[0]}</span>${p.label}</button>`).join("");
+  box.hidden = !left.length;
+  box.querySelectorAll("[data-p]").forEach(b=>b.addEventListener("click", ()=>{
+    const p = ML_PRESETS[+b.dataset.p];
+    mailData.push({label:p.label, url:p.url, hidden:false});
+    saveJSON(NS+"maillinks", mailData);
+    renderMailFullList(root.querySelector("#mail-full-list"));
+    mlRenderPresets(root);
+  }));
+}
 function hydrateMailFull(scope){
   renderMailFullList(scope.querySelector("#mail-full-list"));
-  scope.querySelector("#mail-add-btn").addEventListener("click",()=>{
-    const labelInput = scope.querySelector("#mail-label-input");
-    const urlInput = scope.querySelector("#mail-url-input");
-    const label = labelInput.value.trim(), url = urlInput.value.trim();
-    if(!label || !url) return;
+  mlRenderPresets(scope.querySelector(".ml"));
+  const labelInput = scope.querySelector("#mail-label-input"), urlInput = scope.querySelector("#mail-url-input"), msg = scope.querySelector("#ml-msg");
+  const add = ()=>{
+    let label = labelInput.value.trim(), url = urlInput.value.trim();
+    if(!url){ msg.textContent = "Add the web address of your inbox."; urlInput.focus(); return; }
+    if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+    try{ new URL(url); }catch(e){ msg.textContent = "That web address doesn't look right."; urlInput.focus(); return; }
+    if(!label) label = mlHost(url);
     mailData.push({label, url, hidden:false});
     saveJSON(NS+"maillinks", mailData);
-    labelInput.value=""; urlInput.value="";
+    labelInput.value = ""; urlInput.value = ""; msg.textContent = `Added ${label}.`;
     renderMailFullList(scope.querySelector("#mail-full-list"));
-  });
+    mlRenderPresets(scope.querySelector(".ml"));
+  };
+  scope.querySelector("#mail-add-btn").addEventListener("click", add);
+  [labelInput, urlInput].forEach(i=>i.addEventListener("keydown", e=>{ if(e.key==="Enter") add(); }));
 }
 
 /* ================= CHRONO CORE WIDGET ================= */
