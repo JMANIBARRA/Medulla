@@ -53,8 +53,73 @@ function trimMovers(list){
     volume: Number(r.volume),
   })).filter(r=>r.ticker);
 }
+/* ---- no-key fallbacks for the movers list: Yahoo Finance's public screeners, then Nasdaq ---- */
+const UA_HDRS = {"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept":"application/json, text/plain, */*", "Accept-Language":"en-US,en;q=0.9"};
+async function yahooMovers(){
+  const one = async id=>{
+    const r = await fetch(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=${id}&count=10`, {headers:UA_HDRS});
+    if(!r.ok) throw new Error("yahoo " + r.status);
+    const d = await r.json();
+    const q = (((d.finance||{}).result||[])[0]||{}).quotes || [];
+    return q.map(x=>({ticker:String(x.symbol||""), name:x.shortName || x.longName || "", price:Number(x.regularMarketPrice), change:Number(x.regularMarketChange),
+      changePct:Number(x.regularMarketChangePercent), volume:Number(x.regularMarketVolume)})).filter(x=>x.ticker).slice(0, 10);
+  };
+  const [mostActive, gainers, losers] = await Promise.all(["most_actives","day_gainers","day_losers"].map(one));
+  if(!mostActive.length && !gainers.length) throw new Error("yahoo empty");
+  return {updated:new Date().toLocaleString("en-US", {timeZone:"America/New_York"}), source:"Yahoo Finance", mostActive, gainers, losers};
+}
+async function nasdaqMovers(){
+  const r = await fetch("https://api.nasdaq.com/api/marketmovers?assetclass=stocks", {headers:{...UA_HDRS, "Origin":"https://www.nasdaq.com", "Referer":"https://www.nasdaq.com/"}});
+  if(!r.ok) throw new Error("nasdaq " + r.status);
+  const d = await r.json();
+  const S = ((d.data||{}).STOCKS) || {};
+  const num = v=>Number(String(v==null?"":v).replace(/[^0-9.\-]/g, ""));
+  const rows = t=>(((S[t]||{}).table||{}).rows || []).slice(0, 10).map(x=>({ticker:String(x.symbol||""), name:x.name || "",
+    price:num(x.lastSalePrice), change:num(x.lastSaleChange), changePct:num(x.change), volume:num(x.volume || x.shareVolume)})).filter(x=>x.ticker);
+  const out = {updated:new Date().toLocaleString("en-US", {timeZone:"America/New_York"}), source:"Nasdaq",
+    mostActive:rows("MostActiveByShareVolume"), gainers:rows("MostAdvanced"), losers:rows("MostDeclined")};
+  if(!out.mostActive.length && !out.gainers.length) throw new Error("nasdaq empty");
+  return out;
+}
+async function keylessMovers(cors, ctx){
+  let out = null;
+  for(const f of [yahooMovers, nasdaqMovers]){ try{ out = await f(); break; }catch(e){} }
+  if(!out) return json({error:"stocks_unavailable"}, 502, cors);
+  const body = JSON.stringify(out);
+  moversMemory = {time: Date.now(), body};
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=900"}});
+  const cacheKey = new Request("https://medulla-cache.internal/stocks/movers");
+  if(ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(cacheKey, toCache));
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
+/* ---- market news headlines (RSS), for when no movers list can be had ---- */
+async function marketNews(cors, ctx){
+  const cache = caches.default, key = new Request("https://medulla-cache.internal/market/news");
+  const hit = await cache.match(key);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const feeds = [["https://www.cnbc.com/id/100003114/device/rss/rss.html","CNBC"],["https://feeds.marketwatch.com/marketwatch/topstories/","MarketWatch"],["https://finance.yahoo.com/news/rssindex","Yahoo Finance"]];
+  const items = [];
+  await Promise.all(feeds.map(async ([u, src])=>{
+    try{
+      const r = await fetch(u, {headers:{"User-Agent":UA_HDRS["User-Agent"]}});
+      if(!r.ok) return;
+      const x = await r.text();
+      for(const m of x.matchAll(/<item>([\s\S]*?)<\/item>/g)){
+        const g = t=>{ const mm = m[1].match(new RegExp(`<${t}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${t}>`)); return mm ? mm[1].trim() : ""; };
+        const title = g("title").replace(/&amp;/g,"&").replace(/&#39;|&apos;/g,"'").replace(/&quot;/g,'"'), link = g("link"), date = g("pubDate");
+        if(title && link) items.push({title, link, source:src, ts:Date.parse(date) || 0});
+      }
+    }catch(e){}
+  }));
+  if(!items.length) return json({error:"news_unavailable"}, 502, cors);
+  items.sort((a,b)=>b.ts - a.ts);
+  const body = JSON.stringify({items:items.slice(0, 20)});
+  const toCache = new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=600"}});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, toCache));
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
 async function stockMovers(env, cors, ctx){
-  if(!env.ALPHAVANTAGE_API_KEY) return json({error:"stocks_not_configured"}, 503, cors);
+  if(!env.ALPHAVANTAGE_API_KEY) return keylessMovers(cors, ctx);
   if(moversMemory && Date.now() - moversMemory.time < MOVERS_TTL_SECONDS*1000){
     return new Response(moversMemory.body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
   }
@@ -76,8 +141,8 @@ async function stockMovers(env, cors, ctx){
   /* Alpha Vantage answers 200 with an "Information"/"Note" message when the key is bad or the
      daily limit is used up — pass that on instead of caching an empty list */
   if(!data || !Array.isArray(data.most_actively_traded)){
-    const msg = (data && (data.Information || data.Note || data["Error Message"])) || "unexpected response";
-    return json({error:"upstream_error", message:String(msg).slice(0,200)}, 502, cors);
+    /* key bad or daily limit used up: use the no-key sources instead */
+    return keylessMovers(cors, ctx);
   }
   const body = JSON.stringify({
     updated: data.last_updated || null,
@@ -396,6 +461,10 @@ export default {
 
     if(request.method === "OPTIONS") return new Response(null, {status:204, headers:cors});
     const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if(path === "/market/news"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return marketNews(cors, ctx);
+    }
     if(path === "/stocks/movers"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockMovers(env, cors, ctx);
