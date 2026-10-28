@@ -1807,6 +1807,27 @@
     border:0 !important;border-radius:0 !important;box-shadow:none !important;background:transparent;overflow:auto;
   }
   body.db-page #modal-panel.modal-custom #modal-body{min-height:100%;}
+
+  /* ---- credit score card (Finance page) ---- */
+  .cs-card{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin:4px 0 18px;padding:16px 20px;border-radius:14px;border:1px solid rgba(90,169,255,.22);background:linear-gradient(180deg, rgba(15,32,58,.78), rgba(8,18,35,.78));transition:border-color .2s, box-shadow .2s;}
+  .cs-card.await{border-color:#5aa9ff;box-shadow:0 0 24px -8px #5aa9ff;}
+  .cs-gwrap{position:relative;width:200px;}
+  .cs-gauge{width:200px;height:112px;display:block;}
+  .cs-num{position:absolute;left:0;right:0;bottom:2px;text-align:center;display:flex;flex-direction:column;}
+  .cs-num b{font-size:34px;font-weight:700;color:#fff;line-height:1;} .cs-num span{font-size:12.5px;font-weight:600;color:#93a8c2;margin-top:2px;}
+  .cs-right{flex:1;min-width:260px;display:flex;flex-direction:column;gap:6px;}
+  .cs-top{display:flex;align-items:center;gap:10px;} .cs-top h3{margin:0;font-size:17px;color:#fff;font-weight:700;flex:1;}
+  .cs-top select{height:30px;border-radius:7px;border:1px solid rgba(124,180,255,.3);background:rgba(4,12,24,.7);color:#dbe8f8;font:inherit;font-size:12px;padding:0 8px;}
+  .cs-meta{font-size:12.5px;color:#a9bcd6;} .cs-meta .up{color:#36d39a;} .cs-meta .down{color:#ff8a95;}
+  .cs-stale{font-size:12px;color:#f2c14e;}
+  .cs-spark{width:100%;max-width:420px;height:56px;}
+  .cs-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .cs-check{height:36px;padding:0 14px;border-radius:9px;border:1px solid rgba(124,180,255,.35);background:rgba(10,24,46,.7);color:#dbe8f8;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+  .cs-check:hover{border-color:#5aa9ff;color:#fff;}
+  .cs-input{display:flex;height:36px;border-radius:9px;border:1px solid rgba(124,180,255,.35);overflow:hidden;}
+  .cs-input input{width:110px;border:0;background:rgba(4,12,24,.7);color:#fff;font:inherit;font-size:14px;padding:0 10px;outline:none;}
+  .cs-input button{border:0;background:linear-gradient(180deg,#2f8bff,#1366e6);color:#fff;font:inherit;font-size:13px;font-weight:600;padding:0 14px;cursor:pointer;}
+  .cs-msg{font-size:12px;color:#6db4ff;min-height:14px;}
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-phone #modal-body{padding:0;}
@@ -6862,6 +6883,7 @@ function renderFull(id){
       <label class="fin-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="bank-search-input" type="text" placeholder="Search apps..." autocomplete="off" aria-label="Search finance apps"></label>
       <button type="button" class="fin-close" id="fin-close-btn" title="Close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
+    <div id="credit-card" class="cs-card"></div>
     <div id="bank-quick-grid" class="bank-quick-launch-grid"></div>
     <div class="fin-foot">
       <button type="button" id="bank-manage-toggle" class="fin-manage-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Manage list</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -17060,7 +17082,91 @@ function renderBankFullList(container, scope){
     });
   });
 }
+
+/* ================= CREDIT SCORE (Finance page) =================
+   Experian has no API for personal apps, so the score is entered by hand — made as quick as possible:
+   "Check on Experian" opens it, and coming back to Medulla puts the cursor straight in the update box. */
+let creditData = (()=>{ const d = loadJSON(NS+"credit", null); return (d && Array.isArray(d.history)) ? d : {history:[], bureau:"Experian"}; })();
+function saveCredit(){ saveJSON(NS+"credit", creditData); }
+const CS_BANDS = [[300,"Poor","#e5484d"],[580,"Fair","#f0883e"],[670,"Good","#f2c14e"],[740,"Very Good","#7bd88f"],[800,"Exceptional","#36d39a"]];
+function csBand(sc){ let b = CS_BANDS[0]; for(const x of CS_BANDS) if(sc >= x[0]) b = x; return {label:b[1], color:b[2]}; }
+const CS_LINKS = {Experian:"https://usa.experian.com/login/index", TransUnion:"https://service.transunion.com/dss/login.page", Equifax:"https://my.equifax.com/membercenter/#/login", "Credit Karma":"https://www.creditkarma.com/auth/logon"};
+let csAwaitReturn = false;
+function csGauge(sc){
+  /* half-circle gauge 300-850 */
+  const a = Math.PI * (1 - (Math.max(300, Math.min(850, sc||300)) - 300) / 550);
+  const x = 100 + 80*Math.cos(a), y = 100 - 80*Math.sin(a);
+  const seg = CS_BANDS.map((b,i)=>{
+    const from = b[0], to = i < CS_BANDS.length-1 ? CS_BANDS[i+1][0] : 850;
+    const a0 = Math.PI*(1-(from-300)/550), a1 = Math.PI*(1-(to-300)/550);
+    return `<path d="M${100+80*Math.cos(a0)} ${100-80*Math.sin(a0)} A80 80 0 0 1 ${100+80*Math.cos(a1)} ${100-80*Math.sin(a1)}" stroke="${b[2]}" stroke-width="12" fill="none" opacity="${sc ? .9 : .25}"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 200 112" class="cs-gauge">${seg}${sc ? `<circle cx="${x}" cy="${y}" r="9" fill="#0b1a33" stroke="#fff" stroke-width="3"/>` : ""}</svg>`;
+}
+function csSpark(hist){
+  if(hist.length < 2) return "";
+  const h = hist.slice(-12), lo = Math.min(...h.map(x=>x.score)) - 10, hi = Math.max(...h.map(x=>x.score)) + 10;
+  const pts = h.map((x,i)=>`${(i/(h.length-1)*280+10).toFixed(1)},${(70 - (x.score-lo)/(hi-lo||1)*60).toFixed(1)}`);
+  return `<svg viewBox="0 0 300 80" class="cs-spark"><polyline points="${pts.join(" ")}" fill="none" stroke="#5aa9ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${h.map((x,i)=>`<circle cx="${pts[i].split(",")[0]}" cy="${pts[i].split(",")[1]}" r="3.2" fill="#5aa9ff"><title>${x.score} · ${new Date(x.ts).toLocaleDateString()}</title></circle>`).join("")}</svg>`;
+}
+function renderCreditCard(scope){
+  const box = scope.querySelector("#credit-card");
+  if(!box) return;
+  const h = creditData.history, last = h[h.length-1], prev = h[h.length-2];
+  const band = last ? csBand(last.score) : null;
+  const days = last ? Math.floor((Date.now() - last.ts)/86400000) : null;
+  const delta = last && prev ? last.score - prev.score : null;
+  const bureau = creditData.bureau || "Experian";
+  box.innerHTML = `
+    <div class="cs-left">
+      <div class="cs-gwrap">${csGauge(last && last.score)}
+        <div class="cs-num">${last ? `<b>${last.score}</b><span style="color:${band.color}">${band.label}</span>` : `<b>—</b><span>No score yet</span>`}</div></div>
+    </div>
+    <div class="cs-right">
+      <div class="cs-top"><h3>Credit score</h3>
+        <select id="cs-bureau" title="Where the score comes from">${Object.keys(CS_LINKS).map(k=>`<option${k===bureau?" selected":""}>${k}</option>`).join("")}</select></div>
+      <div class="cs-meta">${last ? `${escapeHtml(last.src || bureau)} · updated ${days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago"}${delta != null ? ` · <span class="${delta >= 0 ? "up" : "down"}">${delta >= 0 ? "+" : ""}${delta} since ${new Date(prev.ts).toLocaleDateString([], {month:"short", day:"numeric"})}</span>` : ""}` : "Add your score to start tracking it."}</div>
+      ${days != null && days > 30 ? `<div class="cs-stale">It's been over a month — check for your newest score.</div>` : ""}
+      ${csSpark(h)}
+      <div class="cs-row">
+        <button type="button" class="cs-check" id="cs-check">Check on ${escapeHtml(bureau)} ↗</button>
+        <label class="cs-input"><input id="cs-new" type="number" inputmode="numeric" min="300" max="850" placeholder="${last ? "New score" : "Your score"}"><button type="button" id="cs-save">Update</button></label>
+      </div>
+      <div class="cs-msg" id="cs-msg"></div>
+    </div>`;
+  const inp = box.querySelector("#cs-new"), msg = box.querySelector("#cs-msg");
+  const save = ()=>{
+    const v = Math.round(Number(inp.value));
+    if(!(v >= 300 && v <= 850)){ msg.textContent = "Scores run from 300 to 850."; inp.focus(); return; }
+    const today = new Date().toDateString();
+    const lastE = creditData.history[creditData.history.length-1];
+    const entry = {score:v, ts:Date.now(), src:creditData.bureau || "Experian"};
+    if(lastE && new Date(lastE.ts).toDateString() === today) creditData.history[creditData.history.length-1] = entry;   /* same day: correct it */
+    else creditData.history.push(entry);
+    creditData.history = creditData.history.slice(-60);
+    saveCredit(); csAwaitReturn = false; renderCreditCard(scope);
+  };
+  box.querySelector("#cs-save").addEventListener("click", save);
+  inp.addEventListener("keydown", e=>{ if(e.key === "Enter") save(); });
+  box.querySelector("#cs-bureau").addEventListener("change", e=>{ creditData.bureau = e.target.value; saveCredit(); renderCreditCard(scope); });
+  box.querySelector("#cs-check").addEventListener("click", ()=>{
+    window.open(CS_LINKS[creditData.bureau || "Experian"], "_blank", "noopener");
+    csAwaitReturn = true;
+  });
+  if(csAwaitReturn){ box.classList.add("await"); msg.textContent = "Type your new score and press Enter."; }
+}
+/* back from the credit site: put the cursor in the update box */
+window.addEventListener("focus", ()=>{
+  if(!csAwaitReturn) return;
+  const inp = document.getElementById("cs-new");
+  if(!inp) return;
+  const box = document.getElementById("credit-card"); if(box) box.classList.add("await");
+  const msg = document.getElementById("cs-msg"); if(msg) msg.textContent = "Type your new score and press Enter.";
+  setTimeout(()=>inp.focus(), 50);
+});
+
 function hydrateBankingFull(scope){
+  renderCreditCard(scope);
   const search = scope.querySelector("#bank-search-input");
   const grid = scope.querySelector("#bank-quick-grid");
   renderBankQuickGrid(grid);
