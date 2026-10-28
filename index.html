@@ -2529,7 +2529,15 @@
   .db-cal-body > svg{width:20px;height:20px;color:#cfe0f5;flex:none;}
   .db-fc{padding:16px 18px 18px;}
   .db-fc-days{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px;}
-  .db-fc-day{text-align:center;padding:12px 4px;border-radius:12px;background:rgba(9,20,38,.6);border:1px solid rgba(130,153,184,.12);}
+  .db-fc-day{text-align:center;padding:12px 4px;border-radius:12px;background:rgba(9,20,38,.6);border:1px solid rgba(130,153,184,.12);color:inherit;font:inherit;cursor:pointer;transition:border-color .15s, background .15s;}
+  .db-fc-day:hover{border-color:var(--db-edge-strong);}
+  .db-fc-day.sel{border-color:var(--accent);background:rgba(30,80,160,.45);box-shadow:0 0 16px -6px var(--accent);}
+  .db-fc-detail{margin-top:12px;padding-top:10px;border-top:1px solid rgba(130,153,184,.14);}
+  .db-fc-detail:empty{display:none;}
+  .db-fc-dhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+  .db-fc-dhead b{font-size:14px;} .db-fc-dhead span{font-size:12.5px;color:var(--text-dim);}
+  .db-fc-stats{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--font-mono);font-size:13px;}
+  .db-fc-stats small{display:block;font-family:var(--font-body);font-size:10.5px;color:var(--text-dim);margin-bottom:1px;}
   .db-fc-day.today{border-color:var(--db-edge-strong);background:rgba(20,44,80,.5);}
   .db-fc-day span{display:block;font-size:12px;color:var(--text-dim);}
   .db-fc-day b{display:block;font-family:var(--font-mono);font-size:16px;font-weight:600;margin-top:6px;}
@@ -15544,15 +15552,22 @@ async function fetchWeatherData(){
   const loc = await fetchApproxLocation();
   if(!loc) return null;
   try{
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,weather_code,is_day,uv_index&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m,weather_code,is_day,uv_index&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`);
     const data = await res.json();
     const cw = data.current;
     if(!cw) return null;
     const daily = data.daily || {};
+    const at = (k,i)=>(daily[k] && daily[k][i] != null) ? daily[k][i] : null;
     const forecast = (daily.time || []).map((date,i)=>({
       date,
       high: Math.round(daily.temperature_2m_max[i]),
       low: Math.round(daily.temperature_2m_min[i]),
+      code: at("weather_code", i),
+      rain: at("precipitation_probability_max", i),
+      precip: at("precipitation_sum", i),
+      wind: at("wind_speed_10m_max", i) != null ? Math.round(at("wind_speed_10m_max", i)) : null,
+      uv: at("uv_index_max", i) != null ? Math.round(at("uv_index_max", i)) : null,
+      sunrise: at("sunrise", i), sunset: at("sunset", i),
     }));
     cachedWeatherData = {
       temp: Math.round(cw.temperature_2m),
@@ -18509,6 +18524,7 @@ function buildDashboard(){
       <section class="db-panel db-fc clickable" id="db-fc" data-panel="forecast" title="Open Weather">
         <div class="db-title">${dbIcon("weather")}Forecast<small id="db-fc-city"></small></div>
         <div class="db-fc-days" id="db-fc-days"></div>
+        <div class="db-fc-detail" id="db-fc-detail"></div>
       </section>
       <section class="db-panel db-world" data-panel="world">
         <div class="db-title">${dbIcon("globe")}World Clock</div>
@@ -18767,6 +18783,30 @@ async function renderDbMarket(){
 }
 
 /* ---- weather + forecast ---- */
+/* forecast panel: click a day to see that day's weather right in the panel */
+let dbFcData = [], dbFcSel = 0;
+function dbRenderForecast(){
+  const box = $("#db-fc-days"), det = $("#db-fc-detail");
+  if(!box) return;
+  box.innerHTML = dbFcData.map((f,i)=>{
+    const d = new Date(f.date+"T12:00:00");
+    return `<button type="button" class="db-fc-day ${i===0?"today":""}${i===dbFcSel?" sel":""}" data-fc="${i}" title="See ${i===0?"today":d.toLocaleDateString("en-US",{weekday:"long"})}'s weather"><span>${i===0?"Today":d.toLocaleDateString("en-US",{weekday:"short"})}</span><b>${f.high}°</b><small>${f.low}°</small></button>`;
+  }).join("");
+  box.querySelectorAll("[data-fc]").forEach(b=>b.addEventListener("click", e=>{ e.stopPropagation(); dbFcSel = Number(b.dataset.fc); dbRenderForecast(); }));
+  const f = dbFcData[dbFcSel];
+  if(!det || !f){ if(det) det.innerHTML = ""; return; }
+  const d = new Date(f.date+"T12:00:00");
+  const tm = t=>t ? new Date(t).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : "";
+  const cond = f.code != null ? (WEATHER_CODE_TEXT[f.code] || "") : "";
+  det.innerHTML = `<div class="db-fc-dhead"><b>${dbFcSel===0 ? "Today" : d.toLocaleDateString("en-US",{weekday:"long", month:"short", day:"numeric"})}</b>${cond ? `<span>${dbEsc(cond.charAt(0).toUpperCase()+cond.slice(1))}</span>` : ""}</div>
+    <div class="db-fc-stats">
+      <span><small>High / Low</small>${f.high}° / ${f.low}°</span>
+      ${f.rain != null ? `<span><small>Rain</small>${f.rain}%${f.precip ? ` · ${f.precip.toFixed(2)}"` : ""}</span>` : ""}
+      ${f.wind != null ? `<span><small>Wind</small>${f.wind} mph</span>` : ""}
+      ${f.uv != null ? `<span><small>UV</small>${f.uv} (${uvCategory(f.uv)})</span>` : ""}
+      ${f.sunrise ? `<span><small>Sun</small>${tm(f.sunrise)} – ${tm(f.sunset)}</span>` : ""}
+    </div>`;
+}
 async function renderDbWeather(){
   const data = await fetchWeatherData();
   const info = $("#db-weather-info");
@@ -18785,10 +18825,9 @@ async function renderDbWeather(){
     <div class="db-weather-city">${dbEsc(data.city || "Your area")}</div>
     <div class="db-weather-meta"><span class="cond">${dbEsc(data.description)}</span>${today?`<br>H: ${today.high}° L: ${today.low}°`:""}${data.uvIndex!=null?`<br>UV ${data.uvIndex} (${uvCategory(data.uvIndex)})`:""}</div>`;
   $("#db-fc-city").textContent = data.city || "";
-  $("#db-fc-days").innerHTML = data.forecast.slice(0,5).map((f,i)=>{
-    const d = new Date(f.date+"T12:00:00");
-    return `<div class="db-fc-day ${i===0?"today":""}"><span>${i===0?"Today":d.toLocaleDateString("en-US",{weekday:"short"})}</span><b>${f.high}°</b><small>${f.low}°</small></div>`;
-  }).join("");
+  dbFcData = data.forecast.slice(0,5);
+  if(dbFcSel >= dbFcData.length) dbFcSel = 0;
+  dbRenderForecast();
 }
 
 /* ---- clock, calendar, status line, world clock list ---- */
