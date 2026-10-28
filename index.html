@@ -1868,6 +1868,14 @@
   .pf-acts button{width:24px;height:24px;border-radius:6px;border:0;background:rgba(255,255,255,.06);color:#93a8c2;cursor:pointer;font-size:12px;}
   .pf-acts button.armed{background:#c62f3d;color:#fff;}
   @media (max-width:820px){ .pf-row{grid-template-columns:1fr 1fr 1fr;} .pf-chart,.pf-headrow{display:none;} }
+
+  .nw-root.drop{outline:2px dashed #5aa9ff;outline-offset:-8px;border-radius:12px;}
+  .pf-review{margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid #5aa9ff;background:rgba(20,50,95,.35);display:flex;flex-direction:column;gap:6px;}
+  .pf-rv-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;} .pf-rv-head b{color:#fff;} .pf-rv-head span{font-size:12px;color:#a9bcd6;}
+  .pf-rv-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .pf-rv-row input:not([type=checkbox]){height:30px;border-radius:7px;border:1px solid rgba(124,180,255,.3);background:rgba(4,12,24,.7);color:#e6eef8;font:inherit;font-size:12.5px;padding:0 8px;width:100px;}
+  .pf-rv-row .pf-rv-sym{width:110px;font-weight:600;} .pf-rv-row small{font-size:11px;color:#93a8c2;}
+  .pf-rv-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-phone #modal-body{padding:0;}
@@ -9099,8 +9107,11 @@ function networthFullHTML(){
     <div class="nw-totals" id="pf-totals"></div>
     <div class="pf-bar">
       <div class="pf-ranges" id="pf-ranges">${PF_RANGES.map(([k,l])=>`<button type="button" data-r="${k}">${l}</button>`).join("")}</div>
-      <div class="pf-add"><input id="pf-sym" placeholder="Symbol (AAPL, VOO, BTC-USD)" autocomplete="off"><input id="pf-sh" type="number" step="any" min="0" placeholder="Shares"><input id="pf-cost" type="number" step="any" min="0" placeholder="Avg cost (optional)"><button type="button" class="ph-btn primary sm" id="pf-addbtn">Add</button></div>
+      <div class="pf-add"><input id="pf-sym" placeholder="Symbol (AAPL, VOO, BTC-USD)" autocomplete="off"><input id="pf-sh" type="number" step="any" min="0" placeholder="Shares"><input id="pf-cost" type="number" step="any" min="0" placeholder="Avg cost (optional)"><button type="button" class="ph-btn primary sm" id="pf-addbtn">Add</button>
+        <button type="button" class="ph-btn outline sm" id="pf-shot" title="Read your holdings from a screenshot of your brokerage app (you can also paste or drop one here)">Import screenshot</button>
+        <input type="file" id="pf-shot-file" accept="image/*" hidden></div>
     </div>
+    <div class="pf-review" id="pf-review" hidden></div>
     <div class="nw-msg" id="pf-msg"></div>
     <div class="pf-table" id="pf-table"></div>
   </div>`;
@@ -9160,7 +9171,71 @@ async function pfLoad(scope){
   }catch(e){ msg.textContent = e.message; }
   if(scope.querySelector("#pf-table")) pfRender(scope);
 }
+/* screenshot -> holdings: shrink the image, ask the Worker's vision model, then let the user review */
+async function pfImageToDataUrl(file){
+  const url = URL.createObjectURL(file);
+  try{
+    const im = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth*k); c.height = Math.round(im.naturalHeight*k);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", .88);
+  } finally { URL.revokeObjectURL(url); }
+}
+async function pfScan(scope, file){
+  const msg = scope.querySelector("#pf-msg"), box = scope.querySelector("#pf-review");
+  if(!file || !/^image\//.test(file.type)){ msg.textContent = "That isn't an image."; return; }
+  if(!MEDULLA_AI_PROXY_URL){ msg.textContent = "Reading screenshots needs the Medulla Worker."; return; }
+  msg.textContent = "Reading your screenshot…";
+  let found;
+  try{
+    const image = await pfImageToDataUrl(file);
+    const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/portfolio/scan", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({image})});
+    if(r.status === 404 || r.status === 405) throw new Error("The Worker hasn't been updated yet — run the deploy once.");
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error === "rate_limited" ? "Too many scans in a minute — wait a moment." : "Couldn't read that screenshot — try a clearer one.");
+    found = d.holdings || [];
+  }catch(e){ msg.textContent = e.message; return; }
+  if(!found.length){ msg.textContent = "No positions with share counts found in that screenshot."; return; }
+  msg.textContent = `Found ${found.length} position${found.length===1?"":"s"} — check them, then add.`;
+  box.hidden = false;
+  box.innerHTML = `<div class="pf-rv-head"><b>From your screenshot</b><span>Untick anything wrong, fix any number, then add.</span></div>
+    ${found.map((h,i)=>{ const have = pfData.holdings.find(x=>x.sym === h.sym);
+      return `<label class="pf-rv-row"><input type="checkbox" data-rv="${i}" checked>
+        <input class="pf-rv-sym" value="${escapeHtml(h.sym)}"><input class="pf-rv-sh" type="number" step="any" value="${h.shares}"><input class="pf-rv-cost" type="number" step="any" value="${h.cost ?? ""}" placeholder="avg cost">
+        <small>${have ? `replaces ${+have.shares} sh` : "new"}</small></label>`; }).join("")}
+    <div class="pf-rv-acts"><button type="button" class="ph-btn outline sm" id="pf-rv-cancel">Cancel</button><button type="button" class="ph-btn primary sm" id="pf-rv-ok">Add to portfolio</button></div>`;
+  box.querySelector("#pf-rv-cancel").addEventListener("click", ()=>{ box.hidden = true; box.innerHTML = ""; msg.textContent = ""; });
+  box.querySelector("#pf-rv-ok").addEventListener("click", ()=>{
+    let n = 0;
+    box.querySelectorAll(".pf-rv-row").forEach(row=>{
+      if(!row.querySelector("[data-rv]").checked) return;
+      const sym = row.querySelector(".pf-rv-sym").value.trim().toUpperCase(), sh = parseFloat(row.querySelector(".pf-rv-sh").value), cost = parseFloat(row.querySelector(".pf-rv-cost").value);
+      if(!/^[A-Z0-9.\-^=]{1,15}$/.test(sym) || !(sh > 0)) return;
+      const h = {sym, shares:sh, cost:cost > 0 ? cost : null};
+      const i = pfData.holdings.findIndex(x=>x.sym === sym);
+      if(i >= 0) pfData.holdings[i] = h; else pfData.holdings.push(h);
+      n++;
+    });
+    savePf(); box.hidden = true; box.innerHTML = "";
+    msg.textContent = `Added ${n} holding${n===1?"":"s"}.`;
+    pfLoad(scope);
+  });
+}
 function hydrateNetworthFull(scope){
+  const shotFile = scope.querySelector("#pf-shot-file");
+  scope.querySelector("#pf-shot").addEventListener("click", ()=>shotFile.click());
+  shotFile.addEventListener("change", ()=>{ const f = shotFile.files[0]; shotFile.value = ""; if(f) pfScan(scope, f); });
+  const root = scope.querySelector(".nw-root");
+  root.addEventListener("dragover", e=>{ e.preventDefault(); root.classList.add("drop"); });
+  root.addEventListener("dragleave", e=>{ if(e.target === root) root.classList.remove("drop"); });
+  root.addEventListener("drop", e=>{ e.preventDefault(); root.classList.remove("drop"); const f = [...(e.dataTransfer.files||[])].find(f=>/^image\//.test(f.type)); if(f) pfScan(scope, f); });
+  const onPaste = e=>{
+    if(!root.isConnected){ document.removeEventListener("paste", onPaste); return; }
+    const it = [...(e.clipboardData && e.clipboardData.items || [])].find(i=>/^image\//.test(i.type));
+    if(it){ e.preventDefault(); pfScan(scope, it.getAsFile()); }
+  };
+  document.addEventListener("paste", onPaste);
   scope.querySelector("#nw-close").addEventListener("click", closeModal);
   scope.querySelector("#pf-refresh").addEventListener("click", ()=>pfLoad(scope));
   scope.querySelectorAll("#pf-ranges [data-r]").forEach(b=>b.addEventListener("click", ()=>{ pfData.range = b.dataset.r; savePf(); pfLoad(scope); }));
@@ -9181,7 +9256,7 @@ function hydrateNetworthFull(scope){
   ["#pf-sym","#pf-sh","#pf-cost"].forEach(s=>scope.querySelector(s).addEventListener("keydown", e=>{ if(e.key === "Enter") add(); }));
   pfRender(scope); pfLoad(scope);
   const t = setInterval(()=>{ if(document.visibilityState === "visible") pfLoad(scope); }, 60000);
-  return ()=>clearInterval(t);
+  return ()=>{ clearInterval(t); document.removeEventListener("paste", onPaste); };
 }
 
 /* ================= GARAGE WIDGET ================= */

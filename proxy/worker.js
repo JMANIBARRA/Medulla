@@ -531,6 +531,32 @@ async function stockQuotes(request, cors){
   return new Response(JSON.stringify({range, quotes:out, at:Date.now()}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"public, max-age=60"}});
 }
 
+/* ---- read holdings off a brokerage screenshot (vision model) ----
+   POST /portfolio/scan {image:"data:image/jpeg;base64,..."} -> {holdings:[{sym, shares, cost}]} */
+async function portfolioScan(request, env, cors){
+  if(!env.GROQ_API_KEY) return json({error:"proxy_not_configured"}, 500, cors);
+  let body;
+  try{ body = await request.json(); }catch(e){ return json({error:"bad_request"}, 400, cors); }
+  const img = String(body && body.image || "");
+  if(!/^data:image\/(png|jpe?g|webp);base64,/.test(img)) return json({error:"bad_image"}, 400, cors);
+  if(img.length > 5_500_000) return json({error:"image_too_large"}, 413, cors);
+  const prompt = `This is a screenshot of someone's investment portfolio (any brokerage app, e.g. Webull, Robinhood, Fidelity, Schwab, Coinbase).
+List every position you can see. For each: the ticker symbol exactly as shown (use Yahoo Finance style for crypto, e.g. BTC-USD), the quantity of shares/units held, and the average cost per share if it is shown (otherwise null).
+Do NOT use market value, price, or P&L as the quantity. If the quantity isn't visible for a row, skip that row. Never invent positions.
+Answer with JSON only: {"holdings":[{"sym":"AAPL","shares":12,"cost":180.5}]}`;
+  let out;
+  try{
+    out = await groqJSON(env, env.PORTFOLIO_VISION_MODEL || env.GARAGE_VISION_MODEL || "qwen/qwen3.8-27b",
+      [{role:"user", content:[{type:"text", text:prompt}, {type:"image_url", image_url:{url:img}}]}], 1500);
+  }catch(e){ return json({error:"scan_failed", message:String(e && e.message || e).slice(0,120)}, 502, cors); }
+  const num = v=>{ const n = Number(String(v==null?"":v).replace(/[^0-9.\-]/g, "")); return isFinite(n) && n > 0 ? n : null; };
+  const holdings = (Array.isArray(out && out.holdings) ? out.holdings : []).map(h=>({
+    sym:String(h.sym||h.symbol||h.ticker||"").toUpperCase().replace(/^\$/, "").trim(),
+    shares:num(h.shares ?? h.quantity ?? h.qty), cost:num(h.cost ?? h.avg_cost ?? h.average_cost),
+  })).filter(h=>/^[A-Z0-9.\-^=]{1,15}$/.test(h.sym) && h.shares).slice(0, 60);
+  return new Response(JSON.stringify({holdings}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"no-store"}});
+}
+
 export default {
   async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
@@ -539,6 +565,11 @@ export default {
 
     if(request.method === "OPTIONS") return new Response(null, {status:204, headers:cors});
     const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if(path === "/portfolio/scan"){
+      if(request.method !== "POST") return json({error:"method_not_allowed"}, 405, cors);
+      if(env.RATE_LIMITER){ const { success } = await env.RATE_LIMITER.limit({ key: "scan:" + (request.headers.get("CF-Connecting-IP") || "unknown") }); if(!success) return json({error:"rate_limited"}, 429, cors); }
+      return portfolioScan(request, env, cors);
+    }
     if(path === "/stocks/quotes"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return stockQuotes(request, cors);
