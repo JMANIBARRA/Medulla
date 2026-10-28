@@ -2912,6 +2912,8 @@
   .db-tile span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
   .db-apps-list{display:contents;}
+  #undo-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);z-index:10000;padding:10px 18px;border-radius:999px;background:#0f2140;border:1px solid rgba(124,180,255,.3);color:#e6eef8;font-size:13px;font-weight:600;box-shadow:0 14px 34px -12px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .18s, transform .18s;}
+  #undo-toast.show{opacity:1;transform:translate(-50%,0);}
   .db-tile .db-favtile{position:relative;flex:none;width:24px;height:24px;display:grid;place-items:center;overflow:visible;}
   .db-tile .db-favtile img{position:absolute;inset:0;width:24px;height:24px;border-radius:6px;background:#fff;padding:2px;box-sizing:border-box;object-fit:contain;}
   .db-tile{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
@@ -2921,6 +2923,9 @@
   .db-tile-ghost.db-ghost-out{transform:scale(1.06);}
   .db-tile-ghost.db-ghost-out::after{content:"Drop to add to dashboard";position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:#2f8bff;padding:3px 9px;border-radius:999px;}
   body.db-tile-dragging, body.db-tile-dragging *{cursor:grabbing !important;}
+  .db-panel.db-win-toapps{opacity:.55;transform:scale(.6);transition:transform .15s, opacity .15s;pointer-events:none;z-index:999 !important;}
+  .db-panel.db-apps-drop{outline:2px dashed #4d9bff;outline-offset:-2px;box-shadow:0 0 0 6px rgba(47,139,255,.15), 0 0 40px -6px #2f8bff;}
+  .db-panel.db-apps-drop::after{content:"Drop to send to Apps";position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:40;font-size:12px;font-weight:700;color:#fff;background:#2f8bff;padding:5px 12px;border-radius:999px;pointer-events:none;}
   .db-panel.db-drop-target{outline:2px dashed #ffb040;outline-offset:-2px;}
   .db-panel.db-drop-target::before{content:"Replace";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;font-size:13px;font-weight:700;color:#1a1100;background:#ffb040;padding:6px 14px;border-radius:999px;pointer-events:none;}
   .db-confirm{z-index:9900;}
@@ -3947,8 +3952,152 @@ function loadJSON(key, fallback){
   try{ const v = localStorage.getItem(key); return v?JSON.parse(v):fallback; }catch(e){ return fallback; }
 }
 function saveJSON(key,val){
-  try{ localStorage.setItem(key, JSON.stringify(val)); scheduleCloudPush(); }catch(e){ console.warn("save failed",e); }
+  try{
+    const json = JSON.stringify(val);
+    if(typeof undoRecord === "function") undoRecord(key, json);
+    localStorage.setItem(key, json); scheduleCloudPush();
+  }catch(e){ console.warn("save failed",e); }
 }
+/* ================= UNDO / REDO (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl+Y) =================
+   Every save you cause (a click, drag, typing burst) is recorded as before/after for that storage
+   key; saves within ~0.7s are one step. Background saves (prices, weather, chat history) aren't
+   recorded. Undo puts the old values back, updates the app's memory, and redraws what's on screen.
+   Text fields keep their own normal Ctrl+Z. */
+const UNDO_SKIP = /:(aiConversation|aiInputHistory|deviceId|deviceLocation|globePos|networthSync|focuslog|ambientVolume|ambientMuted|lang|viewMode|profiles)$/;
+const UNDO_SETTERS = {
+  "tickers": v=>{ tickerData = v == null ? ({pinned:["bitcoin","ethereum"]}) : v; },
+  "sports": v=>{ sportsData = v == null ? ({teams:["Miami Heat","Miami Dolphins"]}) : v; },
+  "garage": v=>{ garageData = v == null ? ({vehicles:[]}) : v; },
+  "phone": v=>{ phoneData = v == null ? ({contacts:[]}) : v; },
+  "bluetooth": v=>{ bluetoothData = v == null ? ({devices:[]}) : v; },
+  "video": v=>{ videoData = v == null ? ({url:"", videoId:"", volume:70, muted:false}) : v; },
+  "videoOAuth": v=>{ videoDataOAuth = v == null ? ({url:"", videoId:"", volume:70, muted:false}) : v; },
+  "calendar": v=>{ calendarData = v == null ? ({events:{}}) : v; },
+  "ytApiKey": v=>{ ytApiKey = v == null ? ("") : v; },
+  "googleClientId": v=>{ googleClientId = v == null ? ("") : v; },
+  "twelveDataApiKey": v=>{ twelveDataApiKey = v == null ? ("") : v; },
+  "homeLocation": v=>{ homeLocationOverride = v; },
+  "userPreferredName": v=>{ userPreferredName = v == null ? ("") : v; },
+  "capsuleSize": v=>{ capsuleSizePreset = v == null ? ("M") : v; },
+  "groqApiKey": v=>{ groqApiKey = v == null ? ("") : v; },
+  "themeAccent": v=>{ themeAccent = v == null ? ("#5aa9ff") : v; },
+  "marketUi": v=>{ mktUi = v == null ? ({tab:"watchlist", range:"1", filter:"all"}) : v; },
+  "sportsDbApiKey": v=>{ sportsDbApiKey = v == null ? ("") : v; },
+  "career": v=>{ careerData = v; },
+  "portfolio": v=>{ pfData = v == null ? ({holdings:[], range:"1mo"}) : v; },
+  "garagePhotos": v=>{ garagePhotos = v == null ? ({}) : v; },
+  "cursorBirdie": v=>{ cursorBirdie = v == null ? (false) : v; },
+  "maillinks": v=>{ mailData = v == null ? ([
+  {label:"Gmail", url:"https://mail.google.com", hidden:false},
+  {label:"Outlook", url:"https://outlook.live.com", hidden:false},
+  {label:"ProtonMail", url:"https://mail.proton.me", hidden:false},
+]) : v; },
+  "chrono": v=>{ chronoData = v == null ? ({mode:"digital"}) : v; },
+  "scratchpad": v=>{ scratchData = v == null ? ({pages:[{id:"p1",name:"Page 1",content:""}], active:"p1"}) : v; },
+  "arcade": v=>{ arcadeData = v == null ? ({flappyHigh:0, blackjackBalance:1000, lastBet:50}) : v; },
+  "banklinks": v=>{ bankData = v == null ? ([
+  {label:"Chase", url:"https://www.chase.com", hidden:false},
+  {label:"Bank of America", url:"https://secure.bankofamerica.com", hidden:false},
+  {label:"Wells Fargo", url:"https://www.wellsfargo.com", hidden:false},
+  {label:"Fidelity", url:"https://www.fidelity.com", hidden:false},
+  {label:"Vanguard", url:"https://www.vanguard.com", hidden:false},
+  {label:"Robinhood", url:"https://robinhood.com", hidden:false},
+  {label:"Webull", url:"https://www.webull.com", hidden:false},
+  {label:"PayPal", url:"https://www.paypal.com", hidden:false},
+  {label:"Venmo", url:"https://venmo.com", hidden:false},
+  {label:"Cash App", url:"https://cash.app", hidden:false},
+  {label:"Zelle", url:"https://www.zellepay.com", hidden:false},
+]) : v; },
+  "credit": v=>{ creditData = v; },
+  "claudeprojects": v=>{ claudeProjectsData = v == null ? ({title:"", notes:"", snippet:""}) : v; },
+  "fitness": v=>{ fitnessData = v == null ? ({age:"", gender:"", weight:"", weightUnit:"lbs", entries:[], plan:null, equipment:[], cardio:[]}) : v; },
+  "dashBalance": v=>{ dbBalance = v == null ? ({assets:0, liabilities:0, hidden:false, range:"YTD", history:[]}) : v; },
+  "appsOrder": v=>{ dbAppsOrder = v == null ? ([]) : v; },
+  "dashPinned": v=>{ dbPinned = Array.isArray(v) ? v : []; },
+};
+let appUndoStack = [], appRedoStack = [], undoLastInput = 0, undoApplying = false;
+["pointerdown","pointerup","click","keydown","drop","change","input"].forEach(t=>window.addEventListener(t, e=>{
+  if(t==="keydown" && (e.metaKey || e.ctrlKey) && /^[zy]$/i.test(e.key)) return;
+  undoLastInput = Date.now();
+}, true));
+function undoRecord(key, json){
+  if(undoApplying || UNDO_SKIP.test(key)) return;
+  if(Date.now() - undoLastInput > 2000) return;          /* not caused by you: a background refresh */
+  const before = localStorage.getItem(key);
+  if(before === json) return;
+  const now = Date.now(), top = appUndoStack[appUndoStack.length-1];
+  if(top && now - top.t < 700){
+    if(!(key in top.ch)) top.ch[key] = {before, after:json}; else top.ch[key].after = json;
+    top.t = now;
+  } else {
+    appUndoStack.push({t:now, ch:{[key]:{before, after:json}}});
+    if(appUndoStack.length > 100) appUndoStack.shift();
+  }
+  appRedoStack = [];
+}
+function undoApply(step, dir){
+  undoApplying = true;
+  const keys = Object.keys(step.ch);
+  try{
+    keys.forEach(k=>{
+      const v = dir === "undo" ? step.ch[k].before : step.ch[k].after;
+      if(v == null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+      const short = k.startsWith(NS) ? k.slice(NS.length) : k;
+      if(UNDO_SETTERS[short]){ try{ UNDO_SETTERS[short](v == null ? null : JSON.parse(v)); }catch(e){} }
+    });
+    if(typeof scheduleCloudPush === "function") scheduleCloudPush();
+    undoRefresh(keys);
+  } finally { undoApplying = false; }
+}
+function undoRefresh(keys){
+  const short = keys.map(k=>k.startsWith(NS) ? k.slice(NS.length) : k);
+  const layoutKeys = ["dashLayout","dashWindows","dashPinned","appsOrder"];
+  try{
+    if(short.some(k=>layoutKeys.includes(k)) && typeof dbUndoSyncLayout === "function") dbUndoSyncLayout();
+  }catch(e){ console.warn(e); }
+  /* the open window: reopen it on the restored data */
+  try{
+    const ov = document.getElementById("modal-overlay");
+    if(ov && ov.classList.contains("open") && undoOpenDef){
+      const page = document.body.classList.contains("db-page"), def = undoOpenDef;
+      const sc = document.getElementById("modal-panel").scrollTop;
+      if(page && typeof dbOpenPage === "function"){ const nav = document.querySelector("#db-nav .active"); closeModal(); dbOpenPage(nav ? nav.dataset.nav : def.id); }
+      else { closeModal(); openModal(def); }
+      document.getElementById("modal-panel").scrollTop = sc;
+    }
+  }catch(e){ console.warn(e); }
+  try{ if(typeof renderDbBalance === "function" && document.getElementById("db-bal-amt")) renderDbBalance(); }catch(e){}
+  try{ if(typeof renderDbCalendar === "function") renderDbCalendar(); }catch(e){}
+  try{ if(typeof dbRenderApps === "function") dbRenderApps(); }catch(e){}
+  try{ if(typeof dbPinned !== "undefined") dbPinned.forEach(a=>{ if(dbPinnedMounts[a]){ dbUnmountPinned(a); dbMountPinned(a); } }); }catch(e){}
+  try{ if(typeof renderWidgets === "function") renderWidgets(); }catch(e){}
+}
+let undoOpenDef = null;
+function undoToast(msg){
+  let t = document.getElementById("undo-toast");
+  if(!t){ t = document.createElement("div"); t.id = "undo-toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+window.addEventListener("keydown", e=>{
+  if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  if(typeof paintMode !== "undefined" && paintMode) return;
+  const k = e.key.toLowerCase();
+  const isUndo = k === "z" && !e.shiftKey, isRedo = (k === "z" && e.shiftKey) || (k === "y" && e.ctrlKey && !e.metaKey);
+  if(!isUndo && !isRedo) return;
+  const t = e.target;
+  if(t && (t.closest && t.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']"))) return; /* normal text undo */
+  e.preventDefault();
+  if(isUndo){
+    const step = appUndoStack.pop();
+    if(!step){ undoToast("Nothing to undo"); return; }
+    undoApply(step, "undo"); appRedoStack.push(step); undoToast("Undone · " + (navigator.platform.includes("Mac") ? "⇧⌘Z" : "Ctrl+Y") + " to redo");
+  } else {
+    const step = appRedoStack.pop();
+    if(!step){ undoToast("Nothing to redo"); return; }
+    undoApply(step, "redo"); appUndoStack.push(step); undoToast("Redone");
+  }
+});
 
 /* ================= LANGUAGE (EN <-> ES) =================
    App-wide interface translation. Deliberately NOT a per-string wrapper threaded through every
@@ -6844,6 +6993,7 @@ function hydrateFullView(id, scope){
 function openModal(def){
   /* quick-link apps (YouTube) just open their site in a new tab */
   if(def.link){ window.open(def.link, "_blank", "noopener"); return; }
+  undoOpenDef = def;
   if(typeof dbSuspendPinned === "function") dbSuspendPinned(def.id);
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
@@ -20085,6 +20235,35 @@ function dbRestorePanel(id, at){
 }
 /* Apps panel: minimized dashboard panels and every app not on the dashboard, in your saved order */
 let dbAppsOrder = loadJSON(NS+"appsOrder", []) || [];
+/* after an undo/redo touched the layout: reload it from storage and make the screen match */
+function dbUndoSyncLayout(){
+  const main = document.getElementById("db-main"); if(!main) return;
+  const want = (loadJSON(NS+"dashPinned", [])||[]).filter(id=>WIDGET_DEFS.some(d=>d.id===id && d.built && !d.link));
+  /* drop panels no longer pinned */
+  main.querySelectorAll(":scope > .db-apppanel").forEach(el=>{
+    const a = el.dataset.app;
+    if(!want.includes(a)){ dbUnmountPinned(a); el.remove(); delete DB_PANELS[dbPinId(a)]; }
+  });
+  /* add panels that should be pinned */
+  want.forEach(a=>{
+    if(main.querySelector(`:scope > .db-apppanel[data-app="${a}"]`)) return;
+    dbRegisterPinned(a);
+    const tmp = document.createElement("div"); tmp.innerHTML = dbPinnedPanelHTML(a).trim();
+    const el = tmp.firstElementChild;
+    main.insertBefore(el, main.querySelector(':scope > .db-panel[data-panel="chat"]'));
+    dbAddEditUI(el); dbWirePinnedPanel(el);
+  });
+  dbWinWire(main);
+  dbPinned = want;
+  dbLayout = dbLoadLayout();
+  const w = loadJSON(DB_WIN_STORE, null);
+  if(w && w.items) dbWin = w;
+  dbAppsOrder = loadJSON(NS+"appsOrder", []) || [];
+  applyDbLayout();
+  dbPinned.forEach(dbMountPinned);
+  if(!dbLayout.hidden.includes("world") && typeof startDbGlobe === "function") startDbGlobe();
+  if(document.getElementById("dashboard").classList.contains("db-editing")) renderDbEditbar();
+}
 function dbRenderApps(){
   const list = document.getElementById("db-apps-list"); if(!list) return;
   const rank = k=>{ const i = dbAppsOrder.indexOf(k); return i < 0 ? 1e6 : i; };
@@ -21222,7 +21401,10 @@ function dbWinStart(e, main, el, kind){
   const sx = e.clientX, sy = e.clientY, s0 = {...it}, scroll0 = main.scrollTop, min = dbWinMin(id);
   const others0 = {}; dbWinVisibleIds().forEach(k=>{ if(k !== id) others0[k] = {...dbWin.items[k]}; });
   const edges = kind === "move" ? {move:true} : {n:kind.includes("n"), s:kind.includes("s"), e:kind.includes("e"), w:kind.includes("w")};
-  let started = kind !== "move", frame = 0, lastEv = null;
+  let started = kind !== "move", frame = 0, lastEv = null, overApps = false;
+  const canToApps = edges.move && id !== "apps" && DB_PANELS[id] && !DB_PANELS[id].fixed && others0.apps;
+  const appsEl = main.querySelector(':scope > .db-panel[data-panel="apps"]');
+  if(canToApps){ const r0 = el.getBoundingClientRect(); el.style.transformOrigin = `${sx - r0.left}px ${sy - r0.top}px`; }
   const pid = e.pointerId;
   try{ el.setPointerCapture && el.setPointerCapture(pid); }catch(err){}
   const step = ()=>{
@@ -21252,6 +21434,21 @@ function dbWinStart(e, main, el, kind){
       if(b.x + b.w > W) b.w = W - b.x;
     }
     Object.assign(it, {x:Math.round(b.x), y:Math.round(b.y), w:Math.round(b.w), h:Math.round(b.h)});
+    /* dragged over the Apps window: it stays put and lights up; letting go sends this window there */
+    if(canToApps){
+      const a = others0.apps, px = ev.clientX - mr.left, py = ev.clientY - mr.top + main.scrollTop;
+      overApps = px >= a.x && px <= a.x + a.w && py >= a.y && py <= a.y + a.h;
+      el.classList.toggle("db-win-toapps", overApps);
+      if(appsEl) appsEl.classList.toggle("db-apps-drop", overApps);
+      if(overApps){
+        for(const [k,v] of Object.entries(others0)){ Object.assign(dbWin.items[k], v); }
+        dbWinPanels(main).forEach(p=>{ const k = p.dataset.panel, v = dbWin.items[k]; if(k !== id && v && others0[k])
+          Object.assign(p.style, {left:v.x+"px", top:v.y+"px", width:v.w+"px", height:v.h+"px"}); });
+        Object.assign(el.style, {left:it.x+"px", top:it.y+"px", width:it.w+"px", height:it.h+"px"});
+        dbWinShowGuides(main, []);
+        return;
+      }
+    }
     /* neighbours: back to where they started, then shrink/slide so nothing overlaps */
     const boxes = {[id]: it};
     for(const [k,v] of Object.entries(others0)){ Object.assign(dbWin.items[k], v); boxes[k] = dbWin.items[k]; }
@@ -21278,7 +21475,16 @@ function dbWinStart(e, main, el, kind){
     window.removeEventListener("pointercancel", onUp);
     if(frame){ cancelAnimationFrame(frame); if(lastEv) step(); }
     dbWinShowGuides(main, []);
-    el.classList.remove("db-win-moving", "db-win-sizing");
+    el.classList.remove("db-win-moving", "db-win-sizing", "db-win-toapps");
+    if(appsEl) appsEl.classList.remove("db-apps-drop");
+    el.style.transformOrigin = "";
+    if(started && overApps){
+      Object.assign(it, s0);
+      el.dataset.winDragged = "1"; setTimeout(()=>{ delete el.dataset.winDragged; }, 0);
+      dbWinSave();
+      dbMinimizePanel(id);
+      return;
+    }
     if(started){
       /* a drag shouldn't also count as a click that opens the widget */
       el.dataset.winDragged = "1"; setTimeout(()=>{ delete el.dataset.winDragged; }, 0);
