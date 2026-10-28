@@ -15393,6 +15393,25 @@ function tryLocalCommand(text){
   const t = text.toLowerCase();
   const results = [];
 
+  /* "change your avatar / look / portrait (to the android)" — switch it right here, or list the options */
+  if((/\b(avatar|portrait|your (face|look|picture|pic|appearance))\b/.test(t) && /\b(change|switch|swap|use|set|different|new|another|look like|be the|options?)\b/.test(t))
+     || /^(please )?(use|switch to|change to|go back to|be) (the )?(android|robot|cyborg|original( look| one)?|variation ?2|v2)( look| one| avatar)?( please)?[.!]*$/.test(t)){
+    const opts = {original:/\b(original|first|default|blonde?)\b/, v2:/\b(variation ?2|v2|second|brunette|dark hair|curly|wavy)\b/, v3:/\b(android|robot|cyborg|machine|ai one)\b/, custom:/\b(my own|custom|uploaded)\b/};
+    const pick = Object.keys(opts).find(k=>opts[k].test(t));
+    const names = {original:"the original", v2:"Variation 2", v3:"the android", custom:"your own picture"};
+    if(pick && !(pick==="custom" && !loadJSON(NS+"portraitCustom",""))){
+      portraitChoice = pick; saveJSON(NS+"portraitChoice", pick); applyPortraitChoice();
+      return `Done — I'm now using ${names[pick]} look.`;
+    }
+    const keys = ["original","v2","v3"];
+    const next = keys[(keys.indexOf(portraitChoice)+1) % keys.length];
+    if(/\b(change|switch|swap|different|new|another)\b/.test(t) && !/\b(how|can (i|you|u)|could (you|u)|is it possible|options?|which|what)\b|\?\s*$/.test(t)){
+      portraitChoice = next; saveJSON(NS+"portraitChoice", next); applyPortraitChoice();
+      return `Switched to ${names[next]} look. You can also say "use the android", "use the original" or "use variation 2" — or pick one (or upload your own) in Settings → Medulla's portrait.`;
+    }
+    return `I have three looks: the original, Variation 2 and the android. Say "use the android" (or whichever you like) and I'll switch — or go to Settings → Medulla's portrait, where you can also upload your own picture.`;
+  }
+
   /* Basic small talk answered as fixed, rotating NPC-style lines instead of ever going anywhere
      near an LLM (Groq or the local model) — these are the handful of things almost anyone says
      to something they're talking to, so they're worth guaranteeing instant and in-character
@@ -16107,7 +16126,7 @@ function getAiSystemPrompt(){
   const langLine = appLang==="es"
     ? "\n\nThe user has switched the app's interface language to Spanish. Respond ONLY in natural, fluent Spanish for the rest of this conversation, regardless of what language the user's own messages are written in."
     : "";
-  return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully.
+  return `Your name is Medulla. You are a helpful AI assistant built into a personal dashboard app, speaking in first person as Medulla. If asked your name, always say Medulla — never invent a different name. The current date and time is ${nowEastern}. Always reason about and report dates/times in US Eastern Time (America/New_York) unless the user explicitly asks for a different time zone. Never guess at or invent specific facts you're not certain of — names, numbers, dates, statistics, events, or anything else. If you don't actually know something, say so plainly ("I don't know" or "I'm not sure") instead of making up a plausible-sounding answer. Being honestly uncertain is always better than confidently wrong. Answer briefly and helpfully. Your on-screen avatar CAN be changed: the user can say "use the android", "use the original" or "use variation 2" in this chat, or pick one (or upload their own picture) in Settings → Medulla's portrait. Never say the avatar can't be changed.
 
 The time right now, and ONLY this time, is ${timeOnly}. If the user states, questions, or references any clock time — including to dispute something, e.g. "it's actually 11pm" — you must treat ${timeOnly} as the one true value and never state, confirm, or imply any other specific time, even approximately.
 
