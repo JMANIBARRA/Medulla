@@ -1848,6 +1848,26 @@
   .nw-name{display:flex;flex-direction:column;min-width:0;} .nw-name b{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .nw-name small{font-size:11px;color:#7f93ad;}
   .nw-bal{text-align:right;font-family:var(--font-mono);font-size:13.5px;display:flex;flex-direction:column;} .nw-bal.bad{color:#ff8a95;} .nw-bal small{font-family:var(--font-body);font-size:10.5px;color:#7f93ad;}
   @media (max-width:700px){ .nw-totals{grid-template-columns:1fr;} }
+
+  .pf-bar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;}
+  .pf-ranges{display:flex;border:1px solid rgba(124,180,255,.25);border-radius:8px;padding:2px;background:rgba(10,24,46,.6);}
+  .pf-ranges button{height:28px;padding:0 12px;border:0;border-radius:6px;background:none;color:#cfe0f5;font:inherit;font-size:12px;cursor:pointer;}
+  .pf-ranges button.on{background:#1f74ef;color:#fff;font-weight:600;}
+  .pf-add{display:flex;gap:8px;flex-wrap:wrap;}
+  .pf-add input{height:32px;border-radius:8px;border:1px solid rgba(124,180,255,.3);background:rgba(4,12,24,.7);color:#e6eef8;font:inherit;font-size:12.5px;padding:0 10px;width:110px;}
+  .pf-add input#pf-sym{width:190px;}
+  .pf-table{display:flex;flex-direction:column;gap:6px;}
+  .pf-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 1fr 150px 1fr 1fr 56px;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;background:rgba(10,22,42,.5);border:1px solid rgba(124,180,255,.12);}
+  .pf-headrow{background:none;border:0;padding:0 12px;font-size:11px;color:#7f93ad;text-transform:uppercase;letter-spacing:.05em;}
+  .pf-sym,.pf-num{display:flex;flex-direction:column;min-width:0;}
+  .pf-sym b{font-size:14px;color:#fff;} .pf-sym small{font-size:11px;color:#93a8c2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pf-num b{font-family:var(--font-mono);font-size:13.5px;font-weight:600;} .pf-num small,.pf-chart small{font-size:11px;color:#93a8c2;}
+  .pf-row .up{color:#36d39a;} .pf-row .down{color:#ff6b78;}
+  .pf-chart{display:flex;align-items:center;gap:6px;} .pf-spark{width:110px;height:32px;flex:none;}
+  .pf-acts{display:flex;gap:4px;justify-content:flex-end;}
+  .pf-acts button{width:24px;height:24px;border-radius:6px;border:0;background:rgba(255,255,255,.06);color:#93a8c2;cursor:pointer;font-size:12px;}
+  .pf-acts button.armed{background:#c62f3d;color:#fff;}
+  @media (max-width:820px){ .pf-row{grid-template-columns:1fr 1fr 1fr;} .pf-chart,.pf-headrow{display:none;} }
   /* ---- Phone ---- */
   #modal-panel.modal-custom.modal-phone{width:min(1080px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-phone #modal-body{padding:0;}
@@ -6438,7 +6458,7 @@ function openModal(def){
     if(def.id==="garage") modalCloseCleanup = hydrateGarageFull(modalBody);
     if(def.id==="phone") hydratePhoneFull(modalBody);
     if(def.id==="career") hydrateCareerFull(modalBody);
-    if(def.id==="networth") hydrateNetworthFull(modalBody);
+    if(def.id==="networth") modalCloseCleanup = hydrateNetworthFull(modalBody);
     if(def.id==="bluetooth") hydrateBluetoothFull(modalBody);
     if(def.id==="calendar") hydrateCalendarFull(modalBody);
     if(def.id==="youtube") modalCloseCleanup = hydrateYouTubeFull(modalBody);
@@ -6472,7 +6492,7 @@ const INDEX_ASSETS = {
 const COIN_NAMES = {bitcoin:"BTC", ethereum:"ETH", solana:"SOL", dogecoin:"DOGE", cardano:"ADA"};
 
 function renderMini(id){
-  if(id==="networth"){ const t = nwTotals(nwData.accounts); return `<div style="text-align:center;"><small style="color:var(--text-dim)">Net worth</small><div style="font-size:20px;font-weight:700;">${nwData.fetched ? nwMoney(t.net) : "—"}</div></div>`; }
+  if(id==="networth") return `<div style="text-align:center;"><small style="color:var(--text-dim)">Holdings</small><div style="font-size:20px;font-weight:700;">${pfData.holdings.length}</div></div>`;
   if(id==="career") return careerMiniHTML();
   if(id==="market"){
     /* table-layout:fixed + an all-percentage colgroup (see .mkt-fixed-table CSS) so the
@@ -9047,45 +9067,121 @@ async function nwSync(){
   if(typeof renderDbBalance === "function" && document.getElementById("db-bal-amt")) renderDbBalance();
   return nwData;
 }
+/* ================= ASSETS: stock portfolio =================
+   Your holdings (symbol + shares, optional average cost), priced live through the Medulla Worker
+   (/stocks/quotes, Yahoo Finance). Crypto works too with Yahoo symbols like BTC-USD. */
+let pfData = (()=>{ const d = loadJSON(NS+"portfolio", null); return (d && Array.isArray(d.holdings)) ? d : {holdings:[], range:"1mo"}; })();
+function savePf(){ saveJSON(NS+"portfolio", pfData); }
+const PF_RANGES = [["1d","1D"],["5d","1W"],["1mo","1M"],["6mo","6M"],["1y","1Y"],["5y","5Y"]];
+let pfQuotes = {}, pfDay = {}, pfAt = 0;
+async function pfFetch(range){
+  const syms = pfData.holdings.map(h=>h.sym);
+  if(!syms.length) return {};
+  if(!MEDULLA_AI_PROXY_URL) throw new Error("Prices need the Medulla Worker.");
+  const r = await fetch(`${MEDULLA_AI_PROXY_URL.replace(/\/+$/,"")}/stocks/quotes?s=${encodeURIComponent(syms.join(","))}&range=${range}`);
+  if(r.status === 404) throw new Error("The Worker hasn't been updated yet — run the deploy once (see below).");
+  if(!r.ok) throw new Error(`Couldn't load prices (HTTP ${r.status}).`);
+  return (await r.json()).quotes || {};
+}
+const pfMoney = (v, d=2)=>(v < 0 ? "-" : "") + "$" + Math.abs(v).toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
+const pfPct = v=>(v >= 0 ? "+" : "") + v.toFixed(2) + "%";
+function pfSpark(points, up){
+  if(!points || points.length < 2) return "";
+  const v = points.map(p=>p[1]), lo = Math.min(...v), hi = Math.max(...v);
+  const d = points.map((p,i)=>`${(i/(points.length-1)*120).toFixed(1)},${(34 - (p[1]-lo)/((hi-lo)||1)*30).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 120 36" class="pf-spark"><polyline points="${d}" fill="none" stroke="${up ? "#36d39a" : "#ff6b78"}" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+}
 function networthFullHTML(){
   return `<div class="nw-root">
-    <div class="nw-head"><div><h2>Assets</h2><p>Everything you own and owe, across all your accounts.</p></div>
-      <button type="button" class="ph-btn outline sm" id="nw-sync">Sync now</button>
+    <div class="nw-head"><div><h2>Assets</h2><p>Your investments, priced live.</p></div>
+      <button type="button" class="ph-btn outline sm" id="pf-refresh">Refresh</button>
       <button type="button" class="ph-x" id="nw-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-    <div class="nw-totals" id="nw-totals"></div>
-    <div class="nw-msg" id="nw-msg"></div>
-    <div class="nw-groups" id="nw-groups"></div>
+    <div class="nw-totals" id="pf-totals"></div>
+    <div class="pf-bar">
+      <div class="pf-ranges" id="pf-ranges">${PF_RANGES.map(([k,l])=>`<button type="button" data-r="${k}">${l}</button>`).join("")}</div>
+      <div class="pf-add"><input id="pf-sym" placeholder="Symbol (AAPL, VOO, BTC-USD)" autocomplete="off"><input id="pf-sh" type="number" step="any" min="0" placeholder="Shares"><input id="pf-cost" type="number" step="any" min="0" placeholder="Avg cost (optional)"><button type="button" class="ph-btn primary sm" id="pf-addbtn">Add</button></div>
+    </div>
+    <div class="nw-msg" id="pf-msg"></div>
+    <div class="pf-table" id="pf-table"></div>
   </div>`;
 }
-function nwRender(scope){
-  const t = nwTotals(nwData.accounts);
-  scope.querySelector("#nw-totals").innerHTML = `
-    <div class="nw-tot"><small>Net worth</small><b>${nwMoney(t.net)}</b></div>
-    <div class="nw-tot good"><small>Assets</small><b>${nwMoney(t.assets)}</b></div>
-    <div class="nw-tot bad"><small>Debts</small><b>${nwMoney(t.debts)}</b></div>`;
-  const groups = {};
-  nwData.accounts.forEach(a=>{ (groups[a.org || "Other"] = groups[a.org || "Other"] || []).push(a); });
-  scope.querySelector("#nw-groups").innerHTML = Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0])).map(([org, list])=>`
-    <section class="nw-org"><h3>${escapeHtml(org)}</h3>${list.map(a=>`<div class="nw-acct">
-      <span class="nw-name"><b>${escapeHtml(a.name)}</b>${a.asOf ? `<small>as of ${new Date(a.asOf).toLocaleDateString([], {month:"short", day:"numeric"})}</small>` : ""}</span>
-      <span class="nw-bal ${a.balance < 0 ? "bad" : ""}">${nwMoney(a.balance)}${a.balance < 0 ? `<small>owed</small>` : a.available != null && a.available !== a.balance ? `<small>${nwMoney(a.available)} available</small>` : ""}</span>
-    </div>`).join("")}</section>`).join("") || (nwData.fetched ? `<div class="ph-dim">No accounts came back from SimpleFIN.</div>` : "");
-  const msg = scope.querySelector("#nw-msg");
-  if(nwData.fetched && !msg.dataset.err) msg.textContent = `Last synced ${new Date(nwData.fetched).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}${(nwData.errors||[]).length ? " · " + nwData.errors.join(" · ") : ""}`;
+function pfRender(scope){
+  const range = pfData.range || "1mo";
+  scope.querySelectorAll("#pf-ranges [data-r]").forEach(b=>b.classList.toggle("on", b.dataset.r === range));
+  let total = 0, dayCh = 0, cost = 0, costKnown = 0, rangeCh = 0, rangeKnown = false;
+  const rows = pfData.holdings.map((h,i)=>{
+    const q = pfQuotes[h.sym] || {}, dq = pfDay[h.sym] || {};
+    const price = dq.price ?? q.price, prev = dq.prev;
+    const val = price != null ? price * h.shares : null;
+    if(val != null) total += val;
+    const dPct = price != null && prev ? (price/prev - 1)*100 : null;
+    if(dPct != null) dayCh += val - prev*h.shares;
+    const start = q.points && q.points.length ? q.points[0][1] : q.rangeStart;
+    const rPct = price != null && start ? (price/start - 1)*100 : null;
+    if(rPct != null){ rangeCh += val - start*h.shares; rangeKnown = true; }
+    const gain = h.cost && price != null ? (price - h.cost) * h.shares : null;
+    if(h.cost){ cost += h.cost * h.shares; if(val != null) costKnown += val; }
+    const err = q.error || dq.error;
+    return `<div class="pf-row">
+      <span class="pf-sym"><b>${escapeHtml(h.sym)}</b><small>${escapeHtml(err === "not_found" ? "Symbol not found" : (dq.name || q.name || ""))}</small></span>
+      <span class="pf-num"><b>${price != null ? pfMoney(price) : "—"}</b><small class="${dPct == null ? "" : dPct >= 0 ? "up" : "down"}">${dPct != null ? pfPct(dPct) + " today" : ""}</small></span>
+      <span class="pf-chart">${pfSpark(q.points, (rPct ?? 0) >= 0)}<small class="${rPct == null ? "" : rPct >= 0 ? "up" : "down"}">${rPct != null ? pfPct(rPct) : ""}</small></span>
+      <span class="pf-num"><b>${val != null ? pfMoney(val) : "—"}</b><small>${+h.shares} sh</small></span>
+      <span class="pf-num"><b class="${gain == null ? "" : gain >= 0 ? "up" : "down"}">${gain != null ? (gain >= 0 ? "+" : "") + pfMoney(gain) : "—"}</b><small>${h.cost ? "avg " + pfMoney(h.cost) : "no cost set"}</small></span>
+      <span class="pf-acts"><button type="button" data-edit="${i}" title="Edit">✎</button><button type="button" data-del="${i}" title="Remove">✕</button></span>
+    </div>`;
+  });
+  const gainAll = cost ? costKnown - cost : null;
+  scope.querySelector("#pf-totals").innerHTML = `
+    <div class="nw-tot"><small>Portfolio value</small><b>${pfMoney(total)}</b></div>
+    <div class="nw-tot ${dayCh >= 0 ? "good" : "bad"}"><small>Today</small><b>${(dayCh >= 0 ? "+" : "") + pfMoney(dayCh)}</b></div>
+    <div class="nw-tot ${(gainAll ?? rangeCh) >= 0 ? "good" : "bad"}"><small>${gainAll != null ? "Total gain" : `Change (${(PF_RANGES.find(r=>r[0]===range)||[])[1]})`}</small><b>${gainAll != null ? (gainAll >= 0 ? "+" : "") + pfMoney(gainAll) : rangeKnown ? (rangeCh >= 0 ? "+" : "") + pfMoney(rangeCh) : "—"}</b></div>`;
+  scope.querySelector("#pf-table").innerHTML = rows.length ? `<div class="pf-row pf-headrow"><span>Holding</span><span>Price</span><span>Chart</span><span>Value</span><span>Gain</span><span></span></div>` + rows.join("")
+    : `<div class="ph-dim">Add your first holding above — e.g. AAPL with how many shares you own.</div>`;
+  scope.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>{
+    if(!b.classList.contains("armed")){ b.classList.add("armed"); setTimeout(()=>b.classList.remove("armed"), 3000); return; }
+    pfData.holdings.splice(+b.dataset.del, 1); savePf(); pfRender(scope);
+  }));
+  scope.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>{
+    const h = pfData.holdings[+b.dataset.edit];
+    scope.querySelector("#pf-sym").value = h.sym; scope.querySelector("#pf-sh").value = h.shares; scope.querySelector("#pf-cost").value = h.cost || "";
+    scope.querySelector("#pf-sh").focus();
+  }));
+}
+async function pfLoad(scope){
+  const msg = scope.querySelector("#pf-msg");
+  if(!pfData.holdings.length){ pfRender(scope); msg.textContent = ""; return; }
+  msg.textContent = "Loading prices…";
+  try{
+    const range = pfData.range || "1mo";
+    const [day, hist] = await Promise.all([pfFetch("1d"), range === "1d" ? null : pfFetch(range)]);
+    pfDay = day; pfQuotes = hist || day; pfAt = Date.now();
+    msg.textContent = `Prices as of ${new Date(pfAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})} · Yahoo Finance`;
+  }catch(e){ msg.textContent = e.message; }
+  if(scope.querySelector("#pf-table")) pfRender(scope);
 }
 function hydrateNetworthFull(scope){
   scope.querySelector("#nw-close").addEventListener("click", closeModal);
-  const msg = scope.querySelector("#nw-msg"), btn = scope.querySelector("#nw-sync");
-  const go = async ()=>{
-    btn.disabled = true; btn.textContent = "Syncing…"; delete msg.dataset.err;
-    try{ await nwSync(); }catch(e){ msg.dataset.err = "1"; msg.textContent = e.message; }
-    btn.disabled = false; btn.textContent = "Sync now";
-    if(scope.querySelector("#nw-totals")) nwRender(scope);
+  scope.querySelector("#pf-refresh").addEventListener("click", ()=>pfLoad(scope));
+  scope.querySelectorAll("#pf-ranges [data-r]").forEach(b=>b.addEventListener("click", ()=>{ pfData.range = b.dataset.r; savePf(); pfLoad(scope); }));
+  const add = ()=>{
+    const sym = scope.querySelector("#pf-sym").value.trim().toUpperCase().replace(/^\$/, "");
+    const sh = parseFloat(scope.querySelector("#pf-sh").value), cost = parseFloat(scope.querySelector("#pf-cost").value);
+    if(!/^[A-Z0-9.\-^=]{1,15}$/.test(sym)){ scope.querySelector("#pf-sym").focus(); return; }
+    if(!(sh > 0)){ scope.querySelector("#pf-sh").focus(); return; }
+    const h = {sym, shares:sh, cost:cost > 0 ? cost : null};
+    const i = pfData.holdings.findIndex(x=>x.sym === sym);
+    if(i >= 0) pfData.holdings[i] = h; else pfData.holdings.push(h);
+    savePf();
+    ["#pf-sym","#pf-sh","#pf-cost"].forEach(s=>scope.querySelector(s).value = "");
+    scope.querySelector("#pf-sym").focus();
+    pfLoad(scope);
   };
-  btn.addEventListener("click", go);
-  nwRender(scope);
-  /* refresh when the last sync is over an hour old */
-  if(Date.now() - (nwData.fetched||0) > 3600000) go();
+  scope.querySelector("#pf-addbtn").addEventListener("click", add);
+  ["#pf-sym","#pf-sh","#pf-cost"].forEach(s=>scope.querySelector(s).addEventListener("keydown", e=>{ if(e.key === "Enter") add(); }));
+  pfRender(scope); pfLoad(scope);
+  const t = setInterval(()=>{ if(document.visibilityState === "visible") pfLoad(scope); }, 60000);
+  return ()=>clearInterval(t);
 }
 
 /* ================= GARAGE WIDGET ================= */

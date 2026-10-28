@@ -502,6 +502,35 @@ async function simplefinAccounts(request, env, cors){
   return new Response(JSON.stringify({accounts, errors:d.errors || [], fetched:Date.now()}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"no-store"}});
 }
 
+/* ---- stock quotes + price history for the Assets portfolio (Yahoo Finance chart API, no key) ----
+   GET /stocks/quotes?s=AAPL,VOO,BTC-USD&range=1d|5d|1mo|6mo|1y */
+const Q_RANGES = {"1d":"5m","5d":"30m","1mo":"1d","6mo":"1d","1y":"1wk","5y":"1mo"};
+async function stockQuotes(request, cors){
+  const u = new URL(request.url);
+  const syms = String(u.searchParams.get("s")||"").toUpperCase().split(",").map(x=>x.trim()).filter(x=>/^[A-Z0-9.\-^=]{1,15}$/.test(x)).slice(0, 40);
+  const range = Q_RANGES[u.searchParams.get("range")] ? u.searchParams.get("range") : "1mo";
+  if(!syms.length) return json({error:"no_symbols"}, 400, cors);
+  const one = async sym=>{
+    try{
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${Q_RANGES[range]}&includePrePost=false`,
+        {headers:UA_HDRS, cf:{cacheTtl:60, cacheEverything:true}});
+      if(!r.ok) return [sym, {error:r.status === 404 ? "not_found" : "unavailable"}];
+      const d = await r.json();
+      const res = ((d.chart||{}).result||[])[0];
+      if(!res) return [sym, {error:"not_found"}];
+      const m = res.meta || {}, ts = res.timestamp || [], cl = (((res.indicators||{}).quote||[])[0]||{}).close || [];
+      const points = ts.map((t,i)=>[t*1000, cl[i]]).filter(p=>p[1] != null);
+      /* yesterday's close, for today's change */
+      let prev = m.previousClose;
+      if(prev == null) prev = range === "1d" ? m.chartPreviousClose : null;
+      return [sym, {price:m.regularMarketPrice, prev, currency:m.currency || "USD", name:m.shortName || m.longName || sym, exchange:m.exchangeName || "",
+        type:m.instrumentType || "", rangeStart:m.chartPreviousClose, points}];
+    }catch(e){ return [sym, {error:"unavailable"}]; }
+  };
+  const out = Object.fromEntries(await Promise.all(syms.map(one)));
+  return new Response(JSON.stringify({range, quotes:out, at:Date.now()}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"public, max-age=60"}});
+}
+
 export default {
   async fetch(request, env, ctx){
     const origin = request.headers.get("Origin") || "";
@@ -510,6 +539,10 @@ export default {
 
     if(request.method === "OPTIONS") return new Response(null, {status:204, headers:cors});
     const path = new URL(request.url).pathname.replace(/\/+$/, "");
+    if(path === "/stocks/quotes"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return stockQuotes(request, cors);
+    }
     if(path === "/finance/accounts"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return simplefinAccounts(request, env, cors);
