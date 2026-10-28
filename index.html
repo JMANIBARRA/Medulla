@@ -2615,6 +2615,57 @@
   .db-bal-chart{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;min-width:0;}
   .db-bal-chart svg{width:100%;height:130px;display:block;overflow:visible;}
   .db-bal-empty{font-size:12px;color:var(--text-dim);text-align:center;}
+  .db-bal.clickable{cursor:pointer;}
+  .db-bal-stocks{margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--text-dim);white-space:nowrap;min-height:16px;}
+  .db-bal-stocks .up{color:var(--good);} .db-bal-stocks .down{color:var(--bad);}
+  .db-bal-split .val{cursor:inherit;}
+  .db-bal-split .val:hover{border-bottom-color:transparent;}
+  /* Total balance breakdown pop-up */
+  .bd-ov{position:fixed;inset:0;z-index:9000;background:rgba(2,8,18,.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .18s;}
+  .bd-ov.show{opacity:1;}
+  .bd-panel{width:min(720px,100%);max-height:calc(100vh - 40px);overflow:auto;border-radius:22px;background:linear-gradient(180deg,#0f2140,#081428);border:1px solid rgba(124,180,255,.2);box-shadow:0 30px 80px -20px rgba(0,0,0,.7);padding:24px;transform:translateY(10px) scale(.98);transition:transform .2s;}
+  .bd-ov.show .bd-panel{transform:none;}
+  .bd-top{display:flex;align-items:flex-start;gap:12px;}
+  .bd-top h3{margin:0;font-family:var(--font-mono);font-size:14px;letter-spacing:.08em;color:#cfe0f5;font-weight:500;}
+  .bd-net{font-size:40px;font-weight:800;letter-spacing:-.02em;margin-top:6px;}
+  .bd-x{margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(124,180,255,.22);background:rgba(255,255,255,.04);color:#cfe0f5;cursor:pointer;font-size:15px;}
+  .bd-x:hover{background:rgba(255,255,255,.1);}
+  .bd-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 20px;}
+  .bd-tile{border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(124,180,255,.12);min-width:0;}
+  .bd-tile small{display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;}
+  .bd-tile b{font-family:var(--font-mono);font-size:18px;font-weight:600;}
+  .bd-tile em{display:block;font-style:normal;font-family:var(--font-mono);font-size:12px;margin-top:3px;}
+  .bd-tile.edit{cursor:pointer;}
+  .bd-tile.edit:hover{border-color:rgba(124,180,255,.4);}
+  .bd-tile input{width:100%;box-sizing:border-box;font-family:var(--font-mono);font-size:16px;padding:4px 8px;border-radius:8px;}
+  .bd-tile .hint{font-size:11px;color:var(--text-dim);margin-top:3px;display:block;}
+  .up{color:var(--good);} .down{color:var(--bad);}
+  .bd-sec{display:flex;align-items:center;gap:10px;margin:0 2px 10px;}
+  .bd-sec h4{margin:0;font-size:15px;font-weight:600;}
+  .bd-sec small{color:var(--text-dim);font-size:12px;}
+  .bd-sec button{margin-left:auto;background:none;border:none;color:#7fbcff;cursor:pointer;font-size:13px;}
+  .bd-alloc{display:flex;height:8px;border-radius:6px;overflow:hidden;margin:0 2px 12px;gap:2px;}
+  .bd-rows{display:flex;flex-direction:column;gap:8px;}
+  .bd-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto auto 92px;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;border:1px solid rgba(130,153,184,.12);background:rgba(9,20,38,.55);}
+  .bd-row .db-coin{font-size:11px;letter-spacing:-.02em;}
+  .bd-name b{display:block;font-weight:600;font-size:15px;}
+  .bd-name span{display:block;font-size:12.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bd-px,.bd-chg,.bd-val{font-family:var(--font-mono);text-align:right;white-space:nowrap;}
+  .bd-px{font-size:14px;} .bd-chg{font-size:13px;}
+  .bd-val b{display:block;font-size:14.5px;font-weight:600;color:var(--text-primary);}
+  .bd-val span{display:block;font-size:11.5px;color:var(--text-dim);}
+  .bd-foot{margin-top:14px;font-size:11.5px;color:var(--text-dim);text-align:center;}
+  .bd-empty{padding:18px;border-radius:12px;border:1px dashed rgba(124,180,255,.25);text-align:center;color:var(--text-dim);font-size:13.5px;}
+  @media (max-width:640px){
+    .bd-panel{padding:18px;}
+    .bd-tiles{grid-template-columns:1fr 1fr;}
+    .bd-row{grid-template-columns:36px minmax(0,1fr) auto;}
+    .bd-row .bd-px{display:none;}
+    .bd-row .bd-chg{grid-column:3;grid-row:2;font-size:12px;}
+    .bd-row .bd-name{grid-row:1/3;}
+    .bd-row .db-coin{grid-row:1/3;}
+    .bd-row .bd-val{grid-column:3;grid-row:1;}
+  }
   .db-ranges{display:flex;gap:4px;padding:4px;border-radius:10px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.12);}
   .db-ranges button{flex:1;padding:6px 0;border:none;border-radius:7px;background:none;color:#c3d4ea;font-family:var(--font-mono);font-size:12.5px;cursor:pointer;}
   .db-ranges button.active{color:#fff;background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 75%, #0b3b8f), color-mix(in srgb, var(--accent) 45%, #0a1f45));box-shadow:0 4px 14px -6px var(--accent);}
@@ -9260,6 +9311,8 @@ async function pfLoad(scope){
     const [day, hist] = await Promise.all([pfFetch("1d"), range === "1d" ? null : pfFetch(range)]);
     pfDay = day; pfQuotes = hist || day; pfAt = Date.now();
     msg.textContent = `Prices as of ${new Date(pfAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})} · Yahoo Finance`;
+    pfData.holdings.forEach(h=>{ const d = day[h.sym]; if(d && d.price != null){ h.lastPrice = d.price; if(d.name) h.name = d.name; } }); savePf();
+    if(typeof dbRecordNet === "function"){ dbRecordNet(); if(document.getElementById("db-bal-amt")) renderDbBalance(); }
   }catch(e){ msg.textContent = e.message; }
   if(scope.querySelector("#pf-table")) pfRender(scope);
 }
@@ -19248,13 +19301,14 @@ function buildDashboard(){
       </div>
     </section>
 
-    <section class="db-panel db-bal" data-panel="balance"><div class="db-bal-body">
+    <section class="db-panel db-bal clickable" data-panel="balance" title="See breakdown"><div class="db-bal-body">
       <div>
         <div class="db-bal-head">TOTAL BALANCE <button type="button" id="db-bal-eye" title="Hide/show amounts"></button></div>
         <div class="db-bal-amt" id="db-bal-amt"></div>
+        <div class="db-bal-stocks" id="db-bal-stocks"></div>
         <div class="db-bal-split">
-          <div class="assets"><label>Assets</label><span class="val" id="db-bal-assets" data-field="assets" title="Click to edit"></span></div>
-          <div class="liab"><label>Liabilities</label><span class="val" id="db-bal-liab" data-field="liabilities" title="Click to edit"></span></div>
+          <div class="assets"><label>Assets</label><span class="val" id="db-bal-assets"></span></div>
+          <div class="liab"><label>Liabilities</label><span class="val" id="db-bal-liab"></span></div>
         </div>
       </div>
       <div class="db-bal-chart">
@@ -19399,9 +19453,52 @@ function wireDbSearch(){
 
 /* ---- balance: manual assets/liabilities (click to edit), net value history for the chart ---- */
 function dbMoney(n){ return (n<0?"-":"") + "$" + Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2}); }
+/* Stocks from the Assets portfolio count toward Total Balance. dbBalance.assets is now "cash & other". */
+let dbStocksAt = 0, dbStocksBusy = false;
+function dbStocks(){
+  let value = 0, day = 0, priced = 0;
+  const rows = pfData.holdings.map(h=>{
+    const dq = (typeof pfDay!=="undefined" && pfDay[h.sym]) || {}, q = (typeof pfQuotes!=="undefined" && pfQuotes[h.sym]) || {};
+    const price = dq.price ?? q.price ?? h.lastPrice ?? null, prev = dq.prev ?? null;
+    const val = price != null ? price*h.shares : null;
+    if(val != null){ value += val; priced++; }
+    if(val != null && prev) day += val - prev*h.shares;
+    return {h, price, prev, val, name:dq.name || q.name || h.name || "", pct: price!=null && prev ? (price/prev-1)*100 : null};
+  });
+  return {value, day, rows, priced, count:pfData.holdings.length};
+}
+function dbNet(){ return (Number(dbBalance.assets)||0) + dbStocks().value - (Number(dbBalance.liabilities)||0); }
+function dbRecordNet(){
+  const net = Math.round(dbNet()*100)/100;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const lastP = dbBalance.history[dbBalance.history.length-1];
+  if(lastP && lastP.t >= today.getTime()){ lastP.v = net; lastP.t = Date.now(); } else dbBalance.history.push({t:Date.now(), v:net});
+  if(dbBalance.history.length > 1000) dbBalance.history.splice(0, dbBalance.history.length-1000);
+  saveDbBalance();
+}
+async function dbRefreshStocks(force){
+  if(!pfData.holdings.length || dbStocksBusy || typeof pfFetch!=="function") return;
+  if(!force && Date.now() - Math.max(dbStocksAt, pfAt||0) < 5*60*1000) return;
+  dbStocksBusy = true;
+  try{
+    const day = await pfFetch("1d");
+    pfDay = day; if(!Object.keys(pfQuotes||{}).length) pfQuotes = day; pfAt = dbStocksAt = Date.now();
+    /* remember the last price so the balance still shows something if prices can't load next time */
+    pfData.holdings.forEach(h=>{ const d = day[h.sym]; if(d && d.price != null){ h.lastPrice = d.price; if(d.name) h.name = d.name; } });
+    savePf();
+    dbRecordNet();
+  }catch(e){ dbStocksAt = Date.now(); }
+  dbStocksBusy = false;
+  if(document.getElementById("db-bal-amt")) renderDbBalance();
+  if(document.querySelector(".bd-ov")) dbRenderBreakdown();
+}
 function renderDbBalance(){
-  const net = (Number(dbBalance.assets)||0) - (Number(dbBalance.liabilities)||0);
+  const st = dbStocks();
+  const net = dbNet();
   const hidden = !!dbBalance.hidden;
+  const sEl = $("#db-bal-stocks");
+  if(sEl) sEl.innerHTML = !st.count ? "" : hidden ? `Stocks ••••` :
+    `Stocks ${dbMoney(st.value)}${st.day ? ` · <span class="${st.day>=0?"up":"down"}">${st.day>=0?"+":"-"}${dbMoney(Math.abs(st.day)).slice(0)} today</span>` : ""}`;
   $("#db-bal-eye").innerHTML = dbIcon(hidden?"eyeoff":"eye");
   if(hidden){
     $("#db-bal-amt").innerHTML = `<span class="big">••••</span>`;
@@ -19416,7 +19513,7 @@ function renderDbBalance(){
   }
   ["assets","liabilities"].forEach(f=>{
     const el = f==="assets" ? $("#db-bal-assets") : $("#db-bal-liab");
-    if(!el.querySelector("input")) el.textContent = hidden ? "••••" : dbMoney(Number(dbBalance[f])||0);
+    if(!el.querySelector("input")) el.textContent = hidden ? "••••" : dbMoney((Number(dbBalance[f])||0) + (f==="assets" ? st.value : 0));
   });
   document.querySelectorAll("#db-ranges button").forEach(b=>b.classList.toggle("active", b.dataset.range===dbBalance.range));
   renderDbBalanceChart();
@@ -19458,38 +19555,80 @@ function renderDbBalanceChart(){
   box.appendChild(dot);
 }
 function wireDbBalance(){
-  $("#db-bal-eye").addEventListener("click", ()=>{ dbBalance.hidden = !dbBalance.hidden; saveDbBalance(); renderDbBalance(); });
-  document.querySelectorAll("#db-ranges button").forEach(b=>b.addEventListener("click", ()=>{ dbBalance.range = b.dataset.range; saveDbBalance(); renderDbBalance(); }));
-  [$("#db-bal-assets"), $("#db-bal-liab")].forEach(el=>{
-    el.addEventListener("click", ()=>{
-      if(el.querySelector("input")) return;
-      const field = el.dataset.field;
-      el.innerHTML = `<input type="text" inputmode="decimal" value="${Number(dbBalance[field])||0}">`;
-      const inp = el.querySelector("input");
-      inp.focus(); inp.select();
-      let done = false;
-      const commit = (save)=>{
-        if(done) return; done = true;
-        if(save){
-          const v = parseFloat(inp.value.replace(/[$,\s]/g,""));
-          if(isFinite(v)){
-            dbBalance[field] = Math.round(v*100)/100;
-            const net = (Number(dbBalance.assets)||0) - (Number(dbBalance.liabilities)||0);
-            const today = new Date(); today.setHours(0,0,0,0);
-            const lastP = dbBalance.history[dbBalance.history.length-1];
-            if(lastP && lastP.t >= today.getTime()) lastP.v = net, lastP.t = Date.now();
-            else dbBalance.history.push({t:Date.now(), v:net});
-            if(dbBalance.history.length > 1000) dbBalance.history.splice(0, dbBalance.history.length-1000);
-            saveDbBalance();
-          }
-        }
-        el.innerHTML = "";
-        renderDbBalance();
-      };
-      inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(true); } else if(e.key==="Escape"){ e.stopPropagation(); commit(false); } });
-      inp.addEventListener("blur", ()=>commit(true));
-    });
+  $("#db-bal-eye").addEventListener("click", e=>{ e.stopPropagation(); dbBalance.hidden = !dbBalance.hidden; saveDbBalance(); renderDbBalance(); });
+  document.querySelectorAll("#db-ranges button").forEach(b=>b.addEventListener("click", e=>{ e.stopPropagation(); dbBalance.range = b.dataset.range; saveDbBalance(); renderDbBalance(); }));
+  const card = document.querySelector('.db-bal[data-panel="balance"]');
+  card.addEventListener("click", e=>{
+    if(e.target.closest("button,input,.db-win-handle,.db-win-resize") || document.getElementById("dashboard").classList.contains("db-editing")) return;
+    dbOpenBreakdown();
   });
+  dbRefreshStocks();
+  setInterval(()=>{ if(!document.hidden) dbRefreshStocks(); }, 5*60*1000);
+}
+const BD_COLORS = ["#4d9bff","#36d39a","#ffb040","#b07cff","#ff6b9a","#4fd1e0","#f5d547","#8fa3ff","#ff8a5c","#7be36c","#c9a0ff","#5ec2ff"];
+function dbOpenBreakdown(){
+  if(document.querySelector(".bd-ov")) return;
+  const ov = document.createElement("div");
+  ov.className = "bd-ov";
+  ov.innerHTML = `<div class="bd-panel" role="dialog" aria-label="Total balance breakdown"></div>`;
+  document.body.appendChild(ov);
+  const close = ()=>{ ov.classList.remove("show"); document.removeEventListener("keydown", onKey); setTimeout(()=>ov.remove(), 180); };
+  const onKey = e=>{ if(e.key==="Escape" && !e.target.closest("input")) close(); };
+  document.addEventListener("keydown", onKey);
+  ov.addEventListener("click", e=>{ if(e.target===ov || e.target.closest(".bd-x")) close(); });
+  ov._close = close;
+  dbRenderBreakdown();
+  requestAnimationFrame(()=>ov.classList.add("show"));
+  dbRefreshStocks(true);
+}
+function dbRenderBreakdown(){
+  const ov = document.querySelector(".bd-ov"); if(!ov) return;
+  const panel = ov.querySelector(".bd-panel");
+  if(panel.querySelector("input")) return; // don't wipe a field you're typing in
+  const st = dbStocks(), net = dbNet(), hidden = !!dbBalance.hidden;
+  const m = v=>hidden ? "••••" : dbMoney(v);
+  const sign = v=>(v>=0?"+":"-") + (hidden ? "••" : dbMoney(Math.abs(v)));
+  const rows = st.rows.slice().sort((a,b)=>(b.val||0)-(a.val||0));
+  const tot = st.value || 1;
+  const initials = sym=>sym.replace(/-USD$/,"").slice(0,4);
+  panel.innerHTML = `
+    <div class="bd-top">
+      <div><h3>TOTAL BALANCE</h3><div class="bd-net">${m(net)}</div></div>
+      <button type="button" class="bd-x" aria-label="Close">✕</button>
+    </div>
+    <div class="bd-tiles">
+      <div class="bd-tile"><small>Stocks</small><b>${m(st.value)}</b>${st.day ? `<em class="${st.day>=0?"up":"down"}">${sign(st.day)} today</em>` : `<em>&nbsp;</em>`}</div>
+      <div class="bd-tile edit" data-field="assets" title="Click to edit"><small>Cash &amp; other</small><b class="up">${m(Number(dbBalance.assets)||0)}</b><span class="hint">Click to edit</span></div>
+      <div class="bd-tile edit" data-field="liabilities" title="Click to edit"><small>Liabilities</small><b class="down">${m(Number(dbBalance.liabilities)||0)}</b><span class="hint">Click to edit</span></div>
+    </div>
+    <div class="bd-sec"><h4>Stocks</h4><small>${st.count} holding${st.count===1?"":"s"}</small><button type="button" id="bd-manage">Manage holdings ›</button></div>
+    ${rows.length ? `<div class="bd-alloc">${rows.filter(r=>r.val).map((r,i)=>`<span title="${dbEsc(r.h.sym)} ${(r.val/tot*100).toFixed(1)}%" style="flex:${r.val};background:${BD_COLORS[i%BD_COLORS.length]};"></span>`).join("")}</div>
+    <div class="bd-rows">${rows.map((r,i)=>`
+      <div class="bd-row">
+        <span class="db-coin" style="background:${BD_COLORS[i%BD_COLORS.length]}33;border-color:${BD_COLORS[i%BD_COLORS.length]};">${dbEsc(initials(r.h.sym))}</span>
+        <span class="bd-name"><b>${dbEsc(r.h.sym)}</b><span>${+r.h.shares} sh${r.name ? " · "+dbEsc(r.name) : ""}</span></span>
+        <span class="bd-px">${r.price!=null ? dbMoney(r.price) : "—"}</span>
+        <span class="bd-chg ${r.pct==null?"":r.pct>=0?"up":"down"}">${r.pct!=null ? (r.pct>=0?"+":"")+r.pct.toFixed(2)+"%" : ""}</span>
+        <span class="bd-val"><b>${r.val!=null ? m(r.val) : "—"}</b><span>${r.val ? (r.val/tot*100).toFixed(1)+"%" : ""}</span></span>
+      </div>`).join("")}</div>` : `<div class="bd-empty">No stocks yet. Add them in <b>Assets</b> (you can import a screenshot from your brokerage).</div>`}
+    <div class="bd-foot">${dbStocksBusy ? "Updating prices…" : pfAt ? "Prices as of " + new Date(pfAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) + " · Yahoo Finance" : st.count ? "Prices load through your Medulla Worker." : ""}</div>`;
+  panel.querySelector("#bd-manage").addEventListener("click", ()=>{ ov._close(); dbOpenPage("networth"); });
+  panel.querySelectorAll(".bd-tile.edit").forEach(tile=>tile.addEventListener("click", ()=>{
+    if(tile.querySelector("input")) return;
+    const field = tile.dataset.field;
+    tile.querySelector("b").outerHTML = `<input type="text" inputmode="decimal" value="${Number(dbBalance[field])||0}">`;
+    tile.querySelector(".hint").textContent = "Enter to save";
+    const inp = tile.querySelector("input"); inp.focus(); inp.select();
+    let done = false;
+    const commit = save=>{
+      if(done) return; done = true;
+      if(save){ const v = parseFloat(inp.value.replace(/[$,\s]/g,"")); if(isFinite(v)){ dbBalance[field] = Math.round(v*100)/100; dbRecordNet(); } }
+      inp.remove();
+      dbRenderBreakdown(); renderDbBalance();
+    };
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(true); } else if(e.key==="Escape"){ e.stopPropagation(); commit(false); } });
+    inp.addEventListener("blur", ()=>commit(true));
+  }));
 }
 
 /* ---- identity + linked banks + profile chip ---- */
