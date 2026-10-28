@@ -21486,6 +21486,11 @@ function dbWinApply(main){
   /* can't measure or clamp while the dashboard is hidden (sign-in screen, canvas view): wait */
   if(!main.clientWidth) return false;
   const panels = dbWinPanels(main);
+  /* repair: a window that was measured while hidden got saved squashed into the top-left corner; re-measure it */
+  if(!dbWin.repaired1){
+    Object.keys(dbWin.items).forEach(k=>{ const v = dbWin.items[k], m = dbWinMin(k); if(v && v.x <= 0 && v.y <= 0 && v.w <= m.w + 2 && v.h <= m.h + 2 && k !== "id") delete dbWin.items[k]; });
+    dbWin.repaired1 = true; dbWinSave();
+  }
   const missing = panels.map(el=>el.dataset.panel).filter(id=>!dbLayout.hidden.includes(id) && !dbWin.items[id]);
   if(missing.length){
     dbWinMeasureDefaults(main, missing);
