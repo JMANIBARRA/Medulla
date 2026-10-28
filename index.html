@@ -1004,7 +1004,11 @@
   .ml-card:hover{border-color:rgba(124,180,255,.45);transform:translateY(-2px);}
   .ml-card.hidden-inbox{opacity:.55;}
   .ml-open{display:flex;align-items:center;gap:12px;padding:16px;color:inherit;text-decoration:none;}
-  .ml-logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;flex:none;box-shadow:0 6px 16px -8px rgba(0,0,0,.6);}
+  .ml-logo{position:relative;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;flex:none;box-shadow:0 6px 16px -8px rgba(0,0,0,.6);background:var(--c);overflow:hidden;}
+  .ml-logo i,.ml-preset span i{font-style:normal;}
+  .ml-fav{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box;background:#fff;}
+  .ml-fav.small{padding:12px;}
+  .ml-preset span .ml-fav{padding:4px;}
   .ml-txt{flex:1;min-width:0;}
   .ml-txt b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .ml-txt small{display:block;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1023,7 +1027,7 @@
   .ml-presets[hidden]{display:none;}
   .ml-preset{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 6px;border-radius:999px;border:1px solid rgba(124,180,255,.22);background:rgba(255,255,255,.04);color:#cfe0f5;font-size:12.5px;font-weight:600;cursor:pointer;}
   .ml-preset:hover{border-color:#4d9bff;background:rgba(47,139,255,.12);}
-  .ml-preset span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800;}
+  .ml-preset span{position:relative;overflow:hidden;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800;background:var(--c);}
   .ml-form{display:flex;gap:8px;flex-wrap:wrap;}
   .ml-form input{flex:1;min-width:160px;height:40px;border-radius:10px;padding:0 12px;font-size:13.5px;}
   .ml-form .fx-ask-btn{height:40px;}
@@ -17066,11 +17070,15 @@ function mlColor(m){
   let n = 0; for(const ch of m.label) n = (n*31 + ch.charCodeAt(0)) % 360;
   return `hsl(${n},62%,48%)`;
 }
+/* Site icon via Google's favicon service; the colored letter underneath shows if it can't load. */
+function mlFavicon(url, size){
+  return `<img class="ml-fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(mlHost(url))}&sz=${size||64}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="if(this.naturalWidth<=16&&${size||64}>32)this.classList.add('small')" onerror="this.remove()">`;
+}
 function renderMailFullList(container){
   const card = (m,i)=>`
     <div class="ml-card${m.hidden?" hidden-inbox":""}">
       <a class="ml-open" href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer">
-        <span class="ml-logo" style="background:${mlColor(m)};">${escapeHtml((m.label.trim()[0]||"@").toUpperCase())}</span>
+        <span class="ml-logo" style="--c:${mlColor(m)};"><i>${escapeHtml((m.label.trim()[0]||"@").toUpperCase())}</i>${mlFavicon(m.url, 64)}</span>
         <span class="ml-txt"><b>${escapeHtml(m.label)}</b><small>${escapeHtml(mlHost(m.url))}</small></span>
         <span class="ml-go">Open ↗</span>
       </a>
@@ -17100,7 +17108,7 @@ function mlRenderPresets(root){
   const box = root && root.querySelector("#ml-presets"); if(!box) return;
   const have = new Set(mailData.map(m=>mlHost(m.url)));
   const left = ML_PRESETS.filter(p=>!have.has(mlHost(p.url)));
-  box.innerHTML = left.map((p,i)=>`<button type="button" class="ml-preset" data-p="${ML_PRESETS.indexOf(p)}"><span style="background:${p.c};">${p.label[0]}</span>${p.label}</button>`).join("");
+  box.innerHTML = left.map((p,i)=>`<button type="button" class="ml-preset" data-p="${ML_PRESETS.indexOf(p)}"><span style="--c:${p.c};"><i>${p.label[0]}</i>${mlFavicon(p.url, 32)}</span>${p.label}</button>`).join("");
   box.hidden = !left.length;
   box.querySelectorAll("[data-p]").forEach(b=>b.addEventListener("click", ()=>{
     const p = ML_PRESETS[+b.dataset.p];
