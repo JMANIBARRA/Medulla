@@ -10321,22 +10321,27 @@ function hydrateGarageFull(scope){
   $g("#gar-next").addEventListener("click", ()=>step(1));
   $g("#gar-close-btn").addEventListener("click", ()=>closeModal());
 
-  /* wheel / trackpad: the very first bit of any scroll moves one vehicle right away; a single
-     notch's burst of events (and trackpad momentum) only counts once, while a longer, continuous
-     scroll keeps moving one vehicle per stretch. A pause ends the scroll. */
-  let wheelAcc = 0, wheelArmed = true, wheelQuiet = null;
+  /* wheel / trackpad: exactly one vehicle per wheel click, and it moves on the very first bit of it.
+     A click arrives as a burst of events (plus smooth-scroll / trackpad momentum that fades out), so
+     after a move the rest of that burst is ignored. The next move needs a fresh click: either a short
+     pause, or a new push (the movement suddenly getting stronger again instead of fading). */
+  let wheelArmed = true, wheelQuiet = null, wheelLast = 0, wheelAt = 0, wheelDir = 0;
   root.addEventListener("wheel", e=>{
     if(!$g("#gar-sheet").hidden) return;
     let d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     if(!d) return;
     e.preventDefault();
     if(e.deltaMode === 1) d *= 16; else if(e.deltaMode === 2) d *= 400;
+    const now = Date.now(), a = Math.abs(d), dir = Math.sign(d);
     clearTimeout(wheelQuiet);
-    wheelQuiet = setTimeout(()=>{ wheelArmed = true; wheelAcc = 0; }, 140);
-    if(wheelAcc && Math.sign(d) !== Math.sign(wheelAcc)){ wheelAcc = 0; wheelArmed = true; }   /* reversed: move back right away */
-    wheelAcc += d;
-    if(wheelArmed && Math.abs(wheelAcc) >= 4){ step(wheelAcc > 0 ? 1 : -1); wheelArmed = false; wheelAcc = 0; }
-    else if(!wheelArmed && Math.abs(wheelAcc) >= 240){ step(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; }
+    wheelQuiet = setTimeout(()=>{ wheelArmed = true; wheelLast = 0; }, 90);
+    const freshPush = !wheelArmed && now - wheelAt > 170 && a > wheelLast * 1.8 + 2;
+    const reversed = !wheelArmed && dir !== wheelDir && now - wheelAt > 120;
+    wheelLast = a;
+    if(wheelArmed || freshPush || reversed){
+      wheelArmed = false; wheelAt = now; wheelDir = dir;
+      step(dir);
+    }
   }, {passive:false});
   /* swipe */
   let touchX = null;
