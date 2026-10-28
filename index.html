@@ -21495,7 +21495,13 @@ function dbWinApply(main){
   if(missing.length){
     dbWinMeasureDefaults(main, missing);
     /* a re-shown panel goes on top of everything, near the top-left */
-    if(Object.keys(dbWin.items).length > missing.length) missing.forEach(id=>{ const it = dbWin.items[id]; if(it){ it.x = 20; it.y = main.scrollTop + 20; } });
+    /* a re-shown panel goes into the first free gap that fits it, so nothing else gets shoved around */
+    if(Object.keys(dbWin.items).length > missing.length) missing.forEach(id=>{
+      const it = dbWin.items[id]; if(!it) return;
+      const mine = {...it}; delete dbWin.items[id];
+      const spot = dbWinFindSpot(main, mine.w || 360, mine.h || 240);
+      dbWin.items[id] = {...spot, z:++dbWin.top};
+    });
     dbWinSave();
   }
   main.classList.remove("grid-mode", "flow-mode");
