@@ -15668,7 +15668,9 @@ scheduleProactiveMedulla();
    scene's sun for a moon+stars instead of showing a sunny scene at night. */
 function weatherScene(code, isDay){
   if(code === 0) return isDay ? "wscene-clear-day" : "wscene-clear-night";
-  if(code === 1 || code === 2 || code === 3) return isDay ? "wscene-clouds" : "wscene-clouds-night";
+  /* mostly clear / partly cloudy look like the sunny photo (it has some clouds); only overcast is gray */
+  if(code === 1 || code === 2) return isDay ? "wscene-clear-day" : "wscene-clear-night";
+  if(code === 3) return isDay ? "wscene-clouds" : "wscene-clouds-night";
   if(code === 45 || code === 48) return "wscene-fog";
   if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "wscene-rain";
   if([71,73,75,77,85,86].includes(code)) return "wscene-snow";
