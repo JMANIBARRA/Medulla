@@ -10312,9 +10312,49 @@ function hydrateGarageFull(scope){
     if(target === garageSelectedIndex) return;
     /* direction for the slide-in: shortest way round */
     const fwd = (target - garageSelectedIndex + n) % n;
-    lastDir = fwd <= n/2 ? 1 : -1;
+    const dir = fwd <= n/2 ? 1 : -1;
+    /* the whole row slides: every vehicle glides from where it was to where it now sits
+       (side panel -> pedestal, pedestal -> side panel, panel -> panel); new ones slide in at the edge */
+    const before = garSnapVisuals();
     garageSelectedIndex = target;
+    lastDir = 0;
     render();
+    garFlipVisuals(before, dir);
+  }
+  function garVisualEls(){
+    const out = [];
+    const c = $g("#gar-car .gar-model > *");
+    if(c) out.push([garageSelectedIndex, c]);
+    $g("#gar-side").querySelectorAll(".gar-panel[data-i]").forEach(b=>{ if(b.firstElementChild) out.push([Number(b.dataset.i), b.firstElementChild]); });
+    return out;
+  }
+  function garSnapVisuals(){
+    const m = new Map();
+    garVisualEls().forEach(([i, el])=>{ if(!m.has(i)) m.set(i, el.getBoundingClientRect()); });
+    return m;
+  }
+  function garFlipVisuals(before, dir){
+    const ease = "cubic-bezier(.3,.75,.3,1)";
+    garVisualEls().forEach(([i, el])=>{
+      const now = el.getBoundingClientRect(), old = before.get(i);
+      el.style.transition = "none";
+      if(old && now.width){
+        const dx = (old.left + old.width/2) - (now.left + now.width/2);
+        const dy = (old.top + old.height/2) - (now.top + now.height/2);
+        el.style.translate = `${dx}px ${dy}px`;
+        el.style.scale = String(Math.max(.15, Math.min(6, old.width / now.width)));
+      } else {
+        el.style.translate = `${dir * 90}px 0px`;
+        el.style.opacity = "0";
+      }
+      void el.offsetWidth;
+      el.style.transition = `translate .6s ${ease}, scale .6s ${ease}, opacity .4s ease`;
+      el.style.translate = "0px 0px"; el.style.scale = "1"; el.style.opacity = "";
+      el.addEventListener("transitionend", ()=>{ el.style.transition = ""; }, {once:true});
+    });
+    /* the pedestal's reflection fades in under the arriving vehicle */
+    const rf = $g("#gar-car .gar-reflect");
+    if(rf){ rf.style.transition = "none"; rf.style.opacity = "0"; void rf.offsetWidth; rf.style.transition = "opacity .5s ease .2s"; rf.style.opacity = ""; }
   }
   const step = d=>select(garageSelectedIndex + d);
   $g("#gar-prev").addEventListener("click", ()=>step(-1));
