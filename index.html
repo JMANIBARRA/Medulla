@@ -18511,7 +18511,6 @@ function buildDashboard(){
         <section class="db-panel db-clock clickable" id="db-clock" data-panel="clock" title="Open Chrono">
           <div class="db-clock-top"><div class="db-clock-time" id="db-clock-time"></div>${dbIcon("calendar")}</div>
           <div class="db-clock-date" id="db-clock-date"></div>
-          <div class="db-focus">${dbIcon("focus")}<div><small>Focused today:</small><b id="db-focus-min">0m</b></div></div>
         </section>
       <section class="db-panel db-cal clickable" id="db-cal" data-panel="calendar" title="Open Calendar">
         <div class="db-title">${dbIcon("calendar")}Calendar</div>
@@ -18861,7 +18860,7 @@ function tickDashboard(){
   const t = now.toLocaleTimeString("en-US",{hour:"numeric", minute:"2-digit", second:"2-digit"}).split(" ");
   $("#db-clock-time").innerHTML = `${t[0]}<small>${t[1]||""}</small>`;
   $("#db-clock-date").textContent = now.toLocaleDateString("en-US",{weekday:"short", month:"short", day:"numeric", year:"numeric"});
-  $("#db-focus-min").textContent = `${focusLog.date===todayStr() ? focusLog.minutes : 0}m`;
+  { const fm = document.getElementById("db-focus-min"); if(fm) fm.textContent = `${focusLog.date===todayStr() ? focusLog.minutes : 0}m`; }
   $("#db-status-time").textContent = `${now.toLocaleDateString("en-US",{weekday:"short", month:"short", day:"numeric"})} · ${now.toLocaleTimeString("en-US",{hour:"numeric", minute:"2-digit"})}`;
   const net = $("#db-status-net");
   net.textContent = navigator.onLine ? "System Online" : "Offline";
