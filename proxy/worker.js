@@ -540,15 +540,12 @@ async function portfolioScan(request, env, cors){
   const img = String(body && body.image || "");
   if(!/^data:image\/(png|jpe?g|webp);base64,/.test(img)) return json({error:"bad_image"}, 400, cors);
   if(img.length > 5_500_000) return json({error:"image_too_large"}, 413, cors);
-  const prompt = `This is a screenshot of someone's investment portfolio / positions table (Webull, Robinhood, Fidelity, Schwab, Coinbase, etc.).
-Read EVERY row of the positions table, top to bottom. For each row return:
+  const prompt = `This is a screenshot of someone's investment positions (any brokerage app).
+For EVERY position row, top to bottom, return only:
 - "sym": the ticker symbol exactly as shown (crypto in Yahoo style, e.g. BTC-USD)
-- "qty": the Quantity / Shares column (can be fractional like 0.27933 — copy every digit)
-- "mv": the Market Value column, as a number (null if not shown)
-- "pnl": the Open/Total P&L in dollars (not the % column), negative if shown in red or with a minus (null if not shown)
-- "cost": the average cost per share ONLY if a column for it is shown (null otherwise)
-Never use market value or P&L as the quantity. Ignore account totals, cash, buying power and charts. Never invent rows.
-Answer with JSON only: {"holdings":[{"sym":"AMD","qty":9.21897,"mv":5226.14,"pnl":4003.91,"cost":null}]}`;
+- "qty": the Quantity / Shares held (can be fractional, e.g. 0.27933 — copy every digit)
+Ignore prices, market values, P&L, percentages, account totals and cash. Never use a dollar amount as the quantity. Never invent rows.
+Answer with JSON only: {"holdings":[{"sym":"AMD","qty":9.21897}]}`;
   const models = [env.PORTFOLIO_VISION_MODEL, env.GARAGE_VISION_MODEL, "qwen/qwen3.8-27b", "meta-llama/llama-4-scout-17b-16e-instruct"].filter((m,i,a)=>m && a.indexOf(m) === i);
   let out = null, lastErr = "";
   for(const model of models){
@@ -562,11 +559,7 @@ Answer with JSON only: {"holdings":[{"sym":"AMD","qty":9.21897,"mv":5226.14,"pnl
   const holdings = (Array.isArray(out.holdings) ? out.holdings : []).map(h=>{
     const sym = String(h.sym||h.symbol||h.ticker||"").toUpperCase().replace(/^\$/, "").trim();
     const qty = num(h.qty ?? h.shares ?? h.quantity);
-    let cost = num(h.cost ?? h.avg_cost ?? h.average_cost);
-    const mv = num(h.mv ?? h.market_value), pnl = num(h.pnl ?? h.open_pnl);
-    /* no cost column: cost basis = market value - P&L */
-    if(!(cost > 0) && qty > 0 && mv != null && pnl != null && mv - pnl > 0) cost = Math.round((mv - pnl) / qty * 10000) / 10000;
-    return {sym, shares:qty > 0 ? qty : null, cost:cost > 0 ? cost : null, mv:mv > 0 ? mv : null};
+    return {sym, shares:qty > 0 ? qty : null};
   }).filter(h=>/^[A-Z0-9.\-^=]{1,15}$/.test(h.sym) && h.shares).slice(0, 80);
   return new Response(JSON.stringify({holdings}), {status:200, headers:{...cors, "Content-Type":"application/json", "Cache-Control":"no-store"}});
 }
