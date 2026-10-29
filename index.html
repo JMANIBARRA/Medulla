@@ -1649,6 +1649,8 @@
   .gar-panel .gar-sil, .gar-mthumb .gar-sil, .gar-photo-preview .gar-sil{width:100%;}
   /* side glass panels */
   .gar-side{position:absolute;inset:0;transform-style:preserve-3d;}
+  .gar-panel *{pointer-events:none;}
+  .gar-maint-badge[hidden]{display:none !important;}
   .gar-panel{position:absolute;top:10%;height:58%;padding:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:6px;
     background:linear-gradient(180deg, rgba(30,70,140,.28), rgba(8,20,45,.55));border:1.5px solid rgba(90,169,255,.55);box-shadow:0 0 22px -6px rgba(63,150,255,.7), inset 0 0 30px rgba(63,150,255,.12);
     transition:transform .3s, border-color .15s, opacity .3s;}
@@ -12676,6 +12678,12 @@ function hydrateGarageFull(scope){
   }, {passive:false});
   /* swipe */
   let touchX = null;
+  /* side vehicles are tilted in 3D, so parts of them miss clicks — find the one under the pointer by its on-screen box */
+  $g("#gar-stage").addEventListener("click", e=>{
+    if(e.target.closest(".gar-panel, .gar-car, button, a, model-viewer")) return;
+    const hit = [...$g("#gar-side").querySelectorAll(".gar-panel[data-i]")].find(b=>{ const r = b.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; });
+    if(hit) select(Number(hit.dataset.i));
+  });
   $g("#gar-stage").addEventListener("touchstart", e=>{ touchX = e.touches[0].clientX; }, {passive:true});
   $g("#gar-stage").addEventListener("touchend", e=>{
     if(touchX === null) return;
