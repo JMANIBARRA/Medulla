@@ -533,7 +533,7 @@ async function simplefinAccounts(request, env, cors){
 
 /* ---- stock quotes + price history for the Assets portfolio (Yahoo Finance chart API, no key) ----
    GET /stocks/quotes?s=AAPL,VOO,BTC-USD&range=1d|5d|1mo|6mo|1y */
-const Q_RANGES = {"1d":"5m","5d":"30m","1mo":"1d","6mo":"1d","1y":"1wk","5y":"1mo"};
+const Q_RANGES = {"1d":"5m","5d":"30m","1mo":"1d","1mo60":"60m","6mo":"1d","1y":"1wk","5y":"1mo"};
 async function stockQuotes(request, cors){
   const u = new URL(request.url);
   const syms = String(u.searchParams.get("s")||"").toUpperCase().split(",").map(x=>x.trim()).filter(x=>/^[A-Z0-9.\-^=]{1,15}$/.test(x)).slice(0, 40);
@@ -541,7 +541,7 @@ async function stockQuotes(request, cors){
   if(!syms.length) return json({error:"no_symbols"}, 400, cors);
   const one = async sym=>{
     try{
-      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${Q_RANGES[range]}&includePrePost=false`,
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range === "1mo60" ? "1mo" : range}&interval=${Q_RANGES[range]}&includePrePost=false`,
         {headers:UA_HDRS, cf:{cacheTtl:60, cacheEverything:true}});
       if(!r.ok) return [sym, {error:r.status === 404 ? "not_found" : "unavailable"}];
       const d = await r.json();

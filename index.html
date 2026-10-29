@@ -3065,6 +3065,7 @@
   .db-bal-chart{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;min-width:0;}
   .db-bal-chart svg{width:100%;height:130px;display:block;overflow:visible;}
   .db-bal-empty{font-size:12px;color:var(--text-dim);text-align:center;}
+  .db-bal-chg{font-family:var(--font-mono);font-size:12.5px;text-align:right;margin-bottom:4px;} .db-bal-chg.up{color:var(--good);} .db-bal-chg.down{color:var(--bad);} .db-bal-chg span{color:var(--text-dim);}
   .db-bal.clickable{cursor:pointer;}
   .db-bal-stocks{margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--text-dim);white-space:nowrap;min-height:16px;}
   .db-bal-stocks .up{color:var(--good);} .db-bal-stocks .down{color:var(--bad);}
@@ -22003,11 +22004,47 @@ function dbStocks(){
 function dbNet(){ return (Number(dbBalance.assets)||0) + dbStocks().value - (Number(dbBalance.liabilities)||0); }
 function dbRecordNet(){
   const net = Math.round(dbNet()*100)/100;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const slot = new Date(); slot.setHours(slot.getHours() < 12 ? 0 : 12, 0, 0, 0);   /* twice a day: AM and PM */
   const lastP = dbBalance.history[dbBalance.history.length-1];
-  if(lastP && lastP.t >= today.getTime()){ lastP.v = net; lastP.t = Date.now(); } else dbBalance.history.push({t:Date.now(), v:net});
-  if(dbBalance.history.length > 1000) dbBalance.history.splice(0, dbBalance.history.length-1000);
+  if(lastP && lastP.t >= slot.getTime()){ lastP.v = net; lastP.t = Date.now(); } else dbBalance.history.push({t:Date.now(), v:net});
+  if(dbBalance.history.length > 1500) dbBalance.history.splice(0, dbBalance.history.length-1500);
   saveDbBalance();
+}
+/* The stock part of the chart is rebuilt from real price history (Yahoo via the Worker), so the line
+   fills in even for days Medulla wasn't open. 1M uses hourly prices sampled twice per trading day
+   (open + close); longer ranges use daily/weekly closes. Holdings are assumed held the whole time. */
+const DB_SERIES_TTL = 30*60*1000;
+const dbSeriesCache = {};
+function dbSeriesRange(r){
+  if(r === "1M") return {q:"1mo60", from:Date.now()-30*864e5, twice:true};
+  if(r === "3M") return {q:"6mo", from:Date.now()-91*864e5};
+  if(r === "YTD"){ const j = new Date(new Date().getFullYear(),0,1).getTime(); return {q: Date.now()-j < 180*864e5 ? "6mo" : "1y", from:j}; }
+  return {q:"5y", from:0};
+}
+async function dbLoadSeries(range){
+  const c = dbSeriesCache[range];
+  if(c && Date.now() - c.at < DB_SERIES_TTL) return c;
+  if(!pfData.holdings.length || typeof pfFetch !== "function") return null;
+  const R = dbSeriesRange(range);
+  let quotes; try{ quotes = await pfFetch(R.q); }catch(e){ return null; }
+  /* merge every holding onto one timeline: at each time, shares x the latest known price */
+  const series = pfData.holdings.map(h=>({sh:+h.shares||0, pts:((quotes[h.sym]||{}).points||[]).filter(p=>p[0] >= R.from - 7*864e5)})).filter(x=>x.pts.length);
+  if(!series.length) return null;
+  let times = [...new Set(series.flatMap(x=>x.pts.map(p=>p[0])))].sort((a,b)=>a-b).filter(t=>t >= R.from);
+  if(R.twice){
+    /* keep the first and last reading of each trading day (market open and close) */
+    const byDay = {}; times.forEach(t=>{ const k = new Date(t).toDateString(); (byDay[k] = byDay[k] || []).push(t); });
+    times = Object.values(byDay).flatMap(a=>a.length > 1 ? [a[0], a[a.length-1]] : a);
+  }
+  const extra = (Number(dbBalance.assets)||0) - (Number(dbBalance.liabilities)||0);
+  const idx = series.map(()=>0), last = series.map(x=>null);
+  const pts = times.map(t=>{
+    let v = 0;
+    series.forEach((x,i)=>{ while(idx[i] < x.pts.length && x.pts[idx[i]][0] <= t){ last[i] = x.pts[idx[i]][1]; idx[i]++; } if(last[i] == null && x.pts[0]) last[i] = x.pts[0][1]; v += (last[i]||0) * x.sh; });
+    return {t, v: Math.round((v + extra)*100)/100};
+  });
+  pts.push({t:Date.now(), v:Math.round(dbNet()*100)/100});
+  return dbSeriesCache[range] = {at:Date.now(), pts};
 }
 async function dbRefreshStocks(force){
   if(!pfData.holdings.length || dbStocksBusy || typeof pfFetch!=="function") return;
@@ -22053,11 +22090,16 @@ function renderDbBalance(){
 }
 function renderDbBalanceChart(){
   const box = $("#db-bal-chart");
-  const now = Date.now(), DAY = 864e5;
-  const start = {"1M":now-30*DAY, "3M":now-91*DAY, "YTD":new Date(new Date().getFullYear(),0,1).getTime(), "ALL":0}[dbBalance.range] || 0;
-  let pts = dbBalance.history.filter(p=>p.t>=start);
+  const now = Date.now(), DAY = 864e5, range = dbBalance.range;
+  const start = {"1M":now-30*DAY, "3M":now-91*DAY, "YTD":new Date(new Date().getFullYear(),0,1).getTime(), "ALL":0}[range] || 0;
+  const cached = dbSeriesCache[range];
+  if(pfData.holdings.length && (!cached || now - cached.at > DB_SERIES_TTL)){
+    dbLoadSeries(range).then(r=>{ if(r && dbBalance.range === range && document.getElementById("db-bal-chart")) renderDbBalanceChart(); });
+  }
+  let pts = cached && pfData.holdings.length ? cached.pts.slice() : dbBalance.history.filter(p=>p.t>=start);
+  if(cached && pfData.holdings.length) pts[pts.length-1] = {t:now, v:Math.round(dbNet()*100)/100};
   /* carry the last value from before the window in, so a window with one new entry still draws a line */
-  const before = dbBalance.history.filter(p=>p.t<start).pop();
+  const before = cached && pfData.holdings.length ? null : dbBalance.history.filter(p=>p.t<start).pop();
   if(before) pts = [{t:start, v:before.v}, ...pts];
   if(pts.length===1) pts = [{t:Math.min(pts[0].t, now-DAY), v:pts[0].v}, {t:now, v:pts[0].v}];
   else if(pts.length>1 && pts[pts.length-1].t < now-DAY) pts = [...pts, {t:now, v:pts[pts.length-1].v}];
@@ -22074,8 +22116,10 @@ function renderDbBalanceChart(){
   let d = `M${xy[0][0].toFixed(1)} ${xy[0][1].toFixed(1)}`;
   for(let i=1;i<xy.length;i++){
     const [x0,y0] = xy[i-1], [x1,y1] = xy[i], mx = (x0+x1)/2;
-    d += ` C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    d += xy.length > 14 ? ` L${x1.toFixed(1)} ${y1.toFixed(1)}` : ` C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
   }
+  const chg = pts[pts.length-1].v - pts[0].v, pct = pts[0].v ? chg / Math.abs(pts[0].v) * 100 : 0;
+  const lbl = {"1M":"past month", "3M":"past 3 months", "YTD":"this year", "ALL":"all time"}[range] || "";
   const last = xy[xy.length-1];
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <defs><linearGradient id="db-bal-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".38"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
@@ -22086,6 +22130,7 @@ function renderDbBalanceChart(){
   dot.style.cssText = `position:relative;height:0;`;
   dot.innerHTML = `<span style="position:absolute;left:calc(${(last[0]/W*100).toFixed(2)}% - 6px);top:${(last[1]/H*130-136).toFixed(1)}px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px var(--accent),0 0 14px var(--accent);"></span>`;
   box.appendChild(dot);
+  if(!dbBalance.hidden && Math.abs(chg) >= 0.01) box.insertAdjacentHTML("afterbegin", `<div class="db-bal-chg ${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "▲ +" : "▼ −"}${dbMoney(Math.abs(chg)).replace("-","")} (${Math.abs(pct).toFixed(1)}%) <span>${lbl}</span></div>`);
 }
 function wireDbBalance(){
   $("#db-bal-eye").addEventListener("click", e=>{ e.stopPropagation(); dbBalance.hidden = !dbBalance.hidden; saveDbBalance(); renderDbBalance(); });
@@ -22503,6 +22548,8 @@ function applyDbLayout(){
   const mode = dbLayoutMode();
   if(mode==="window" && dbWinApply(main)){ document.body.classList.add("db-can-edit"); return; }
   main.classList.remove("win-mode");
+  /* leaving desktop windows (e.g. phone): drop the window positions so panels stack normally */
+  main.querySelectorAll(":scope > .db-panel[data-panel]").forEach(el=>{ ["left","top","width","height","zIndex","position"].forEach(k=>el.style[k] = ""); });
   main.classList.toggle("grid-mode", mode==="grid");
   main.classList.toggle("flow-mode", mode==="flow");
   document.body.classList.toggle("db-can-edit", mode==="grid");
