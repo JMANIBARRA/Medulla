@@ -3338,7 +3338,12 @@
   .db-cal-events div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-cal-events em{font-style:normal;color:var(--text-dim);font-family:var(--font-mono);font-size:12px;margin-right:8px;}
   .db-cal-body > svg{width:20px;height:20px;color:#cfe0f5;flex:none;}
-  .db-fc{padding:16px 18px 18px;}
+  .db-fc{padding:16px 18px 18px;display:flex;flex-direction:column;}
+  .db-fc > .db-title, .db-fc-days{flex:none;}
+  /* day details scroll inside the window when it's sized too small */
+  .db-fc .db-fc-detail{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(124,180,255,.35) transparent;}
+  .db-fc-detail::-webkit-scrollbar{width:6px;}
+  .db-fc-detail::-webkit-scrollbar-thumb{background:rgba(124,180,255,.3);border-radius:6px;}
   .db-fc-days{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px;}
   .db-fc-day{text-align:center;padding:12px 4px;border-radius:12px;background:rgba(9,20,38,.6);border:1px solid rgba(130,153,184,.12);color:inherit;font:inherit;cursor:pointer;transition:border-color .15s, background .15s;}
   .db-fc-day:hover{border-color:var(--db-edge-strong);}
