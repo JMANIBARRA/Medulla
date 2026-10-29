@@ -9334,9 +9334,12 @@ function scGame(ev, comp, sport, label){
     ctx = [ev.name || ev.shortName, grp && grp.grouping && grp.grouping.displayName, comp.round && comp.round.displayName].filter(Boolean).join(" · ");
   } else ctx = note || (stype === 3 ? "Postseason" : stype === 1 ? "Preseason" : "");
   const series = comp.series && comp.series.summary ? comp.series.summary : "";
-  const big = /world series|super bowl|stanley cup final|nba finals|finals|championship|final\b|semifinal|wimbledon|roland garros|french open|us open|australian open|world cup|game 7/i.test(ctx + " " + (ev.name||"")) && !/quarter|qualif/i.test(ctx) ? 2 : (stype === 3 || /playoff|wild card|division|conference|postseason|semifinal|quarterfinal/i.test(ctx) || ["Wimbledon","Roland Garros","US Open","Australian Open"].some(n=>(ev.name||"").includes(n))) ? 1 : 0;
+  let big = /world series|super bowl|stanley cup final|nba finals|finals|championship|final\b|semifinal|wimbledon|roland garros|french open|us open|australian open|world cup|game 7/i.test(ctx + " " + (ev.name||"")) && !/quarter|qualif/i.test(ctx) ? 2 : (stype === 3 || /playoff|wild card|division|conference|postseason|semifinal|quarterfinal/i.test(ctx) || ["Wimbledon","Roland Garros","US Open","Australian Open"].some(n=>(ev.name||"").includes(n))) ? 1 : 0;
+  if(sport === "tennis" && big === 2 && !/wimbledon|roland garros|french open|us open|australian open|atp finals|wta finals|nitto/i.test(ev.name || "")) big = /final\b/i.test(ctx) && !/semi/i.test(ctx) ? 1 : 0;
+  const A = side(cs[0]), B = side(cs[1]);
+  if([A, B].every(x=>/^(tbd|tba|)$/i.test((x.name || "").trim()))) return null;   /* "TBD vs TBD" placeholder — nothing to show */
   return {ctx, series, big, id:String(comp.id || ev.id), sport, label, date:ev.date || comp.date, state:st.state, name:st.name || "", detail:st.shortDetail || st.detail || "",
-    a:side(cs[0]), b:side(cs[1]), extra:sit.downDistanceText || (sport === "basketball" && ev.competitions && comp.series && comp.series.summary) || "", league:label};
+    a:A, b:B, extra:sit.downDistanceText || (sport === "basketball" && ev.competitions && comp.series && comp.series.summary) || "", league:label};
 }
 let scLastFailed = false;
 async function scLoadGames(){
@@ -9466,7 +9469,7 @@ async function scRender(scope){
   /* All tab: take turns across leagues so one busy sport (tennis has dozens of matches) doesn't crowd out the rest.
      Pinned, favorite and championship games stay on top. */
   if(scState.tab === "all" && !q){
-    const top = games.filter(g=>sportsData.pinned.includes(g.id) || scIsFav(g) || g.big === 2);
+    const top = games.filter(g=>sportsData.pinned.includes(g.id) || scIsFav(g));
     const byLg = {}; games.filter(g=>!top.includes(g)).forEach(g=>(byLg[g.league] = byLg[g.league] || []).push(g));
     const lists = Object.values(byLg).sort((a,b)=>rank(a[0]) - rank(b[0]));
     const mixed = []; for(let r = 0; lists.some(l=>l[r]); r++) lists.forEach(l=>{ if(l[r]) mixed.push(l[r]); });
