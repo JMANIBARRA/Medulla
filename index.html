@@ -1778,6 +1778,43 @@
   .ait button{width:26px;height:26px;border-radius:50%;border:1px solid rgba(130,153,184,.3);background:transparent;color:#cfe0f5;cursor:pointer;}
   .ait.ring{border-color:#ffb040;animation:ait-ring .6s ease-in-out infinite alternate;} .ait.ring b{color:#ffc46b;}
   @keyframes ait-ring{from{box-shadow:0 0 0 0 rgba(255,176,64,.5);}to{box-shadow:0 0 0 8px rgba(255,176,64,0);}}
+  #modal-panel.modal-custom.modal-projects{width:min(1100px,96vw);max-height:94vh;}
+  #modal-panel.modal-custom.modal-projects #modal-body{padding:0;}
+  .pj{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:560px;}
+  .pj-side{border-right:1px solid rgba(124,180,255,.12);padding:18px 12px;display:flex;flex-direction:column;gap:10px;}
+  .pj-sh{display:flex;align-items:center;justify-content:space-between;padding:0 6px;} .pj-sh b{font-size:18px;}
+  .pj-new{height:30px;padding:0 12px;border-radius:999px;border:none;background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .pj-list{display:flex;flex-direction:column;gap:4px;overflow:auto;}
+  .pj-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:1px solid transparent;background:none;color:var(--text-primary);text-align:left;cursor:pointer;font:inherit;}
+  .pj-item:hover{background:rgba(90,169,255,.08);} .pj-item.on{background:rgba(47,139,255,.14);border-color:rgba(77,155,255,.45);}
+  .pj-item i{width:9px;height:9px;border-radius:50%;flex:none;} .pj-item span{min-width:0;} .pj-item b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .pj-item small{font-size:11.5px;color:var(--text-dim);}
+  .pj-main{padding:20px 22px;display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .pj-top{display:flex;gap:10px;align-items:center;}
+  .pj input{background:rgba(4,12,24,.6);border:1px solid rgba(124,180,255,.22);color:var(--text-primary);font:inherit;outline:none;box-sizing:border-box;}
+  .pj input:focus,.pj textarea:focus{border-color:#4d9bff;outline:none;}
+  .pj-title{flex:1;font-size:22px !important;font-weight:700 !important;height:48px;border-radius:12px;padding:0 14px;}
+  .pj-del{height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,93,108,.35);background:transparent;color:#ff8a95;font:inherit;font-size:12.5px;cursor:pointer;}
+  .pj-status{display:flex;gap:4px;padding:3px;border-radius:11px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);align-self:flex-start;}
+  .pj-status button{height:30px;padding:0 12px;border:none;border-radius:8px;background:none;color:#c3d4ea;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .pj-status button.on{background:var(--c);color:#06101f;}
+  .pj-sec h4{margin:4px 0 0;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);}
+  .pj-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .pj-q,.pj-link a{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;border:1px solid rgba(124,180,255,.14);background:rgba(255,255,255,.03);color:inherit;text-decoration:none;min-width:0;}
+  .pj-q:hover,.pj-link a:hover{border-color:rgba(124,180,255,.45);background:rgba(90,169,255,.08);}
+  .pj-qi{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;flex:none;}
+  .pj-q b,.pj-link b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .pj-q small,.pj-link small{display:block;font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pj-q > span:last-child,.pj-link a > span:last-child{min-width:0;}
+  .pj-links{display:flex;flex-direction:column;gap:6px;}
+  .pj-link{display:flex;gap:6px;align-items:center;} .pj-link a{flex:1;}
+  .pj-link button{width:30px;height:30px;border-radius:50%;border:1px solid rgba(130,153,184,.25);background:transparent;color:var(--text-dim);cursor:pointer;}
+  .pj-addlink{display:flex;gap:6px;flex-wrap:wrap;} .pj-addlink input{flex:2;min-width:200px;height:38px;border-radius:10px;padding:0 12px;font-size:13px;} .pj-addlink input[name=name]{flex:1;min-width:120px;}
+  .pj-addlink button{height:38px;padding:0 14px;border-radius:10px;border:1px solid rgba(77,155,255,.45);background:rgba(47,139,255,.12);color:#9fd0ff;font:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+  .pj-tip{margin:0;font-size:11.5px;color:var(--text-dim);}
+  .pj-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;}
+  .pj-cols > div{display:flex;flex-direction:column;gap:6px;}
+  .pj-cols textarea{flex:1;min-height:200px;border-radius:12px;padding:12px;font-family:var(--font-body);font-size:13.5px;line-height:1.5;background:rgba(4,12,24,.6);border:1px solid rgba(124,180,255,.18);color:var(--text-primary);resize:vertical;}
+  .pj-cols textarea.mono{font-family:var(--font-mono);font-size:12.5px;}
+  @media (max-width:820px){ .pj{grid-template-columns:1fr;} .pj-side{border-right:none;border-bottom:1px solid rgba(124,180,255,.12);} .pj-list{flex-direction:row;overflow-x:auto;} .pj-item{flex:none;} .pj-quick{grid-template-columns:1fr 1fr;} .pj-cols{grid-template-columns:1fr;} }
   .tf-astyped{display:flex !important;flex-direction:column;align-items:flex-start !important;background:#102544 !important;border-top:1px dashed rgba(124,180,255,.3) !important;}
   .tf-astyped b{color:#9fd0ff;} .tf-astyped small{flex-basis:auto !important;}
   .tf-hint{margin-right:auto;align-self:center;font-size:12px;color:var(--text-dim);}
@@ -7355,7 +7392,7 @@ function openModal(def){
   if(typeof dbSuspendPinned === "function") dbSuspendPinned(def.id);
   modalTitle.textContent = def.title;
   /* views that draw their own header (title, search, close) hide the generic one */
-  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth" || def.id==="traffic");
+  document.getElementById("modal-panel").classList.toggle("modal-custom", def.id==="banking" || def.id==="arcade" || def.id==="market" || def.id==="garage" || def.id==="career" || def.id==="sports" || def.id==="phone" || def.id==="networth" || def.id==="traffic" || def.id==="claudeprojects");
   document.getElementById("modal-panel").classList.toggle("modal-networth", def.id==="networth");
   document.getElementById("modal-panel").classList.toggle("modal-phone", def.id==="phone");
   document.getElementById("modal-panel").classList.toggle("modal-sports", def.id==="sports");
@@ -7365,6 +7402,7 @@ function openModal(def){
   document.getElementById("modal-panel").classList.toggle("modal-arcade", def.id==="arcade");
   document.getElementById("modal-panel").classList.toggle("modal-fitness", def.id==="fitness");
   document.getElementById("modal-panel").classList.toggle("modal-traffic", def.id==="traffic");
+  document.getElementById("modal-panel").classList.toggle("modal-projects", def.id==="claudeprojects");
   modalCloseCleanup = null;
   if(def.built){
     modalBody.innerHTML = renderFull(def.id);
@@ -7876,18 +7914,12 @@ function renderFull(id){
     </div>`;
   }
   if(id==="claudeprojects"){
-    return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Project</h3>
-        <input id="cp-full-title" type="text" placeholder="Project title…" style="width:100%;margin:8px 0;"/>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);margin-top:14px;">Notes</h3>
-        <textarea id="cp-full-notes" placeholder="Context, decisions, next steps…" style="width:100%;min-height:220px;margin-top:8px;background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;color:var(--text-primary);font-family:var(--font-body);font-size:13px;padding:10px;"></textarea>
-      </div>
-      <div>
-        <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Snippet / file paths</h3>
-        <textarea id="cp-full-snippet" placeholder="Code snippets, file paths, commands…" style="width:100%;min-height:280px;margin-top:8px;background:var(--bg-panel-raised);border:1px solid var(--line);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:10px;"></textarea>
-      </div>
+    return `<div class="pj">
+      <aside class="pj-side">
+        <div class="pj-sh"><b>Projects</b><button type="button" class="pj-new" id="pj-new" title="New project">+ New</button></div>
+        <div class="pj-list" id="pj-list"></div>
+      </aside>
+      <section class="pj-main" id="pj-main"></section>
     </div>`;
   }
   if(id==="fitness"){
@@ -19757,31 +19789,81 @@ function hydrateClaudeProjectsMini(scope){
     if(fullSnippet) fullSnippet.value = snippetEl.value;
   });
 }
-function hydrateClaudeProjectsFull(scope){
-  const titleEl = scope.querySelector("#cp-full-title");
-  const notesEl = scope.querySelector("#cp-full-notes");
-  const snippetEl = scope.querySelector("#cp-full-snippet");
-  titleEl.value = claudeProjectsData.title;
-  notesEl.value = claudeProjectsData.notes;
-  snippetEl.value = claudeProjectsData.snippet;
-  titleEl.addEventListener("input", ()=>{
-    claudeProjectsData.title = titleEl.value;
-    saveJSON(NS+"claudeprojects", claudeProjectsData);
-    const miniTitle = document.querySelector(".cp-mini-title");
-    if(miniTitle) miniTitle.value = titleEl.value;
-  });
-  notesEl.addEventListener("input", ()=>{
-    claudeProjectsData.notes = notesEl.value;
-    saveJSON(NS+"claudeprojects", claudeProjectsData);
-  });
-  snippetEl.addEventListener("input", ()=>{
-    claudeProjectsData.snippet = snippetEl.value;
-    saveJSON(NS+"claudeprojects", claudeProjectsData);
-    const miniSnippet = document.querySelector(".cp-mini-snippet");
-    if(miniSnippet) miniSnippet.value = snippetEl.value;
-  });
+/* Projects: a list of projects, each with title, status, notes, snippets and its own quick links.
+   The active project is mirrored into claudeProjectsData.title/notes/snippet for the mini widget. */
+const PJ_STATUS = [["idea","Idea","#8ea3c0"],["active","In progress","#4d9bff"],["blocked","Blocked","#ff6b78"],["done","Done","#36d39a"]];
+const PJ_QUICK = [
+  {k:"excel", label:"Excel", sub:"Open your workbooks", url:"https://www.office.com/launch/excel", c:"#1d6f42", ic:"X"},
+  {k:"newxl", label:"New workbook", sub:"Blank Excel sheet", url:"https://excel.new", c:"#21a366", ic:"+"},
+  {k:"onedrive", label:"OneDrive", sub:"Your files", url:"https://onedrive.live.com", c:"#0f6cbd", ic:"☁"},
+  {k:"gsheets", label:"Google Sheets", sub:"Spreadsheets", url:"https://docs.google.com/spreadsheets", c:"#188038", ic:"G"},
+];
+function pjData(){
+  const d = claudeProjectsData;
+  if(!Array.isArray(d.projects)){
+    d.projects = [{id:"pj"+Date.now(), title:d.title||"", notes:d.notes||"", snippet:d.snippet||"", status:"active", links:[], t:Date.now()}];
+    d.activeId = d.projects[0].id;
+  }
+  if(!d.projects.length){ d.projects.push({id:"pj"+Date.now(), title:"", notes:"", snippet:"", status:"active", links:[], t:Date.now()}); }
+  if(!d.projects.some(p=>p.id===d.activeId)) d.activeId = d.projects[0].id;
+  return d;
 }
-
+function pjSave(){
+  const d = pjData(), a = d.projects.find(p=>p.id===d.activeId);
+  d.title = a.title; d.notes = a.notes; d.snippet = a.snippet;
+  saveJSON(NS+"claudeprojects", d);
+}
+function hydrateClaudeProjectsFull(scope){
+  const d = pjData();
+  const $p = q=>scope.querySelector(q);
+  const st = k=>PJ_STATUS.find(x=>x[0]===k) || PJ_STATUS[1];
+  const host = u=>{ try{ return new URL(u).hostname.replace(/^www\./,""); }catch(e){ return u; } };
+  const isXl = u=>/excel|xlsx?|sharepoint|onedrive|1drv|office/i.test(u);
+  function renderList(){
+    $p("#pj-list").innerHTML = d.projects.map(p=>`<button type="button" class="pj-item${p.id===d.activeId?" on":""}" data-pj="${p.id}">
+      <i style="background:${st(p.status)[2]}"></i><span><b>${escapeHtml(p.title || "Untitled project")}</b><small>${st(p.status)[1]}${p.links && p.links.length ? ` · ${p.links.length} link${p.links.length>1?"s":""}` : ""}</small></span></button>`).join("");
+    $p("#pj-list").querySelectorAll("[data-pj]").forEach(b=>b.addEventListener("click", ()=>{ d.activeId = b.dataset.pj; pjSave(); renderList(); renderMain(); }));
+  }
+  function renderMain(){
+    const a = d.projects.find(p=>p.id===d.activeId); a.links = a.links || [];
+    $p("#pj-main").innerHTML = `
+      <div class="pj-top">
+        <input class="pj-title" id="pj-title" placeholder="Project name" value="${escapeHtml(a.title)}" autocomplete="off">
+        <button type="button" class="pj-del" id="pj-del" title="Delete project">Delete</button>
+      </div>
+      <div class="pj-status">${PJ_STATUS.map(([k,l,c])=>`<button type="button" data-st="${k}" class="${a.status===k?"on":""}" style="--c:${c}">${l}</button>`).join("")}</div>
+      <div class="pj-sec"><h4>Quick links</h4></div>
+      <div class="pj-quick">${PJ_QUICK.map(q=>`<a class="pj-q" href="${q.url}" target="_blank" rel="noopener"><span class="pj-qi" style="background:${q.c}">${q.ic}</span><span><b>${q.label}</b><small>${q.sub}</small></span></a>`).join("")}</div>
+      <div class="pj-links">
+        ${a.links.map((l,i)=>`<div class="pj-link"><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener"><span class="pj-qi" style="background:${isXl(l.url) ? "#1d6f42" : "#3a4f78"}">${isXl(l.url) ? "X" : "↗"}</span><span><b>${escapeHtml(l.name)}</b><small>${escapeHtml(host(l.url))}</small></span></a><button type="button" data-ldel="${i}" title="Remove">✕</button></div>`).join("")}
+        <form class="pj-addlink" id="pj-addlink"><input name="url" placeholder="Paste a link to this project's spreadsheet or file" autocomplete="off"><input name="name" placeholder="Name (optional)" autocomplete="off"><button type="submit">+ Pin link</button></form>
+        <p class="pj-tip">Tip: in Excel, use <b>Share → Copy link</b> on a workbook and paste it here to open it in one click.</p>
+      </div>
+      <div class="pj-cols">
+        <div><div class="pj-sec"><h4>Notes</h4></div><textarea id="pj-notes" placeholder="Goals, decisions, next steps…">${escapeHtml(a.notes)}</textarea></div>
+        <div><div class="pj-sec"><h4>Snippets &amp; file paths</h4></div><textarea id="pj-snippet" class="mono" placeholder="Commands, paths, formulas…">${escapeHtml(a.snippet)}</textarea></div>
+      </div>`;
+    const bind = (sel, key)=>$p(sel).addEventListener("input", e=>{ a[key] = e.target.value; pjSave(); if(key==="title") renderList(); });
+    bind("#pj-title","title"); bind("#pj-notes","notes"); bind("#pj-snippet","snippet");
+    $p("#pj-main").querySelectorAll("[data-st]").forEach(b=>b.addEventListener("click", ()=>{ a.status = b.dataset.st; pjSave(); renderList(); renderMain(); }));
+    $p("#pj-addlink").addEventListener("submit", e=>{
+      e.preventDefault(); const f = e.target; let url = f.url.value.trim(); if(!url) return f.url.focus();
+      if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+      a.links.push({url, name:f.name.value.trim() || (isXl(url) ? "Spreadsheet" : host(url))}); pjSave(); renderList(); renderMain();
+    });
+    $p("#pj-main").querySelectorAll("[data-ldel]").forEach(b=>b.addEventListener("click", ()=>{ a.links.splice(+b.dataset.ldel,1); pjSave(); renderList(); renderMain(); }));
+    const del = $p("#pj-del");
+    del.addEventListener("click", ()=>{
+      if(!del.classList.contains("armed")){ del.classList.add("armed"); del.textContent = "Delete?"; setTimeout(()=>{ if(del.isConnected){ del.classList.remove("armed"); del.textContent = "Delete"; } }, 3000); return; }
+      d.projects = d.projects.filter(p=>p.id!==a.id); pjData(); pjSave(); renderList(); renderMain();
+    });
+  }
+  $p("#pj-new").addEventListener("click", ()=>{
+    const n = {id:"pj"+Date.now(), title:"", notes:"", snippet:"", status:"idea", links:[], t:Date.now()};
+    d.projects.unshift(n); d.activeId = n.id; pjSave(); renderList(); renderMain(); $p("#pj-title").focus();
+  });
+  renderList(); renderMain();
+}
 /* ================= FITNESS & BLOODWORK WIDGET ================= */
 let fitnessData = loadJSON(NS+"fitness", {age:"", gender:"", weight:"", weightUnit:"lbs", entries:[], plan:null});
 if(!("plan" in fitnessData)) fitnessData.plan = null;
