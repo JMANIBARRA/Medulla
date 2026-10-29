@@ -2507,6 +2507,11 @@
   #modal-panel.modal-custom.modal-sports{width:min(1120px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-sports #modal-body{padding:0;}
   .sc-news{margin:0 0 18px;}
+  .sc-fold{display:flex;align-items:center;gap:8px;background:none;border:none;color:inherit;font:inherit;cursor:pointer;padding:0;}
+  .sc-fold h3{margin:0;} .sc-fold i{font-style:normal;font-size:12px;color:#8ea3c0;transition:transform .2s;}
+  .sc-favbox.folded .sc-fold i{transform:rotate(-90deg);}
+  .sc-favbox.folded #sc-favs,.sc-favbox.folded #sc-edit-fav{display:none;}
+  .sc-favbox.folded{padding-bottom:12px;} .sc-favbox.folded .sc-box-head{margin-bottom:0;}
   .sc-ctx{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.02em;background:rgba(90,169,255,.14);color:#9fd0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;}
   .sc-lg{display:flex;align-items:center;min-width:0;}
   .sc-card.is-post .sc-ctx{background:rgba(176,124,255,.18);color:#d7c2ff;}
@@ -9413,8 +9418,8 @@ function sportsFullHTML(){
       <button type="button" class="sc-round" id="sc-close" title="Close">${scI("x")}</button>
     </div>
     <div class="sc-tabs" id="sc-tabs">${SC_TABS.map(t=>`<button type="button" data-tab="${t.key}">${t.key === "all" ? "" : scI(t.icon)}${t.label}</button>`).join("")}</div>
-    <section class="sc-box">
-      <div class="sc-box-head"><span class="sc-gold">${scI("star")}</span><h3>Favorites</h3><span class="sc-grow"></span><button type="button" class="sc-ghost" id="sc-edit-fav">${scI("pen")}<span>Edit favorites</span></button></div>
+    <section class="sc-box sc-favbox" id="sc-favbox">
+      <div class="sc-box-head"><button type="button" class="sc-fold" id="sc-fold" aria-label="Collapse favorites"><span class="sc-gold">${scI("star")}</span><h3>Favorites</h3><i>▾</i></button><span class="sc-grow"></span><button type="button" class="sc-ghost" id="sc-edit-fav">${scI("pen")}<span>Edit favorites</span></button></div>
       <div class="sc-favs" id="sc-favs"></div>
     </section>
     <section class="sc-news" id="sc-news" hidden>
@@ -9496,6 +9501,10 @@ function hydrateSportsFull(scope){
     scRender(scope);
   }));
   root.querySelector("#sc-date").addEventListener("change", e=>{ if(!e.target.value) return; const t = new Date(e.target.value+"T12:00:00"), n = new Date(); n.setHours(12,0,0,0); scState.view = "date"; scState.day = Math.round((t - n)/864e5); scRender(scope); });
+  const fb = root.querySelector("#sc-favbox");
+  let folded = false; try{ folded = localStorage.getItem(NS+"scFavFolded") === "1"; }catch(e){}
+  fb.classList.toggle("folded", folded);
+  root.querySelector("#sc-fold").addEventListener("click", ()=>{ folded = !fb.classList.contains("folded"); fb.classList.toggle("folded", folded); try{ localStorage.setItem(NS+"scFavFolded", folded ? "1" : "0"); }catch(e){} });
   let qt = null;
   root.querySelector("#sc-q").addEventListener("input", e=>{ scState.q = e.target.value; clearTimeout(qt); qt = setTimeout(()=>scRender(scope), 200); });
   root.querySelector("#sc-viewall").addEventListener("click", ()=>{ scState.all = !scState.all; scRender(scope); });
