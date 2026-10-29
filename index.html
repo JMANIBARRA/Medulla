@@ -9463,6 +9463,15 @@ async function scRender(scope){
   const fut = scState.view === "next" || (scState.view === "date" && scState.day > 0);
   const rank = g=>(sportsData.pinned.includes(g.id) ? 0 : scIsFav(g) ? 1 : g.big === 2 ? 1.5 : g.big ? 2.5 : 3) + (g.state === "in" ? 0 : g.state === "post" ? 1 : 2) * (fut ? 0 : 1);
   games.sort((x,y)=>rank(x)-rank(y) || (fut ? new Date(x.date) - new Date(y.date) : new Date(y.date) - new Date(x.date)));
+  /* All tab: take turns across leagues so one busy sport (tennis has dozens of matches) doesn't crowd out the rest.
+     Pinned, favorite and championship games stay on top. */
+  if(scState.tab === "all" && !q){
+    const top = games.filter(g=>sportsData.pinned.includes(g.id) || scIsFav(g) || g.big === 2);
+    const byLg = {}; games.filter(g=>!top.includes(g)).forEach(g=>(byLg[g.league] = byLg[g.league] || []).push(g));
+    const lists = Object.values(byLg).sort((a,b)=>rank(a[0]) - rank(b[0]));
+    const mixed = []; for(let r = 0; lists.some(l=>l[r]); r++) lists.forEach(l=>{ if(l[r]) mixed.push(l[r]); });
+    games = [...top, ...mixed];
+  }
   root.querySelector("#sc-livetag").hidden = !games.some(g=>g.state === "in");
   const shown = scState.all ? games : games.slice(0, 8);
   grid.innerHTML = shown.length ? shown.map(scCardHTML).join("")
