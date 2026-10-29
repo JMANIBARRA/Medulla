@@ -2317,6 +2317,7 @@
 
   /* ---- credit score card (Finance page) ---- */
   .cs-card{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin:4px 0 18px;padding:16px 20px;border-radius:14px;border:1px solid rgba(90,169,255,.22);background:linear-gradient(180deg, rgba(15,32,58,.78), rgba(8,18,35,.78));transition:border-color .2s, box-shadow .2s;}
+  .cs-num{pointer-events:none;} .cs-gauge{cursor:grab;touch-action:none;} .cs-gauge.dragging{cursor:grabbing;} .cs-knob{transition:r .12s;} .cs-gauge:hover .cs-knob,.cs-gauge.dragging .cs-knob{r:12;filter:drop-shadow(0 0 6px #fff);}
   .cs-card.await{border-color:#5aa9ff;box-shadow:0 0 24px -8px #5aa9ff;}
   .cs-gwrap{position:relative;width:200px;}
   .cs-gauge{width:200px;height:112px;display:block;}
@@ -19580,7 +19581,7 @@ function csGauge(sc){
     const a0 = Math.PI*(1-(from-300)/550), a1 = Math.PI*(1-(to-300)/550);
     return `<path d="M${100+80*Math.cos(a0)} ${100-80*Math.sin(a0)} A80 80 0 0 1 ${100+80*Math.cos(a1)} ${100-80*Math.sin(a1)}" stroke="${b[2]}" stroke-width="12" fill="none" opacity="${sc ? .9 : .25}"/>`;
   }).join("");
-  return `<svg viewBox="0 0 200 112" class="cs-gauge">${seg}${sc ? `<circle cx="${x}" cy="${y}" r="9" fill="#0b1a33" stroke="#fff" stroke-width="3"/>` : ""}</svg>`;
+  return `<svg viewBox="0 0 200 112" class="cs-gauge">${seg}<circle class="cs-knob" cx="${x}" cy="${y}" r="10" fill="#0b1a33" stroke="#fff" stroke-width="3"/></svg>`;
 }
 function csSpark(hist){
   if(hist.length < 2) return "";
@@ -19633,6 +19634,31 @@ function renderCreditCard(scope){
     csAwaitReturn = true;
   });
   if(csAwaitReturn){ box.classList.add("await"); msg.textContent = "Type your new score and press Enter."; }
+  /* drag the ball around the dial to set the score */
+  const svg = box.querySelector(".cs-gauge"), knob = svg.querySelector(".cs-knob"), numEl = box.querySelector(".cs-num");
+  const scoreAt = ev=>{
+    const r = svg.getBoundingClientRect(), k = r.width / 200;
+    const dx = (ev.clientX - r.left)/k - 100, dy = 100 - (ev.clientY - r.top)/k;
+    let ang = Math.atan2(Math.max(dy, 0), dx); if(dy < 0) ang = dx < 0 ? Math.PI : 0;
+    return Math.round(300 + (1 - ang/Math.PI) * 550);
+  };
+  const show = v=>{
+    const a = Math.PI * (1 - (v - 300)/550);
+    knob.setAttribute("cx", 100 + 80*Math.cos(a)); knob.setAttribute("cy", 100 - 80*Math.sin(a));
+    const b = csBand(v); numEl.innerHTML = `<b>${v}</b><span style="color:${b.color}">${b.label}</span>`;
+  };
+  let dragging = false, cur = null;
+  svg.addEventListener("pointerdown", ev=>{
+    ev.preventDefault(); dragging = true; svg.setPointerCapture(ev.pointerId); svg.classList.add("dragging");
+    svg.querySelectorAll("path").forEach(p=>p.setAttribute("opacity", ".9"));
+    cur = scoreAt(ev); show(cur);
+  });
+  svg.addEventListener("pointermove", ev=>{ if(!dragging) return; cur = scoreAt(ev); show(cur); });
+  const end = ()=>{
+    if(!dragging) return; dragging = false; svg.classList.remove("dragging");
+    if(cur != null && (!last || cur !== last.score)){ inp.value = cur; save(); }
+  };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
 }
 /* back from the credit site: put the cursor in the update box */
 window.addEventListener("focus", ()=>{
