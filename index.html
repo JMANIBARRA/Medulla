@@ -3249,7 +3249,7 @@
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
   .db-apps-list{display:contents;}
   .db-tile{position:relative;}
-  .sp-urgent{position:absolute;top:50%;right:34px;transform:translateY(-50%);z-index:2;pointer-events:none;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#ff3b4e;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730, 0 0 12px -2px #ff3b4e;z-index:2;}
+  .sp-urgent{position:absolute;top:-7px;right:-7px;z-index:2;pointer-events:none;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#ff3b4e;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730, 0 0 12px -2px #ff3b4e;z-index:2;}
   [data-nav="scratchpad"] .sp-urgent{top:4px;right:4px;transform:none;min-width:18px;height:18px;font-size:11px;padding:0 5px;}
   .sp-tab{display:inline-flex;align-items:center;gap:6px;}
   .sp-tab.urgent{border-color:#ff4d5e !important;color:#ffb3ba;}
@@ -3370,11 +3370,11 @@
   .grid-mode .db-id{align-items:stretch;}
   .grid-mode .db-portrait{width:auto;height:100%;max-width:46%;aspect-ratio:170/205;}
   .grid-mode .db-mkt #db-mkt-rows{flex:1;min-height:0;overflow:auto;scrollbar-width:none;}
-  .grid-mode .db-apps{overflow:auto;scrollbar-width:none;}
+  .grid-mode .db-apps{overflow:auto;scrollbar-width:none;padding-top:10px;padding-right:10px;}
   .db-apps{grid-template-columns:repeat(auto-fill, minmax(150px,1fr));}
   /* Apps window: the tile list scrolls inside the window when it's sized smaller than its contents */
   .db-main.win-mode > .db-panel.db-apps{display:flex;flex-direction:column;}
-  .db-main.win-mode > .db-panel.db-apps > .db-apps-list{display:grid;grid-template-columns:repeat(auto-fill, minmax(150px,1fr));gap:14px;align-content:start;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:2px 4px 2px 2px;margin:-2px -4px -2px -2px;scrollbar-width:thin;scrollbar-color:rgba(124,180,255,.35) transparent;}
+  .db-main.win-mode > .db-panel.db-apps > .db-apps-list{display:grid;grid-template-columns:repeat(auto-fill, minmax(150px,1fr));gap:14px;align-content:start;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:10px 10px 4px 2px;margin:-10px -10px -4px -2px;scrollbar-width:thin;scrollbar-color:rgba(124,180,255,.35) transparent;}
   .db-apps-list::-webkit-scrollbar{width:8px;}
   .db-apps-list::-webkit-scrollbar-thumb{background:rgba(124,180,255,.3);border-radius:8px;}
   .grid-mode .db-clock, .grid-mode .db-cal, .grid-mode .db-fc{overflow:hidden;}
