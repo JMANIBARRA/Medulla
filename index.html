@@ -3150,6 +3150,16 @@
   .db-tile span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
   .db-apps-list{display:contents;}
+  .db-tile{position:relative;}
+  .sp-badge{position:absolute;top:-7px;right:-7px;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#ff3b4e;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730, 0 0 12px -2px #ff3b4e;z-index:2;}
+  .sp-tab{display:inline-flex;align-items:center;gap:6px;}
+  .sp-tab.urgent{border-color:#ff4d5e !important;color:#ffb3ba;}
+  .sp-tab.urgent.primary{background:linear-gradient(180deg,#ff5d6c,#d63044) !important;color:#fff;}
+  .sp-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .sp-lvl{display:flex;align-items:center;gap:4px;margin-left:auto;padding:3px;border-radius:10px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
+  .sp-lvl span{font-size:11.5px;color:var(--text-dim);padding:0 6px;}
+  .sp-lvl button{height:28px;padding:0 10px;border:none;border-radius:7px;background:none;color:#c3d4ea;font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+  .sp-lvl button.on{background:var(--c);color:#06101f;}
   #undo-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);z-index:10000;padding:10px 18px;border-radius:999px;background:#0f2140;border:1px solid rgba(124,180,255,.3);color:#e6eef8;font-size:13px;font-weight:600;box-shadow:0 14px 34px -12px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .18s, transform .18s;}
   #undo-toast.show{opacity:1;transform:translate(-50%,0);}
   body:has(#dashboard.db-editing) #undo-toast{bottom:auto;top:84px;}
@@ -18800,11 +18810,30 @@ function hydrateScratchpadMini(scope){
     if(fullTa && fullTa.dataset.pageId===scratchData.active) fullTa.value = ta.value;
   });
 }
+const SP_LEVELS = [["","None","#5d6f8a"],["low","Low","#36d39a"],["med","Medium","#ffb040"],["urgent","Urgent","#ff4d5e"]];
+function spUrgentCount(){ return scratchData.pages.filter(p=>p.level==="urgent").length; }
+function spUpdateBadges(){
+  const n = spUrgentCount();
+  document.querySelectorAll('[data-open="scratchpad"], [data-nav="scratchpad"]').forEach(b=>{
+    let d = b.querySelector(".sp-badge");
+    if(!n){ if(d) d.remove(); return; }
+    if(!d){ d = document.createElement("em"); d.className = "sp-badge"; b.appendChild(d); }
+    d.textContent = n; d.title = `${n} urgent page${n>1?"s":""} in Scratchpad`;
+  });
+}
 function renderScratchTabs(container, scope){
-  container.innerHTML = scratchData.pages.map(p=>`<button class="btn ${p.id===scratchData.active?'primary':''}" data-id="${p.id}" style="padding:5px 10px;">${p.name}</button>`).join("")
+  const lv = k=>SP_LEVELS.find(l=>l[0]===(k||"")) || SP_LEVELS[0];
+  const cur = activeScratchPage();
+  container.innerHTML = scratchData.pages.map(p=>`<button class="btn sp-tab ${p.id===scratchData.active?'primary':''}${p.level==="urgent"?" urgent":""}" data-id="${p.id}" style="padding:5px 10px;">${p.level ? `<i class="sp-dot" style="background:${lv(p.level)[2]}"></i>` : ""}${escapeHtml(p.name)}</button>`).join("")
     + `<button class="hbtn" id="scratch-add-page" title="New page">+</button>`
     + `<button class="hbtn" id="scratch-rename-page" title="Rename page">✎</button>`
-    + (scratchData.pages.length>1 ? `<button class="hbtn" id="scratch-del-page" title="Delete page">✕</button>` : "");
+    + (scratchData.pages.length>1 ? `<button class="hbtn" id="scratch-del-page" title="Delete page">✕</button>` : "")
+    + `<div class="sp-lvl" title="How urgent is this page?"><span>Urgency</span>${SP_LEVELS.map(([k,l,c])=>`<button type="button" data-lvl="${k}" class="${(cur.level||"")===k?"on":""}" style="--c:${c}">${l}</button>`).join("")}</div>`;
+  container.querySelectorAll("[data-lvl]").forEach(b=>b.addEventListener("click", ()=>{
+    activeScratchPage().level = b.dataset.lvl; saveJSON(NS+"scratchpad", scratchData);
+    renderScratchTabs(container, scope); spUpdateBadges();
+  }));
+  setTimeout(spUpdateBadges, 0);
   container.querySelectorAll("[data-id]").forEach(btn=>{
     btn.addEventListener("click",()=>{
       scratchData.active = btn.dataset.id;
@@ -18835,6 +18864,7 @@ function renderScratchTabs(container, scope){
     if(scratchData.pages.length<=1) return;
     if(!confirm("Delete this page?")) return;
     scratchData.pages = scratchData.pages.filter(p=>p.id!==scratchData.active);
+    setTimeout(spUpdateBadges, 0);
     scratchData.active = scratchData.pages[0].id;
     saveJSON(NS+"scratchpad", scratchData);
     renderScratchTabs(container, scope);
@@ -21620,6 +21650,7 @@ function dbRenderApps(){
   list.innerHTML = all.map(t=>t.h).join("");
   const editing = ()=>document.getElementById("dashboard").classList.contains("db-editing");
   list.querySelectorAll(".db-tile").forEach(b=>dbWireTileDrag(b));
+  setTimeout(()=>{ try{ spUpdateBadges(); }catch(e){} }, 0);
   list.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click", ()=>{
     if(b.dataset.dragged){ delete b.dataset.dragged; return; }
     const id = b.dataset.open, d = WIDGET_DEFS.find(x=>x.id===id);
@@ -21942,6 +21973,7 @@ function buildDashboard(){
   document.querySelectorAll("#db-main > .db-apppanel").forEach(dbWirePinnedPanel);
   dbRenderApps();
   dbPinned.forEach(dbMountPinned);
+  spUpdateBadges();
 }
 
 /* sidebar sections open as a full page in place of the dashboard (the header and sidebar stay);
