@@ -2505,6 +2505,41 @@
   /* ---- Sports Center ---- */
   #modal-panel.modal-custom.modal-sports{width:min(1120px,96vw);max-height:94vh;}
   #modal-panel.modal-custom.modal-sports #modal-body{padding:0;}
+  .sc-news{margin:0 0 18px;}
+  .sc-ctx{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.02em;background:rgba(90,169,255,.14);color:#9fd0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;}
+  .sc-lg{display:flex;align-items:center;min-width:0;}
+  .sc-card.is-post .sc-ctx{background:rgba(176,124,255,.18);color:#d7c2ff;}
+  .sc-card.is-big{border-color:rgba(255,196,80,.6) !important;box-shadow:0 0 0 1px rgba(255,196,80,.25) inset, 0 10px 30px -14px rgba(255,180,60,.6);}
+  .sc-card.is-big .sc-ctx{background:linear-gradient(90deg,#ffcf5a,#f0a020);color:#1a1100;}
+  .sc-series{font-size:11.5px;color:#ffc46b;font-weight:600;margin:-2px 0 2px;}
+  .sc-story.lead .sc-story-img{max-height:170px;aspect-ratio:auto;height:170px;}
+  .sc-datepick input{height:34px;border-radius:9px;padding:0 8px;background:rgba(9,20,38,.8);border:1px solid rgba(130,153,184,.22);color:#cfe0f5;font:inherit;font-size:12.5px;color-scheme:dark;}
+  .sc-fav.clickable{cursor:pointer;} .sc-fav.clickable:hover{border-color:rgba(124,180,255,.5);}
+  .sc-season-ov{z-index:9500;}
+  .sc-season{width:min(640px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;border-radius:20px;background:linear-gradient(180deg,#0f2140,#081428);border:1px solid rgba(124,180,255,.22);box-shadow:0 30px 80px -20px rgba(0,0,0,.7);overflow:hidden;}
+  .sc-season-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid rgba(124,180,255,.14);flex-wrap:wrap;}
+  .sc-season-head img{width:40px;height:40px;object-fit:contain;} .sc-season-head > div:nth-child(2){flex:1;min-width:140px;} .sc-season-head b{display:block;font-size:17px;} .sc-season-head small{font-size:12.5px;color:#a9bcd6;}
+  .sc-season-tabs{display:flex;gap:4px;} .sc-season-tabs button{height:30px;padding:0 10px;border-radius:8px;border:1px solid rgba(130,153,184,.22);background:transparent;color:#c3d4ea;font:inherit;font-size:12px;font-weight:600;cursor:pointer;} .sc-season-tabs button.on{background:#2f8bff;border-color:#2f8bff;color:#fff;}
+  .sc-season-list{overflow:auto;padding:8px 10px 14px;}
+  .sc-srow{display:grid;grid-template-columns:60px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid rgba(130,153,184,.1);}
+  .sc-srow.next{background:rgba(47,139,255,.1);border-radius:10px;} .sc-srow.live{background:rgba(54,211,154,.08);border-radius:10px;}
+  .sc-sdate{font-size:13px;font-weight:700;} .sc-sdate small{display:block;font-size:11px;color:#8ea3c0;font-weight:500;}
+  .sc-sopp{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;color:#a9bcd6;} .sc-sopp img{width:22px;height:22px;object-fit:contain;} .sc-sopp b{color:#e6eef8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sc-sres{font-family:var(--font-mono);font-size:13.5px;white-space:nowrap;} .sc-sres em{font-style:normal;font-weight:800;margin-right:4px;} .sc-sres em.W{color:#36d39a;} .sc-sres em.L{color:#ff6b78;} .sc-sres em.L2{color:#36d39a;font-size:11px;}
+  .sc-news[hidden]{display:none;}
+  .sc-news-head{display:flex;align-items:baseline;gap:10px;margin:0 2px 10px;} .sc-news-head h3{margin:0;font-size:15px;letter-spacing:.04em;} .sc-news-head small{font-size:12px;color:#8ea3c0;}
+  .sc-news-row{display:grid;grid-template-columns:1.6fr repeat(3,1fr);grid-auto-rows:auto;gap:10px;}
+  .sc-story{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:rgba(15,32,58,.7);border:1px solid rgba(90,169,255,.16);color:inherit;text-decoration:none;min-width:0;transition:border-color .15s,transform .15s;}
+  .sc-story:hover{border-color:rgba(124,180,255,.5);transform:translateY(-2px);}
+  .sc-story.lead{grid-row:span 2;}
+  .sc-story-img{display:block;aspect-ratio:16/9;background:#0a1628 center/cover no-repeat;}
+  .sc-story:not(.lead) .sc-story-img{display:none;}
+  .sc-story-txt{display:flex;flex-direction:column;gap:4px;padding:10px 12px;}
+  .sc-story-txt em{font-style:normal;font-size:11px;font-weight:700;color:#7fbcff;letter-spacing:.03em;}
+  .sc-story-txt b{font-size:13.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .sc-story.lead .sc-story-txt b{font-size:17px;}
+  .sc-story-txt small{font-size:12.5px;color:#a9bcd6;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  @media (max-width:820px){ .sc-news-row{grid-template-columns:1fr 1fr;} .sc-story.lead{grid-column:1/-1;grid-row:auto;} }
   .sc-root{padding:16px 20px 20px;color:#e6eef8;font-family:var(--font-body);background:radial-gradient(ellipse 60% 40% at 20% 0%, rgba(40,105,210,.14), transparent 70%);}
   .sc-root svg{width:16px;height:16px;flex:none;}
   .sc-grow{flex:1;}
@@ -9228,16 +9263,20 @@ if(!Array.isArray(sportsData.pinned)) sportsData.pinned = [];
 const scIconFor = sport=>({football:"football", basketball:"basketball", baseball:"baseball", hockey:"hockey", soccer:"soccer", tennis:"tennis"})[sport] || "all";
 function scYmd(d){ return d.toLocaleDateString("en-CA", {timeZone:"America/New_York"}).replace(/-/g, ""); }
 function scDates(day){
-  const d = new Date();
-  if(day === 0) return scYmd(d);
-  if(day === -1){ d.setDate(d.getDate()-1); return scYmd(d); }
-  const a = new Date(); a.setDate(a.getDate()+1); const b = new Date(); b.setDate(b.getDate()+7);
-  return `${scYmd(a)}-${scYmd(b)}`;
+  if(scState.upcoming){ const a = new Date(); a.setDate(a.getDate()+1); const b = new Date(); b.setDate(b.getDate()+7); return `${scYmd(a)}-${scYmd(b)}`; }
+  const d = new Date(); d.setDate(d.getDate() + day); return scYmd(d);
+}
+function scDayLabel(){
+  if(scState.upcoming) return "UPCOMING GAMES";
+  if(scState.day === 0) return "LIVE & RECENT SCORES";
+  if(scState.day === -1) return "YESTERDAY'S SCORES";
+  const d = new Date(); d.setDate(d.getDate() + scState.day);
+  return (scState.day > 0 ? "GAMES · " : "SCORES · ") + d.toLocaleDateString("en-US",{weekday:"short", month:"short", day:"numeric", year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined}).toUpperCase();
 }
 const scCache = {};
 async function scBoard(sport, league, dates){
   const k = `${sport}/${league}/${dates}`, c = scCache[k];
-  if(c && Date.now() - c.ts < (scState.day === -1 ? 600000 : 45000)) return c.data;
+  if(c && Date.now() - c.ts < (scState.day < 0 ? 600000 : 45000)) return c.data;
   const data = await espnGet(`/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${dates}&limit=200`);
   scCache[k] = {ts:Date.now(), data};
   return data;
@@ -9248,14 +9287,25 @@ function scGame(ev, comp, sport, label){
   const cs = (comp.competitors||[]).slice().sort((a,b)=>(a.homeAway === "away" ? -1 : 1) - (b.homeAway === "away" ? -1 : 1));
   if(cs.length < 2) return null;
   const side = c=>{
-    const t = c.team || c.athlete || {};
+    const t = c.team || c.athlete || (c.roster ? {displayName:c.roster.displayName || (c.roster.athletes||[]).map(a=>a.shortName||a.displayName).join(" / "), shortDisplayName:c.roster.shortDisplayName, flag:((c.roster.athletes||[])[0]||{}).flag} : {});
+    if(!t.displayName && !t.shortDisplayName && c.roster && c.roster.athletes) t.shortDisplayName = c.roster.athletes.map(a=>a.shortName||a.displayName).join(" / ");
     const rec = (c.records && c.records[0] && c.records[0].summary) || "";
     const sets = sport === "tennis" ? (c.linescores||[]).map(l=>l.value).join(" ") : "";
     return {id:String(t.id||""), name:t.shortDisplayName || t.displayName || t.name || "", full:t.displayName || "", logo:t.logo || (t.logos && t.logos[0] && t.logos[0].href) || (t.flag && t.flag.href) || "",
       score:spScore(c), rec, sets, winner:!!c.winner};
   };
   const sit = comp.situation || {};
-  return {id:String(comp.id || ev.id), sport, label, date:ev.date || comp.date, state:st.state, name:st.name || "", detail:st.shortDetail || st.detail || "",
+  /* what kind of game: "World Series · Game 7", "Roland Garros · Men's Singles · Final", playoffs… */
+  const note = ((comp.notes||[])[0]||{}).headline || ((ev.competitions||[])[0] && ((ev.competitions[0].notes||[])[0]||{}).headline) || "";
+  const stype = (ev.season && ev.season.type) || (comp.season && comp.season.type);
+  let ctx = "";
+  if(sport === "tennis"){
+    const grp = (ev.groupings||[]).find(g=>(g.competitions||[]).includes(comp));
+    ctx = [ev.name || ev.shortName, grp && grp.grouping && grp.grouping.displayName, comp.round && comp.round.displayName].filter(Boolean).join(" · ");
+  } else ctx = note || (stype === 3 ? "Postseason" : stype === 1 ? "Preseason" : "");
+  const series = comp.series && comp.series.summary ? comp.series.summary : "";
+  const big = /world series|super bowl|stanley cup final|nba finals|finals|championship|final\b|semifinal|wimbledon|roland garros|french open|us open|australian open|world cup|game 7/i.test(ctx + " " + (ev.name||"")) && !/quarter|qualif/i.test(ctx) ? 2 : (stype === 3 || /playoff|wild card|division|conference|postseason|semifinal|quarterfinal/i.test(ctx) || ["Wimbledon","Roland Garros","US Open","Australian Open"].some(n=>(ev.name||"").includes(n))) ? 1 : 0;
+  return {ctx, series, big, id:String(comp.id || ev.id), sport, label, date:ev.date || comp.date, state:st.state, name:st.name || "", detail:st.shortDetail || st.detail || "",
     a:side(cs[0]), b:side(cs[1]), extra:sit.downDistanceText || (sport === "basketball" && ev.competitions && comp.series && comp.series.summary) || "", league:label};
 }
 let scLastFailed = false;
@@ -9306,9 +9356,10 @@ function scCardHTML(g){
       <span class="sc-pts">${started ? escapeHtml(g.sport === "tennis" && s.sets ? s.sets : String(s.score ?? "")) : ""}</span>
       <span class="sc-lead">${lead === k ? "◂" : ""}</span>
     </div>`;
-  return `<div class="sc-card${g.state === "in" ? " is-live" : ""}">
+  return `<div class="sc-card${g.state === "in" ? " is-live" : ""}${g.big === 2 ? " is-big" : g.big ? " is-post" : ""}">
     <div class="sc-card-l">
-      <div class="sc-lg">${scI(scIconFor(g.sport))}${escapeHtml(g.league)}</div>
+      <div class="sc-lg">${scI(scIconFor(g.sport))}${escapeHtml(g.league)}${g.ctx ? `<span class="sc-ctx">${g.big === 2 ? "🏆 " : ""}${escapeHtml(g.ctx)}</span>` : ""}</div>
+      ${g.series && !/series tied 0-0/i.test(g.series) ? `<div class="sc-series">${escapeHtml(g.series)}</div>` : ""}
       ${row(g.a,"a")}${row(g.b,"b")}
     </div>
     <div class="sc-card-r">${scStatusHTML(g)}</div>
@@ -9319,9 +9370,9 @@ function scFavsHTML(){
   const favs = scFavTeams();
   const cards = favs.map((f,i)=>{
     const t = f.t;
-    return `<div class="sc-fav" style="${t ? `--tc:${spHex(t.color,.35)}` : ""}">
+    return `<div class="sc-fav${t && !scState.editing ? " clickable" : ""}" ${t && !scState.editing ? `data-season="${i}" title="See ${escapeHtml(t.name)}'s whole season"` : ""} style="${t ? `--tc:${spHex(t.color,.35)}` : ""}">
       <span class="sc-fav-logo">${t && t.logo ? `<img src="${escapeHtml(t.logo)}" alt="">` : escapeHtml((f.name[0]||"?").toUpperCase())}</span>
-      <span class="sc-nm"><b>${escapeHtml(t ? t.name : f.name)}</b><small>${escapeHtml(t ? t.label : "")}</small></span>
+      <span class="sc-nm"><b>${escapeHtml(t ? t.name : f.name)}</b><small>${escapeHtml(t ? t.label : "")}${t && !scState.editing ? " · Season ›" : ""}</small></span>
       ${scState.editing ? `<button type="button" class="sc-fav-x" data-unfav="${i}" title="Remove">${scI("x")}</button>` : `<span class="sc-star on">${scI("star")}</span>`}
     </div>`;
   }).join("");
@@ -9341,9 +9392,14 @@ function sportsFullHTML(){
       <div class="sc-box-head"><span class="sc-gold">${scI("star")}</span><h3>Favorites</h3><span class="sc-grow"></span><button type="button" class="sc-ghost" id="sc-edit-fav">${scI("pen")}<span>Edit favorites</span></button></div>
       <div class="sc-favs" id="sc-favs"></div>
     </section>
+    <section class="sc-news" id="sc-news" hidden>
+      <div class="sc-news-head"><h3>🏆 Top stories</h3><small id="sc-news-sub">Big news from the past few days</small></div>
+      <div class="sc-news-row" id="sc-news-row"></div>
+    </section>
     <div class="sc-bar">
       <span class="sc-dot"></span><h3 id="sc-bar-title">LIVE &amp; RECENT SCORES</h3><span class="sc-grow"></span>
-      <div class="sc-days"><button type="button" data-step="-1">${scI("l")}</button><button type="button" data-day="0">Today</button><button type="button" data-day="-1">Yesterday</button><button type="button" data-day="1">Upcoming</button><button type="button" data-step="1">${scI("r")}</button></div>
+      <div class="sc-days"><button type="button" data-step="-1">${scI("l")}</button><button type="button" data-day="0">Today</button><button type="button" data-day="-1">Yesterday</button><button type="button" data-day="up">Upcoming</button><button type="button" data-step="1">${scI("r")}</button></div>
+      <label class="sc-datepick" title="Pick any date"><input type="date" id="sc-date"></label>
       <label class="sc-search">${scI("search")}<input id="sc-q" placeholder="Search teams or leagues" autocomplete="off"></label>
       <button type="button" class="sc-link" id="sc-viewall">View all ${scI("r")}</button>
     </div>
@@ -9355,8 +9411,9 @@ async function scRender(scope){
   const root = scope.querySelector("#sc-root");
   if(!root) return;
   root.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab === scState.tab));
-  root.querySelectorAll("[data-day]").forEach(b=>b.classList.toggle("on", +b.dataset.day === scState.day));
-  root.querySelector("#sc-bar-title").textContent = scState.day > 0 ? "UPCOMING GAMES" : scState.day < 0 ? "YESTERDAY'S SCORES" : "LIVE & RECENT SCORES";
+  root.querySelectorAll("[data-day]").forEach(b=>b.classList.toggle("on", b.dataset.day === "up" ? !!scState.upcoming : (!scState.upcoming && +b.dataset.day === scState.day)));
+  root.querySelector("#sc-bar-title").textContent = scDayLabel();
+  const dp = root.querySelector("#sc-date"); if(dp){ const d = new Date(); d.setDate(d.getDate() + scState.day); dp.value = scState.upcoming ? "" : d.toISOString().slice(0,10); }
   root.querySelector("#sc-viewall").innerHTML = (scState.all ? "Show less " : "View all ") + scI("r");
   root.querySelector("#sc-edit-fav span").textContent = scState.editing ? "Done" : "Edit favorites";
   root.querySelector("#sc-favs").innerHTML = scFavsHTML();
@@ -9366,13 +9423,14 @@ async function scRender(scope){
   if(!scope.querySelector("#sc-grid")) return;
   const q = scState.q.trim().toLowerCase();
   if(q) games = games.filter(g=>`${g.a.full} ${g.b.full} ${g.a.name} ${g.b.name} ${g.league}`.toLowerCase().includes(q));
-  const rank = g=>(sportsData.pinned.includes(g.id) ? 0 : scIsFav(g) ? 1 : 3) + (g.state === "in" ? 0 : g.state === "post" ? 1 : 2) * (scState.day > 0 ? 0 : 1);
-  games.sort((x,y)=>rank(x)-rank(y) || (scState.day > 0 ? new Date(x.date) - new Date(y.date) : new Date(y.date) - new Date(x.date)));
+  const fut = scState.upcoming || scState.day > 0;
+  const rank = g=>(sportsData.pinned.includes(g.id) ? 0 : scIsFav(g) ? 1 : g.big === 2 ? 1.5 : g.big ? 2.5 : 3) + (g.state === "in" ? 0 : g.state === "post" ? 1 : 2) * (fut ? 0 : 1);
+  games.sort((x,y)=>rank(x)-rank(y) || (fut ? new Date(x.date) - new Date(y.date) : new Date(y.date) - new Date(x.date)));
   root.querySelector("#sc-livetag").hidden = !games.some(g=>g.state === "in");
   const shown = scState.all ? games : games.slice(0, 8);
   grid.innerHTML = shown.length ? shown.map(scCardHTML).join("")
     : scLastFailed ? `<div class="sc-dim">Couldn't reach the scores service right now — tap refresh to try again.</div>`
-    : `<div class="sc-dim">${q ? `No games match “${escapeHtml(scState.q)}”.` : scState.day > 0 ? "No upcoming games this week." : "No games on this day."}</div>`;
+    : `<div class="sc-dim">${q ? `No games match “${escapeHtml(scState.q)}”.` : scState.upcoming ? "No upcoming games this week." : "No games on this day."}</div>`;
   grid.querySelectorAll("[data-pin]").forEach(b=>b.addEventListener("click", ()=>{
     const id = b.dataset.pin, i = sportsData.pinned.indexOf(id);
     if(i >= 0) sportsData.pinned.splice(i, 1); else sportsData.pinned.push(id);
@@ -9380,6 +9438,7 @@ async function scRender(scope){
   }));
 }
 function scWireFavs(scope){
+  scope.querySelectorAll("[data-season]").forEach(c=>c.addEventListener("click", ()=>{ const f = scFavTeams()[+c.dataset.season]; if(f && f.t) scOpenSeason(scope, f.t); }));
   scope.querySelectorAll("[data-unfav]").forEach(b=>b.addEventListener("click", ()=>{
     sportsData.teams.splice(+b.dataset.unfav, 1); saveJSON(NS+"sports", sportsData); scRender(scope); renderWidgets();
   }));
@@ -9400,17 +9459,100 @@ function scWireFavs(scope){
 function hydrateSportsFull(scope){
   const root = scope.querySelector("#sc-root");
   spLoadTeamIndex().then(()=>scRender(scope)).catch(()=>scRender(scope));
+  scRenderNews(scope);
   root.querySelector("#sc-close").addEventListener("click", closeModal);
-  root.querySelector("#sc-refresh").addEventListener("click", ()=>{ for(const k in scCache) delete scCache[k]; scRender(scope); });
-  root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click", ()=>{ scState.tab = b.dataset.tab; scRender(scope); }));
-  root.querySelectorAll("[data-day]").forEach(b=>b.addEventListener("click", ()=>{ scState.day = +b.dataset.day; scRender(scope); }));
-  root.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{ scState.day = Math.max(-1, Math.min(1, scState.day + +b.dataset.step)); scRender(scope); }));
+  root.querySelector("#sc-refresh").addEventListener("click", ()=>{ for(const k in scCache) delete scCache[k]; for(const k in scNewsCache) delete scNewsCache[k]; scRender(scope); scRenderNews(scope); });
+  root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click", ()=>{ scState.tab = b.dataset.tab; scRender(scope); scRenderNews(scope); }));
+  root.querySelectorAll("[data-day]").forEach(b=>b.addEventListener("click", ()=>{ if(b.dataset.day === "up"){ scState.upcoming = true; } else { scState.upcoming = false; scState.day = +b.dataset.day; } scRender(scope); }));
+  root.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{ if(scState.upcoming){ scState.upcoming = false; scState.day = 0; } scState.day += +b.dataset.step; scRender(scope); }));
+  root.querySelector("#sc-date").addEventListener("change", e=>{ if(!e.target.value) return; const t = new Date(e.target.value+"T12:00:00"), n = new Date(); n.setHours(12,0,0,0); scState.upcoming = false; scState.day = Math.round((t - n)/864e5); scRender(scope); });
   let qt = null;
   root.querySelector("#sc-q").addEventListener("input", e=>{ scState.q = e.target.value; clearTimeout(qt); qt = setTimeout(()=>scRender(scope), 200); });
   root.querySelector("#sc-viewall").addEventListener("click", ()=>{ scState.all = !scState.all; scRender(scope); });
   root.querySelector("#sc-edit-fav").addEventListener("click", ()=>{ scState.editing = !scState.editing; scRender(scope).then(()=>{ const i = scope.querySelector("#sc-fav-input"); if(i) i.focus(); }); });
-  const intervalId = setInterval(()=>{ if(scState.day === 0) scRender(scope); }, 30000);   /* live scores tick */
+  const intervalId = setInterval(()=>{ if(scState.day === 0 && !scState.upcoming) scRender(scope); }, 30000);   /* live scores tick */
   return function cleanup(){ clearInterval(intervalId); scState.editing = false; };
+}
+/* ---- Top stories: ESPN headlines, big moments first (championships, trades, records) ---- */
+const scNewsCache = {};
+const SC_BIG = /\b(win|wins|won|champion|champions|championship|title|world series|super bowl|stanley cup|nba finals|finals|mvp|trade|traded|signs|signing|record|walk-?off|no-hitter|perfect game|retire|retires|fired|hired|clinch|clinches|eliminat|upset|historic|first ever|draft)\b/i;
+async function scLoadNews(){
+  const tabs = scState.tab === "all" ? SC_TABS.filter(t=>t.lg) : SC_TABS.filter(t=>t.key === scState.tab);
+  const leagues = tabs.flatMap(t=>t.lg).filter(([sp,lg])=>!["wta","wnba","uefa.champions"].includes(lg) || scState.tab !== "all").slice(0, 8);
+  const key = leagues.map(l=>l[1]).join(",");
+  const hit = scNewsCache[key]; if(hit && Date.now() - hit.at < 10*60*1000) return hit.items;
+  const all = [];
+  await Promise.all(leagues.map(async ([sport, league, label])=>{
+    try{
+      const d = await espnGet(`/apis/site/v2/sports/${sport}/${league}/news?limit=12`);
+      (d.articles||[]).forEach(a=>{
+        const link = (a.links && a.links.web && a.links.web.href) || "";
+        if(!a.headline || !link) return;
+        all.push({h:a.headline, d:a.description || "", t:Date.parse(a.published || a.lastModified) || 0, link, img:(a.images && a.images[0] && a.images[0].url) || "", label, sport});
+      });
+    }catch(e){}
+  }));
+  const now = Date.now();
+  const seen = new Set();
+  const items = all.filter(x=>{ const k = x.h.toLowerCase().slice(0,60); if(seen.has(k)) return false; seen.add(k); return now - x.t < 5*864e5; })
+    .map(x=>({...x, score: (SC_BIG.test(x.h) ? 3 : 0) + (SC_BIG.test(x.d) ? 1 : 0) + Math.max(0, 3 - (now - x.t)/864e5)}))
+    .sort((a,b)=>b.score - a.score || b.t - a.t).slice(0, 8);
+  scNewsCache[key] = {at:Date.now(), items};
+  return items;
+}
+async function scRenderNews(scope){
+  const box = scope.querySelector("#sc-news"); if(!box) return;
+  const items = await scLoadNews();
+  if(!items.length){ box.hidden = true; return; }
+  const ago = t=>{ const h = Math.round((Date.now()-t)/36e5); return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h/24)}d ago`; };
+  box.hidden = false;
+  scope.querySelector("#sc-news-row").innerHTML = items.map((n,i)=>`<a class="sc-story${i===0?" lead":""}" href="${escapeHtml(n.link)}" target="_blank" rel="noopener">
+      ${n.img ? `<span class="sc-story-img" style="background-image:url('${escapeHtml(n.img)}')"></span>` : ""}
+      <span class="sc-story-txt"><em>${escapeHtml(n.label)} · ${ago(n.t)}</em><b>${escapeHtml(n.h)}</b>${i===0 && n.d ? `<small>${escapeHtml(n.d)}</small>` : ""}</span></a>`).join("");
+}
+/* a team's whole season: every game, played and upcoming (ESPN team schedule) */
+async function scOpenSeason(scope, t){
+  const ov = document.createElement("div"); ov.className = "bd-ov sc-season-ov";
+  ov.innerHTML = `<div class="sc-season"><div class="sc-season-head">${t.logo ? `<img src="${escapeHtml(t.logo)}" alt="">` : ""}<div><b>${escapeHtml(t.name)}</b><small id="sc-season-sub">Loading season…</small></div><div class="sc-season-tabs" id="sc-season-tabs"></div><button type="button" class="bd-x" aria-label="Close">✕</button></div><div class="sc-season-list" id="sc-season-list"><div class="sc-dim">Loading…</div></div></div>`;
+  document.body.appendChild(ov);
+  const close = ()=>{ window.removeEventListener("keydown", onKey, true); ov.classList.remove("show"); setTimeout(()=>ov.remove(), 180); };
+  const onKey = e=>{ if(e.key === "Escape"){ e.stopImmediatePropagation(); close(); } };
+  window.addEventListener("keydown", onKey, true);
+  ov.addEventListener("click", e=>{ if(e.target === ov || e.target.closest(".bd-x")) close(); });
+  requestAnimationFrame(()=>ov.classList.add("show"));
+  const parts = {};
+  await Promise.all([["2","Regular season"],["3","Postseason"],["1","Preseason"]].map(async ([k,l])=>{
+    try{ const d = await espnGet(`/apis/site/v2/sports/${t.sport}/${t.league}/teams/${t.id}/schedule?seasontype=${k}`); if((d.events||[]).length) parts[k] = {label:l, events:d.events, rec:(d.team && d.team.recordSummary) || "", season:(d.season && d.season.displayName) || ""}; }catch(e){}
+  }));
+  const keys = ["3","2","1"].filter(k=>parts[k]);
+  if(!keys.length){ ov.querySelector("#sc-season-list").innerHTML = `<div class="sc-dim">Couldn't load this team's schedule right now.</div>`; ov.querySelector("#sc-season-sub").textContent = ""; return; }
+  let cur = keys.includes("2") ? "2" : keys[0];
+  const render = ()=>{
+    const P = parts[cur];
+    ov.querySelector("#sc-season-sub").textContent = [P.season, P.rec ? `Record ${P.rec}` : ""].filter(Boolean).join(" · ");
+    ov.querySelector("#sc-season-tabs").innerHTML = keys.map(k=>`<button type="button" data-k="${k}" class="${k===cur?"on":""}">${parts[k].label}</button>`).join("");
+    ov.querySelectorAll("[data-k]").forEach(b=>b.addEventListener("click", ()=>{ cur = b.dataset.k; render(); }));
+    let firstUpcoming = -1;
+    const rows = P.events.map((ev,i)=>{
+      const c = (ev.competitions||[])[0] || {}, cs = c.competitors || [];
+      const me = cs.find(x=>String((x.team||{}).id) === String(t.id)) || cs[0] || {}, op = cs.find(x=>x !== me) || {};
+      const st = ((c.status||{}).type)||{}, done = st.completed, live = st.state === "in";
+      if(!done && !live && firstUpcoming < 0) firstUpcoming = i;
+      const sc = x=>{ const v = x.score; return v == null ? "" : typeof v === "object" ? (v.displayValue ?? v.value ?? "") : v; };
+      const win = done ? (me.winner ? "W" : op.winner ? "L" : "T") : "";
+      const d = new Date(c.date || ev.date);
+      const opT = op.team || {};
+      return `<div class="sc-srow${live ? " live" : ""}${i === firstUpcoming ? " next" : ""}">
+        <span class="sc-sdate">${d.toLocaleDateString("en-US",{month:"short", day:"numeric"})}<small>${d.toLocaleDateString("en-US",{weekday:"short"})}</small></span>
+        <span class="sc-sopp">${me.homeAway === "away" ? "@" : "vs"} ${opT.logos && opT.logos[0] ? `<img src="${escapeHtml(opT.logos[0].href)}" alt="">` : ""}<b>${escapeHtml(opT.shortDisplayName || opT.displayName || "TBD")}</b></span>
+        <span class="sc-sres">${done ? `<em class="${win}">${win}</em> ${escapeHtml(String(sc(me)))}–${escapeHtml(String(sc(op)))}` : live ? `<em class="L2">LIVE</em> ${escapeHtml(String(sc(me)))}–${escapeHtml(String(sc(op)))}` : `<span class="sc-dim">${d.toLocaleTimeString("en-US",{hour:"numeric", minute:"2-digit"})}</span>`}</span>
+      </div>`;
+    }).join("");
+    const list = ov.querySelector("#sc-season-list");
+    list.innerHTML = rows;
+    const nx = list.querySelector(".next, .live"); if(nx) nx.scrollIntoView({block:"center"});
+  };
+  render();
 }
 async function loadEvents(scope){ if(scope && scope.querySelector && scope.querySelector("#sc-root")) return scRender(scope); }
 
