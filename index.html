@@ -2945,7 +2945,23 @@
     box-shadow:0 8px 24px -10px var(--accent), inset 0 1px 0 rgba(255,255,255,.15);
   }
   .db-nav button.active svg{color:#fff;}
-  .db-side-foot{margin-top:auto;padding-top:30px;text-align:center;}
+  .db-side-foot{padding-top:20px;text-align:center;}
+  .db-side-toggle{margin-top:auto;display:flex;align-items:center;gap:12px;height:40px;padding:0 16px;border-radius:10px;border:1px solid rgba(90,169,255,.14);background:rgba(12,26,48,.5);color:#a9bcd6;font:inherit;font-size:13px;cursor:pointer;}
+  .db-side-toggle:hover{color:#fff;border-color:rgba(90,169,255,.35);}
+  .db-side-toggle svg{width:18px;height:18px;flex:none;transition:transform .2s;}
+  #dashboard{transition:grid-template-columns .2s ease;}
+  @media (min-width:761px){
+  #dashboard.db-side-min{grid-template-columns:76px minmax(0,1fr) !important;}
+  #dashboard.db-side-min .db-header{grid-template-columns:76px minmax(0,1fr) auto !important;}
+  #dashboard.db-side-min .db-logo{padding-left:0;justify-content:center;font-size:0;letter-spacing:0;gap:0;}
+  #dashboard.db-side-min .db-side{padding:38px 10px 22px;}
+  #dashboard.db-side-min .db-nav button{justify-content:center;padding:0;gap:0;}
+  #dashboard.db-side-min .db-nav button span{display:none;}
+  #dashboard.db-side-min .db-side-toggle{justify-content:center;padding:0;}
+  #dashboard.db-side-min .db-side-toggle span,#dashboard.db-side-min .db-tagline{display:none;}
+  #dashboard.db-side-min .db-side-toggle svg{transform:rotate(180deg);}
+  }
+  @media (max-width:760px){ .db-side-toggle{display:none;} }
   .db-tagline{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:#6d84a3;line-height:1.7;text-transform:uppercase;}
   .db-side-foot i{display:block;width:26px;height:22px;margin:16px auto 0;background:var(--db-logo) center/contain no-repeat;opacity:.55;}
   .db-view-switch{
@@ -21768,8 +21784,9 @@ function buildDashboard(){
 
   <aside class="db-side">
     <nav class="db-nav" id="db-nav">
-      ${DB_NAV.map(n=>`<button type="button" data-nav="${n.key}" class="${n.key==="home"?"active":""}">${dbIcon(n.icon)}<span>${n.label}</span></button>`).join("")}
+      ${DB_NAV.map(n=>`<button type="button" data-nav="${n.key}" title="${n.label}" class="${n.key==="home"?"active":""}">${dbIcon(n.icon)}<span>${n.label}</span></button>`).join("")}
     </nav>
+    <button type="button" class="db-side-toggle" id="db-side-toggle" title="Collapse sidebar" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg><span>Collapse</span></button>
     <div class="db-side-foot" id="db-side-foot">
       <div class="db-tagline">Plan / Track / Build<br>A better tomorrow</div>
       <i aria-hidden="true"></i>
@@ -21882,6 +21899,15 @@ function buildDashboard(){
   $("#db-portrait-card").addEventListener("click", e=>{ if(!document.getElementById("db-portrait-card").closest(".db-panel").dataset.winDragged) dbTogglePortraitPicker(e.currentTarget); });
   $("#db-profile").addEventListener("click", ()=>{ const b = document.getElementById("account-btn"); if(b) b.click(); });
 
+  const sideMin = on=>{
+    document.getElementById("dashboard").classList.toggle("db-side-min", on);
+    const t = $("#db-side-toggle"); t.title = on ? "Expand sidebar" : "Collapse sidebar"; t.setAttribute("aria-label", t.title);
+    try{ localStorage.setItem(NS+"sideMin", on ? "1" : "0"); }catch(e){}
+    setTimeout(()=>{ try{ applyDbLayout(); if(document.body.classList.contains("db-page")) dbPositionPage(); }catch(e){} }, 220);
+  };
+  let sm = false; try{ sm = localStorage.getItem(NS+"sideMin") === "1"; }catch(e){}
+  sideMin(sm);
+  $("#db-side-toggle").addEventListener("click", ()=>sideMin(!document.getElementById("dashboard").classList.contains("db-side-min")));
   $("#db-search-kbd").textContent = /Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent) ? "⌘ K" : "Ctrl K";
   wireDbBalance();
   wireDbSearch();
