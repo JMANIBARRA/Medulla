@@ -3249,7 +3249,8 @@
   .db-tile .chev{width:14px;height:14px;color:#9fb4d0;}
   .db-apps-list{display:contents;}
   .db-tile{position:relative;}
-  .sp-badge{position:absolute;top:-7px;right:-7px;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#ff3b4e;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730, 0 0 12px -2px #ff3b4e;z-index:2;}
+  .sp-urgent{position:absolute;top:50%;right:34px;transform:translateY(-50%);z-index:2;pointer-events:none;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#ff3b4e;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #0a1730, 0 0 12px -2px #ff3b4e;z-index:2;}
+  [data-nav="scratchpad"] .sp-urgent{top:4px;right:4px;transform:none;min-width:18px;height:18px;font-size:11px;padding:0 5px;}
   .sp-tab{display:inline-flex;align-items:center;gap:6px;}
   .sp-tab.urgent{border-color:#ff4d5e !important;color:#ffb3ba;}
   .sp-tab.urgent.primary{background:linear-gradient(180deg,#ff5d6c,#d63044) !important;color:#fff;}
@@ -19051,9 +19052,9 @@ function spUrgentCount(){ return scratchData.pages.filter(p=>p.level==="urgent")
 function spUpdateBadges(){
   const n = spUrgentCount();
   document.querySelectorAll('[data-open="scratchpad"], [data-nav="scratchpad"]').forEach(b=>{
-    let d = b.querySelector(".sp-badge");
+    let d = b.querySelector(".sp-urgent");
     if(!n){ if(d) d.remove(); return; }
-    if(!d){ d = document.createElement("em"); d.className = "sp-badge"; b.appendChild(d); }
+    if(!d){ d = document.createElement("em"); d.className = "sp-urgent"; if(getComputedStyle(b).position === "static") b.style.position = "relative"; b.appendChild(d); }
     d.textContent = n; d.title = `${n} urgent page${n>1?"s":""} in Scratchpad`;
   });
 }
