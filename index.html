@@ -1738,6 +1738,8 @@
   .tf-chosen > span{color:#7ee2b8;font-weight:800;} .tf-chosen > div{flex:1;min-width:0;} .tf-chosen b{display:block;font-size:14.5px;} .tf-chosen small{display:block;font-size:12px;color:var(--text-dim);}
   .tf-chosen button{height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(130,153,184,.3);background:transparent;color:#cfe0f5;font:inherit;font-size:12px;cursor:pointer;}
   .tf-row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;} .tf-row2 .tf-icons{max-width:none;} .tf-row2 input{flex:1;min-width:180px;}
+  .tf-astyped{display:flex !important;flex-direction:column;align-items:flex-start !important;background:#102544 !important;border-top:1px dashed rgba(124,180,255,.3) !important;}
+  .tf-astyped b{color:#9fd0ff;} .tf-astyped small{flex-basis:auto !important;}
   .tf-hint{margin-right:auto;align-self:center;font-size:12px;color:var(--text-dim);}
   .tf-note.soft{background:rgba(90,169,255,.08);border-color:rgba(124,180,255,.3);color:#cfe0f5;}
   .tf-note small{color:var(--text-dim);}
@@ -11984,7 +11986,24 @@ function tfGuessIcon(r){
   if(/house|residential|apartments?/.test(t)) return "home";
   return "other";
 }
+/* "sw 6 st" -> "SW 6th Street" so street-style queries match */
+function tfNormalize(q){
+  return q.replace(/\b(\d+)(?:st|nd|rd|th)?\s+(st|street|ave|avenue|rd|road|blvd|ter|terrace|ct|court|dr|drive|pl|place|way|ln|lane)\b/gi, (m,n,t)=>{
+    const sfx = /1[123]$/.test(n) ? "th" : n.endsWith("1") ? "st" : n.endsWith("2") ? "nd" : n.endsWith("3") ? "rd" : "th";
+    const full = {st:"Street",street:"Street",ave:"Avenue",avenue:"Avenue",rd:"Road",road:"Road",blvd:"Boulevard",ter:"Terrace",terrace:"Terrace",ct:"Court",court:"Court",dr:"Drive",drive:"Drive",pl:"Place",place:"Place",way:"Way",ln:"Lane",lane:"Lane"}[t.toLowerCase()];
+    return `${n}${sfx} ${full}`;
+  }).replace(/\b(sw|se|nw|ne)\b/gi, m=>m.toUpperCase());
+}
+/* a pasted Google/Apple Maps link: pull the coordinates out of it */
+function tfFromLink(q){
+  if(!/^https?:\/\//i.test(q.trim())) return null;
+  const m = q.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || q.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || q.match(/[?&](?:q|ll|daddr|destination|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if(!m) return null;
+  let name = ""; const pm = q.match(/\/place\/([^/@]+)/); if(pm){ try{ name = decodeURIComponent(pm[1].replace(/\+/g," ")); }catch(e){} }
+  return {lat:+m[1], lon:+m[2], name, addr: name ? "From your Maps link" : `${(+m[1]).toFixed(5)}, ${(+m[2]).toFixed(5)}`, kind:"", label:name || "Pinned location"};
+}
 async function tfSearch(q){
+  const link = tfFromLink(q); if(link) return [link];
   const out = [], seen = new Set();
   const add = r=>{ const k = r.lat.toFixed(3)+","+r.lon.toFixed(3)+(r.name||""); if(!seen.has(k)){ seen.add(k); out.push(r); } };
   try{
@@ -12006,13 +12025,41 @@ async function tfSearch(q){
       (d||[]).forEach(x=>{ const parts = x.display_name.split(", "); add({lat:+x.lat, lon:+x.lon, name:x.name||"", addr:parts.slice(x.name ? 1 : 0, 4).join(", "), kind:x.type||"", label:parts.slice(0,4).join(", ")}); });
     }catch(e){}
   }
+  /* business + street ("crunch sw 6 st plantation"): also look for the business by name nearby,
+     and keep only branches near that street */
+  const nq = tfNormalize(q);
+  if(nq !== q || /\b(st|street|ave|road|blvd|dr|drive)\b/i.test(q)){
+    try{
+      const d = await (await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(nq)}&limit=7&lang=en${tfBias ? `&lat=${tfBias.lat}&lon=${tfBias.lon}` : ""}`)).json();
+      (d.features||[]).forEach(f=>{ const p = f.properties||{}, [lon,lat] = f.geometry.coordinates; if(p.countrycode && p.countrycode!=="US") return;
+        const where = [[p.housenumber,p.street].filter(Boolean).join(" "), p.city||p.town||p.district, p.state].filter(Boolean).join(", ");
+        add({lat, lon, name:p.name && p.name!==p.street ? p.name : "", addr:where, kind:p.osm_value||"", label:[p.name, where].filter(Boolean).join(" — ")}); });
+    }catch(e){}
+  }
+  const words = q.toLowerCase().split(/\s+/).filter(w=>w.length > 2 && !/^(sw|se|nw|ne|st|ave|rd|the|and|fl|florida|street|road|plantation|miami|fort|lauderdale|davie|weston|sunrise|\d+(st|nd|rd|th)?)$/.test(w));
+  if(words.length && tfBias){
+    try{
+      const d = await (await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(words.slice(0,3).join(" "))}&limit=15&lang=en&lat=${tfBias.lat}&lon=${tfBias.lon}&location_bias_scale=0.2`)).json();
+      (d.features||[]).forEach(f=>{ const p = f.properties||{}, [lon,lat] = f.geometry.coordinates;
+        if(!p.name || !p.name.toLowerCase().includes(words[0]) || (typeof kmBetween === "function" && kmBetween(tfBias.lat,tfBias.lon,lat,lon) > 60)) return;
+        const where = [[p.housenumber,p.street].filter(Boolean).join(" "), p.city||p.town||p.district, p.state].filter(Boolean).join(", ");
+        add({lat, lon, name:p.name, addr:where, kind:p.osm_value||"", label:[p.name, where].filter(Boolean).join(" — ")}); });
+    }catch(e){}
+  }
+  /* rank: results whose name or street matches what you typed first, then closest */
+  const toks = nq.toLowerCase().split(/\s+/).filter(w=>w.length > 1);
+  const score = r=>{ const hay = (r.name+" "+r.addr).toLowerCase(); return toks.filter(t=>hay.includes(t)).length; };
+  if(tfBias && typeof kmBetween === "function") out.sort((a,b)=>score(b)-score(a) || kmBetween(tfBias.lat,tfBias.lon,a.lat,a.lon)-kmBetween(tfBias.lat,tfBias.lon,b.lat,b.lon));
+  else out.sort((a,b)=>score(b)-score(a));
+  return out.slice(0,8);
   /* closest first when we know where you are */
   if(tfBias && typeof kmBetween === "function") out.sort((a,b)=>kmBetween(tfBias.lat,tfBias.lon,a.lat,a.lon)-kmBetween(tfBias.lat,tfBias.lon,b.lat,b.lon));
   return out.slice(0,6);
 }
-function tfGoogle(a, b){ return `https://www.google.com/maps/dir/?api=1${a ? `&origin=${a.lat},${a.lon}` : ""}&destination=${b.lat},${b.lon}&travelmode=driving`; }
-function tfWaze(b){ return `https://waze.com/ul?ll=${b.lat},${b.lon}&navigate=yes`; }
-function tfEmbed(a, b){ return a ? `https://maps.google.com/maps?saddr=${a.lat},${a.lon}&daddr=${b.lat},${b.lon}&layer=t&output=embed` : `https://maps.google.com/maps?q=${b.lat},${b.lon}&z=13&layer=t&output=embed`; }
+const tfPt = x=>x.lat != null ? `${x.lat},${x.lon}` : encodeURIComponent(x.q || x.name);
+function tfGoogle(a, b){ return `https://www.google.com/maps/dir/?api=1${a ? `&origin=${tfPt(a)}` : ""}&destination=${tfPt(b)}&travelmode=driving`; }
+function tfWaze(b){ return b.lat != null ? `https://waze.com/ul?ll=${b.lat},${b.lon}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(b.q || b.name)}&navigate=yes`; }
+function tfEmbed(a, b){ return a ? `https://maps.google.com/maps?saddr=${tfPt(a)}&daddr=${tfPt(b)}&layer=t&output=embed` : `https://maps.google.com/maps?q=${tfPt(b)}&z=13&layer=t&output=embed`; }
 function trafficFullHTML(){
   return `<div class="tf">
     <div class="tf-head">
@@ -12103,6 +12150,7 @@ function hydrateTrafficFull(scope){
     for(const p of trafficData.places){
       if(trafficData.from === p.id) continue;
       const cell = box.querySelector(`[data-time="${p.id}"]`);
+      if(p.lat == null || o.lat == null){ cell.innerHTML = `<span class="tf-dim">Drive time in Maps</span><span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a><a href="${tfWaze(p)}" target="_blank" rel="noopener">Waze ↗</a></span>`; continue; }
       try{
         const r = await tfRoute(o, p);
         if(!alive || !cell.isConnected) return;
@@ -12133,9 +12181,9 @@ function hydrateTrafficFull(scope){
         </div>
         <div class="tf-fbtns"><button type="button" id="tf-cancel">Cancel</button><button type="button" class="pri" id="tf-save">Save place</button></div>`
       : `
-        <div class="tf-addr"><input type="text" id="tf-q" placeholder="Type a place or address — e.g. Crunch Fitness Plantation" value="${escapeHtml(box._q||"")}" autocomplete="off">
+        <div class="tf-addr"><input type="text" id="tf-q" placeholder="Type a place, an address, or paste a Google Maps link" value="${escapeHtml(box._q||"")}" autocomplete="off">
           <div class="tf-res" id="tf-res">${resHTML()}</div></div>
-        <div class="tf-fbtns"><span class="tf-hint">Business names work — add the town if there are several.</span><button type="button" id="tf-cancel">Cancel</button></div>`}
+        <div class="tf-fbtns"><span class="tf-hint">Tip: add the street or town, like “crunch sw 6 st plantation”. Still not there? Paste its Google Maps link.</span><button type="button" id="tf-cancel">Cancel</button></div>`}
     </div>`;
     const pickIt = i=>{ picked = results[i]; box._ic = tfGuessIcon(picked); box._name = picked.name || ""; results = []; renderAdd(); };
     box.querySelector("#tf-cancel").addEventListener("click", ()=>{ adding = false; box._name = box._q = ""; box._ic = ""; picked = null; renderAdd(); });
@@ -12148,7 +12196,7 @@ function hydrateTrafficFull(scope){
       box.querySelector("#tf-save").addEventListener("click", ()=>{
         const icon = box._ic || "other", name = nm.value.trim() || picked.name || (icon[0].toUpperCase()+icon.slice(1));
         const id = "p" + Date.now();
-        trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, label:picked.name ? picked.addr : picked.addr || picked.label});
+        trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, q:picked.q || "", label:picked.q ? "Opens in Google Maps / Waze" : (picked.name ? picked.addr : picked.addr || picked.label)});
         tfSave(); sel = id; adding = false; picked = null; box._name = box._q = ""; box._ic = "";
         renderAdd(); renderFrom(); renderList(); renderMap();
       });
@@ -12167,8 +12215,11 @@ function hydrateTrafficFull(scope){
         const asked = q.value.trim();
         try{ results = await tfSearch(asked); }catch(e){ results = []; }
         if(!alive || box._q.trim() !== asked) return;
-        rb.innerHTML = results.length ? resHTML() : `<div class="tf-dim" style="padding:8px 10px;">Nothing found — try adding the town (e.g. “Crunch Fitness Plantation FL”).</div>`;
+        rb.innerHTML = (results.length ? resHTML() : `<div class="tf-dim" style="padding:8px 10px;">No match in the free map data.</div>`)
+          + `<button type="button" class="tf-astyped" data-typed><b>Not listed? Use “${escapeHtml(asked)}”</b><small>Google Maps and Waze will find it when you tap them — or paste a Google Maps link to the place for drive times here too.</small></button>`;
         wire();
+        const ty = rb.querySelector("[data-typed]");
+        if(ty) ty.addEventListener("click", ()=>{ picked = {lat:null, lon:null, q:asked, name:asked.replace(/\b\w/g, c=>c.toUpperCase()), addr:"Found in Google Maps / Waze when you go", kind:asked}; box._ic = tfGuessIcon(picked); box._name = picked.name; results = []; renderAdd(); });
       }, 400);
     });
     q.addEventListener("keydown", e=>{ if(e.key==="Enter" && results.length) pickIt(0); });
