@@ -1729,6 +1729,19 @@
   .tf-fbtns button{height:36px;padding:0 16px;border-radius:10px;border:1px solid rgba(130,153,184,.25);background:transparent;color:#cfe0f5;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
   .tf-fbtns .pri{background:linear-gradient(180deg,#2f8bff,#1462e0);border-color:transparent;color:#fff;} .tf-fbtns .pri:disabled{opacity:.45;cursor:default;}
   .tf-picked{grid-column:1/-1;font-size:12.5px;color:#7ee2b8;}
+  .tf-form2{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:rgba(47,139,255,.07);border:1px solid rgba(77,155,255,.35);}
+  .tf-form2 input{width:100%;box-sizing:border-box;height:44px;border-radius:10px;padding:0 14px;font-size:15px;}
+  .tf-res button{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;}
+  .tf-res button b{font-size:14px;} .tf-res button small{flex-basis:100%;font-size:12px;color:var(--text-dim);} .tf-res button em{margin-left:auto;font-style:normal;font-size:12px;color:#7fbcff;}
+  .tf-res button{position:relative;padding-right:60px !important;} .tf-res button em{position:absolute;right:10px;top:10px;}
+  .tf-chosen{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:rgba(54,211,154,.08);border:1px solid rgba(54,211,154,.35);}
+  .tf-chosen > span{color:#7ee2b8;font-weight:800;} .tf-chosen > div{flex:1;min-width:0;} .tf-chosen b{display:block;font-size:14.5px;} .tf-chosen small{display:block;font-size:12px;color:var(--text-dim);}
+  .tf-chosen button{height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(130,153,184,.3);background:transparent;color:#cfe0f5;font:inherit;font-size:12px;cursor:pointer;}
+  .tf-row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;} .tf-row2 .tf-icons{max-width:none;} .tf-row2 input{flex:1;min-width:180px;}
+  .tf-hint{margin-right:auto;align-self:center;font-size:12px;color:var(--text-dim);}
+  .tf-note.soft{background:rgba(90,169,255,.08);border-color:rgba(124,180,255,.3);color:#cfe0f5;}
+  .tf-note small{color:var(--text-dim);}
+  .tf-loc{margin-left:6px;height:26px;padding:0 10px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;cursor:pointer;}
   @media (max-width:820px){ .tf-body{grid-template-columns:1fr;} .tf-map{min-height:300px;} .tf-form{grid-template-columns:1fr;} .tf-icons{max-width:none;} .tf-when{margin-left:0;} }
   .gar-sheet.gm-sheet{width:min(720px,100%);}
   .gar-btn{position:relative;}
@@ -11961,10 +11974,41 @@ async function tfRoute(a, b){
   if(!d.routes || !d.routes[0]) throw new Error("no route");
   return tfRouteCache[k] = {sec:d.routes[0].duration, m:d.routes[0].distance};
 }
+let tfBias = null; /* where to search near: your location, else the Weather widget's location */
+function tfGuessIcon(r){
+  const t = ((r.kind||"") + " " + (r.name||"")).toLowerCase();
+  if(/fitness|gym|crunch|planet fitness|la fitness|orangetheory|crossfit|yoga|sports_centre/.test(t)) return "gym";
+  if(/school|college|university|academy|campus/.test(t)) return "school";
+  if(/restaurant|cafe|coffee|bar|pub|fast_food|food|pizza|grill/.test(t)) return "food";
+  if(/office|company|corporate|commercial|industrial|bank|hospital/.test(t)) return "work";
+  if(/house|residential|apartments?/.test(t)) return "home";
+  return "other";
+}
 async function tfSearch(q){
-  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us&q=${encodeURIComponent(q)}`, {headers:{"Accept-Language":"en"}});
-  const d = await r.json();
-  return (d||[]).map(x=>({lat:+x.lat, lon:+x.lon, label:x.display_name.split(", ").slice(0,3).join(", ")}));
+  const out = [], seen = new Set();
+  const add = r=>{ const k = r.lat.toFixed(3)+","+r.lon.toFixed(3)+(r.name||""); if(!seen.has(k)){ seen.add(k); out.push(r); } };
+  try{
+    const bias = tfBias ? `&lat=${tfBias.lat}&lon=${tfBias.lon}&location_bias_scale=0.4` : "";
+    const d = await (await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=7&lang=en${bias}`)).json();
+    (d.features||[]).forEach(f=>{
+      const p = f.properties||{}, [lon,lat] = f.geometry.coordinates;
+      if(p.countrycode && p.countrycode !== "US" && !/\b(canada|mexico|bahamas)\b/i.test(q)) return;
+      const street = [p.housenumber, p.street].filter(Boolean).join(" ");
+      const where = [street, p.city || p.town || p.district || p.county, p.state].filter(Boolean).join(", ");
+      const name = p.name && p.name !== p.street ? p.name : "";
+      add({lat, lon, name, addr:where, kind:p.osm_value||"", label:[name, where].filter(Boolean).join(" — ")});
+    });
+  }catch(e){}
+  if(out.length < 3){
+    try{
+      const vb = tfBias ? `&viewbox=${tfBias.lon-1},${tfBias.lat+1},${tfBias.lon+1},${tfBias.lat-1}` : "";
+      const d = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us${vb}&q=${encodeURIComponent(q)}`, {headers:{"Accept-Language":"en"}})).json();
+      (d||[]).forEach(x=>{ const parts = x.display_name.split(", "); add({lat:+x.lat, lon:+x.lon, name:x.name||"", addr:parts.slice(x.name ? 1 : 0, 4).join(", "), kind:x.type||"", label:parts.slice(0,4).join(", ")}); });
+    }catch(e){}
+  }
+  /* closest first when we know where you are */
+  if(tfBias && typeof kmBetween === "function") out.sort((a,b)=>kmBetween(tfBias.lat,tfBias.lon,a.lat,a.lon)-kmBetween(tfBias.lat,tfBias.lon,b.lat,b.lon));
+  return out.slice(0,6);
 }
 function tfGoogle(a, b){ return `https://www.google.com/maps/dir/?api=1${a ? `&origin=${a.lat},${a.lon}` : ""}&destination=${b.lat},${b.lon}&travelmode=driving`; }
 function tfWaze(b){ return `https://waze.com/ul?ll=${b.lat},${b.lon}&navigate=yes`; }
@@ -12000,12 +12044,29 @@ function hydrateTrafficFull(scope){
     const now = new Date(), f = tfRushFactor(now);
     $t("#tf-when").textContent = f >= 1.35 ? "🔴 Rush hour now" : f >= 1.15 ? "🟠 Busier than usual" : "🟢 Light traffic time";
   }
-  function locate(){
-    if(!navigator.geolocation){ hereErr = "Location isn't available in this browser."; renderList(); return; }
-    hereErr = "Finding you…"; renderList();
-    navigator.geolocation.getCurrentPosition(p=>{ here = {lat:p.coords.latitude, lon:p.coords.longitude}; hereErr = ""; if(alive){ renderList(); renderMap(); } },
-      ()=>{ hereErr = "Allow location access, or pick a saved place to leave from."; if(alive) renderList(); }, {timeout:10000, maximumAge:300000});
+  let hereApprox = false, hereCity = "";
+  async function approx(){
+    try{ const l = await fetchApproxLocation(); if(l && l.lat != null){ here = {lat:+l.lat, lon:+l.lon}; hereCity = l.city || ""; hereApprox = true; tfBias = here; return true; } }catch(e){}
+    return false;
   }
+  function locate(userAsked){
+    if(!userAsked && !here){ hereErr = "Finding you…"; renderList(); }
+    const fallback = async why=>{
+      if(!here && await approx()){ hereErr = ""; }
+      else if(!here) hereErr = why;
+      if(alive){ renderList(); renderMap(); }
+    };
+    if(!navigator.geolocation || !window.isSecureContext) return fallback("Couldn't find your location — pick a saved place to leave from.");
+    navigator.geolocation.getCurrentPosition(p=>{
+      here = {lat:p.coords.latitude, lon:p.coords.longitude}; hereApprox = false; hereErr = ""; tfBias = here;
+      if(alive){ renderList(); renderMap(); }
+    }, err=>{
+      hereDenied = err && err.code === 1;
+      fallback(hereDenied ? "Location is blocked for this site in your browser." : "Couldn't get your exact location.");
+    }, {enableHighAccuracy:true, timeout:12000, maximumAge:120000});
+    if(!here) approx().then(ok=>{ if(ok && alive && hereErr === "Finding you…"){ hereErr = ""; renderList(); renderMap(); } });
+  }
+  let hereDenied = false;
   async function renderList(){
     const box = $t("#tf-list"), o = origin();
     if(!trafficData.places.length){
@@ -12013,7 +12074,10 @@ function hydrateTrafficFull(scope){
       return;
     }
     const f = tfRushFactor(new Date());
-    box.innerHTML = (o ? "" : `<div class="tf-note">${escapeHtml(hereErr || "Choose where you're leaving from above.")}</div>`) + trafficData.places.map(p=>{
+    const note = trafficData.from !== "here" ? ""
+      : !o ? `<div class="tf-note">${escapeHtml(hereErr || "Finding you…")} ${hereErr && hereErr !== "Finding you…" ? `<button type="button" class="tf-loc" data-loc>Try again</button>` : ""}${hereDenied ? `<br><small>To fix it: click the 🔒 next to the web address → Location → Allow, then press Try again.</small>` : ""}</div>`
+      : hereApprox ? `<div class="tf-note soft">📍 Using your approximate location${hereCity ? ` (${escapeHtml(hereCity)})` : ""}. <button type="button" class="tf-loc" data-loc>Use my exact location</button>${hereDenied ? `<br><small>Location is blocked for this site — click the 🔒 next to the web address → Location → Allow.</small>` : ""}</div>` : "";
+    box.innerHTML = note + trafficData.places.map(p=>{
       const same = o && trafficData.from === p.id;
       return `<div class="tf-card${sel===p.id?" on":""}${same?" same":""}" data-p="${p.id}" role="button" tabindex="0">
         <span class="tf-ic">${TF_ICONS[p.icon]||"📍"}</span>
@@ -12022,6 +12086,7 @@ function hydrateTrafficFull(scope){
         <button type="button" class="tf-del" data-del="${p.id}" title="Remove" aria-label="Remove">✕</button>
       </div>`;
     }).join("");
+    box.querySelectorAll("[data-loc]").forEach(b=>b.addEventListener("click", ()=>{ b.textContent = "Locating…"; locate(true); }));
     box.querySelectorAll("[data-p]").forEach(c=>{
       const go = ()=>{ sel = c.dataset.p; box.querySelectorAll(".tf-card").forEach(x=>x.classList.toggle("on", x===c)); renderMap(); };
       c.addEventListener("click", e=>{ if(!e.target.closest(".tf-del,a")) go(); });
@@ -12058,44 +12123,60 @@ function hydrateTrafficFull(scope){
   function renderAdd(){
     const box = $t("#tf-add");
     if(!adding){ box.innerHTML = `<button type="button" class="tf-addbtn" id="tf-addbtn">+ Add a place</button>`; box.querySelector("#tf-addbtn").addEventListener("click", ()=>{ adding = true; picked = null; results = []; renderAdd(); }); return; }
-    box.innerHTML = `<div class="tf-form">
-      <div class="tf-icons">${Object.entries(TF_ICONS).map(([k,v])=>`<button type="button" data-ic="${k}" class="${(box._ic||"home")===k?"on":""}" title="${k}">${v}</button>`).join("")}</div>
-      <input type="text" id="tf-name" placeholder="Name (e.g. Work)" value="${escapeHtml(box._name||"")}" autocomplete="off">
-      <div class="tf-addr"><input type="text" id="tf-q" placeholder="Search an address or place" value="${escapeHtml(box._q||"")}" autocomplete="off">
-        <div class="tf-res" id="tf-res">${results.map((r,i)=>`<button type="button" data-r="${i}">${escapeHtml(r.label)}</button>`).join("")}</div></div>
-      <div class="tf-fbtns"><button type="button" id="tf-cancel">Cancel</button><button type="button" class="pri" id="tf-save"${picked ? "" : " disabled"}>Save place</button></div>
-      ${picked ? `<div class="tf-picked">✓ ${escapeHtml(picked.label)}</div>` : ""}
+    const resHTML = ()=>results.map((r,i)=>`<button type="button" data-r="${i}"><b>${escapeHtml(r.name || r.addr)}</b>${r.name ? `<small>${escapeHtml(r.addr)}</small>` : ""}${tfBias && typeof kmBetween === "function" ? `<em>${(kmBetween(tfBias.lat,tfBias.lon,r.lat,r.lon)*0.621).toFixed(1)} mi</em>` : ""}</button>`).join("");
+    box.innerHTML = `<div class="tf-form2">
+      ${picked ? `
+        <div class="tf-chosen"><span>✓</span><div><b>${escapeHtml(picked.name || picked.addr)}</b><small>${escapeHtml(picked.addr)}</small></div><button type="button" id="tf-change">Change</button></div>
+        <div class="tf-row2">
+          <div class="tf-icons">${Object.entries(TF_ICONS).map(([k,v])=>`<button type="button" data-ic="${k}" class="${box._ic===k?"on":""}" title="${k}">${v}</button>`).join("")}</div>
+          <input type="text" id="tf-name" placeholder="Call it… (e.g. Work)" value="${escapeHtml(box._name||"")}" autocomplete="off">
+        </div>
+        <div class="tf-fbtns"><button type="button" id="tf-cancel">Cancel</button><button type="button" class="pri" id="tf-save">Save place</button></div>`
+      : `
+        <div class="tf-addr"><input type="text" id="tf-q" placeholder="Type a place or address — e.g. Crunch Fitness Plantation" value="${escapeHtml(box._q||"")}" autocomplete="off">
+          <div class="tf-res" id="tf-res">${resHTML()}</div></div>
+        <div class="tf-fbtns"><span class="tf-hint">Business names work — add the town if there are several.</span><button type="button" id="tf-cancel">Cancel</button></div>`}
     </div>`;
-    box.querySelectorAll("[data-ic]").forEach(b=>b.addEventListener("click", ()=>{ box._ic = b.dataset.ic; const n = box.querySelector("#tf-name"); if(!n.value.trim()) box._name = b.title[0].toUpperCase()+b.title.slice(1); else box._name = n.value; box._q = box.querySelector("#tf-q").value; renderAdd(); }));
-    const q = box.querySelector("#tf-q"), nm = box.querySelector("#tf-name");
-    nm.addEventListener("input", ()=>{ box._name = nm.value; });
+    const pickIt = i=>{ picked = results[i]; box._ic = tfGuessIcon(picked); box._name = picked.name || ""; results = []; renderAdd(); };
+    box.querySelector("#tf-cancel").addEventListener("click", ()=>{ adding = false; box._name = box._q = ""; box._ic = ""; picked = null; renderAdd(); });
+    if(picked){
+      box.querySelector("#tf-change").addEventListener("click", ()=>{ picked = null; renderAdd(); });
+      const nm = box.querySelector("#tf-name");
+      nm.addEventListener("input", ()=>{ box._name = nm.value; });
+      nm.addEventListener("keydown", e=>{ if(e.key==="Enter") box.querySelector("#tf-save").click(); });
+      box.querySelectorAll("[data-ic]").forEach(b=>b.addEventListener("click", ()=>{ box._ic = b.dataset.ic; box._name = nm.value; renderAdd(); }));
+      box.querySelector("#tf-save").addEventListener("click", ()=>{
+        const icon = box._ic || "other", name = nm.value.trim() || picked.name || (icon[0].toUpperCase()+icon.slice(1));
+        const id = "p" + Date.now();
+        trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, label:picked.name ? picked.addr : picked.addr || picked.label});
+        tfSave(); sel = id; adding = false; picked = null; box._name = box._q = ""; box._ic = "";
+        renderAdd(); renderFrom(); renderList(); renderMap();
+      });
+      nm.focus(); nm.select();
+      return;
+    }
+    const q = box.querySelector("#tf-q");
+    const wire = ()=>box.querySelectorAll("#tf-res [data-r]").forEach(b=>b.addEventListener("click", ()=>pickIt(+b.dataset.r)));
+    wire();
     q.addEventListener("input", ()=>{
-      box._q = q.value; picked = null; box.querySelector("#tf-save").disabled = true;
-      clearTimeout(searchT);
-      if(q.value.trim().length < 3){ box.querySelector("#tf-res").innerHTML = ""; return; }
+      box._q = q.value; clearTimeout(searchT);
+      const rb = box.querySelector("#tf-res");
+      if(q.value.trim().length < 3){ rb.innerHTML = ""; return; }
+      rb.innerHTML = `<div class="tf-dim" style="padding:8px 10px;">Searching…</div>`;
       searchT = setTimeout(async ()=>{
-        try{ results = await tfSearch(q.value.trim()); }catch(e){ results = []; }
-        if(!alive) return;
-        const rb = box.querySelector("#tf-res"); if(!rb) return;
-        rb.innerHTML = results.length ? results.map((r,i)=>`<button type="button" data-r="${i}">${escapeHtml(r.label)}</button>`).join("") : `<div class="tf-dim" style="padding:8px 10px;">No matches — try adding the city.</div>`;
-        rb.querySelectorAll("[data-r]").forEach(b=>b.addEventListener("click", ()=>{ picked = results[+b.dataset.r]; box._q = picked.label; results = []; renderAdd(); }));
-      }, 450);
+        const asked = q.value.trim();
+        try{ results = await tfSearch(asked); }catch(e){ results = []; }
+        if(!alive || box._q.trim() !== asked) return;
+        rb.innerHTML = results.length ? resHTML() : `<div class="tf-dim" style="padding:8px 10px;">Nothing found — try adding the town (e.g. “Crunch Fitness Plantation FL”).</div>`;
+        wire();
+      }, 400);
     });
-    box.querySelectorAll("#tf-res [data-r]").forEach(b=>b.addEventListener("click", ()=>{ picked = results[+b.dataset.r]; box._q = picked.label; results = []; renderAdd(); }));
-    box.querySelector("#tf-cancel").addEventListener("click", ()=>{ adding = false; box._name = box._q = ""; renderAdd(); });
-    box.querySelector("#tf-save").addEventListener("click", ()=>{
-      if(!picked) return;
-      const icon = box._ic || "home", name = (nm.value.trim() || icon[0].toUpperCase()+icon.slice(1));
-      const id = "p" + Date.now();
-      trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, label:picked.label});
-      if(trafficData.places.length === 1 && icon === "home" && trafficData.from === "home") trafficData.from = "here";
-      tfSave(); sel = id; adding = false; box._name = box._q = ""; box._ic = "";
-      renderAdd(); renderFrom(); renderList(); renderMap();
-    });
-    (box._q ? q : nm).focus();
+    q.addEventListener("keydown", e=>{ if(e.key==="Enter" && results.length) pickIt(0); });
+    q.focus();
   }
   if(!trafficData.from || trafficData.from === "home") trafficData.from = "here";
   renderFrom(); renderAdd(); renderList(); renderMap();
+  if(!tfBias) fetchApproxLocation().then(l=>{ if(l && l.lat != null && !tfBias) tfBias = {lat:+l.lat, lon:+l.lon}; }).catch(()=>{});
   if(trafficData.from === "here") locate();
   const tick = setInterval(()=>{ if(alive) renderFrom(); }, 60000);
   return ()=>{ alive = false; clearInterval(tick); };
