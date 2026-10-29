@@ -9346,7 +9346,14 @@ async function scLoadGames(){
   const out = []; let ok = 0;
   await Promise.all(leagues.map(async ([sport, league, label])=>{
     try{
-      const d = await scBoard(sport, league, dates);
+      let d = await scBoard(sport, league, dates);
+      /* some leagues answer a week range with nothing — then ask day by day and merge */
+      if(dates.includes("-") && !(d.events||[]).length){
+        const [a,b] = dates.split("-"), days = [];
+        for(let t = new Date(+a.slice(0,4), +a.slice(4,6)-1, +a.slice(6,8)); scYmd(t) <= b; t.setDate(t.getDate()+1)) days.push(scYmd(t));
+        const all = await Promise.all(days.map(x=>scBoard(sport, league, x).catch(()=>({events:[]}))));
+        const seen = new Set(); d = {events: all.flatMap(r=>r.events||[]).filter(ev=>{ if(seen.has(ev.id)) return false; seen.add(ev.id); return true; })};
+      }
       ok++;
       (d.events||[]).forEach(ev=>{
         if(sport === "tennis"){
