@@ -1297,6 +1297,7 @@
      moved). Bare icon, no border/background/glow — just a plain, quiet toggle, not another chip
      competing visually with everything else on screen. .active = currently unmuted (sound
      playing), toggled in setupAmbientSound; dimmed the rest of the time so it stays unobtrusive. */
+  #ambient-volume-control{display:none !important;}
   #ambient-volume-control{
     position:fixed;left:20px;bottom:38px;z-index:41;
     display:flex;align-items:center;
@@ -5598,6 +5599,7 @@ let ambientSoundBridge = null;
      than taking the Settings modal down with it (its volume slider goes through
      ambientSoundBridge, which must exist and stay callable regardless). */
   function start(){
+    return; /* Medulla is silent: no ambience, no UI sounds */
     if(started) return;
     started = true;
     try{
@@ -5712,6 +5714,7 @@ let ambientSoundBridge = null;
      Windows in particular). Not universal across every browser/OS/keyboard combo since the OS
      is free to intercept them first, but wired up wherever the page does receive them. */
   document.addEventListener("keydown", (e)=>{
+    if(true) return;
     if(e.key==="AudioVolumeUp"){ e.preventDefault(); setVolume(volume+0.05); }
     else if(e.key==="AudioVolumeDown"){ e.preventDefault(); setVolume(volume-0.05); }
     else if(e.key==="AudioVolumeMute"){ e.preventDefault(); setMuted(!muted); }
@@ -5733,7 +5736,7 @@ let ambientSoundBridge = null;
     for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
     return noiseBuffer;
   }
-  function playHoverWhoosh(){
+  function playHoverWhoosh(){ return;
     if(!started) start();
     if(!ctx || muted) return;
     const t = ctx.currentTime;
@@ -14694,16 +14697,7 @@ $("#settings-btn").addEventListener("click", ()=>{
     <div style="margin:10px 0 18px;">
       <button class="btn primary" id="manage-widgets-btn">Manage widgets</button>
     </div>
-    <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Ambient sound</h3>
-    <p style="color:var(--text-dim);font-size:12px;line-height:1.6;margin:6px 0 10px;">
-      A soft background hum that plays continuously while Medulla's open. Mute/unmute and adjust
-      volume from the 🔊 button (hover it for a slider), from here, or with your keyboard's
-      volume keys — all three stay in sync.
-    </p>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-      <input type="range" id="ambient-volume-input" min="0" max="100" value="${Math.round(ambientSoundBridge.getVolume()*100)}" style="flex:1;"/>
-      <span id="ambient-volume-readout" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);min-width:34px;text-align:right;">${Math.round(ambientSoundBridge.getVolume()*100)}%</span>
-    </div>
+    <input type="range" id="ambient-volume-input" hidden><span id="ambient-volume-readout" hidden></span>
     <h3 style="font-family:var(--font-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);">Background theme</h3>
     <div style="display:flex;gap:8px;margin:10px 0 18px;">
       ${THEME_SWATCHES.map(c=>`<div class="swatch" data-c="${c}" style="background:${c}"></div>`).join("")}
@@ -17162,6 +17156,7 @@ function aiTimerUI(){
   box.querySelectorAll("[data-ait]").forEach(b=>b.addEventListener("click", ()=>aiStopTimer(b.dataset.ait)));
 }
 function aiBeep(){
+  return; /* silent */
   try{ const ctx = new (window.AudioContext||window.webkitAudioContext)(); [0,.35,.7,1.4,1.75,2.1].forEach(t=>{ const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.0001, ctx.currentTime+t); g.gain.exponentialRampToValueAtTime(.25, ctx.currentTime+t+.02); g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime+t+.25); o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+.3); }); }catch(e){}
 }
 function aiStartTimer(sec, label){
