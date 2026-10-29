@@ -147,6 +147,30 @@ async function marketEarnings(cors, ctx){
   if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, toCache));
   return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
 }
+/* general top news from several big outlets' RSS, cached 10 min */
+async function topNews(cors, ctx){
+  const cache = caches.default, key = new Request("https://medulla-cache.internal/news/top");
+  const hit = await cache.match(key);
+  if(hit) return new Response(await hit.text(), {status:200, headers:{...cors, "Content-Type":"application/json"}});
+  const feeds = [["https://feeds.npr.org/1001/rss.xml","NPR"],["https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml","BBC"],["https://www.cbsnews.com/latest/rss/main","CBS News"],["https://abcnews.go.com/abcnews/topstories","ABC News"],["https://www.espn.com/espn/rss/news","ESPN"]];
+  const items = [];
+  await Promise.all(feeds.map(async ([u, src])=>{
+    try{
+      const r = await fetch(u, {headers:{"User-Agent":UA_HDRS["User-Agent"]}}); if(!r.ok) return;
+      const x = await r.text();
+      for(const m of x.matchAll(/<item>([\s\S]*?)<\/item>/g)){
+        const g = tg=>{ const mm = m[1].match(new RegExp(`<${tg}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\/${tg}>`)); return mm ? mm[1].trim() : ""; };
+        const title = g("title").replace(/&amp;/g,"&").replace(/&#39;|&apos;/g,"'").replace(/&quot;/g,'"');
+        if(title) items.push({title, link:g("link"), source:src, ts:Date.parse(g("pubDate")) || 0});
+      }
+    }catch(e){}
+  }));
+  if(!items.length) return json({error:"news_unavailable"}, 502, cors);
+  items.sort((a,b)=>b.ts - a.ts);
+  const body = JSON.stringify({items:items.slice(0, 60)});
+  if(ctx && ctx.waitUntil) ctx.waitUntil(cache.put(key, new Response(body, {headers:{"Content-Type":"application/json", "Cache-Control":"public, max-age=600"}})));
+  return new Response(body, {status:200, headers:{...cors, "Content-Type":"application/json"}});
+}
 async function stockMovers(env, cors, ctx){
   if(!env.ALPHAVANTAGE_API_KEY) return keylessMovers(cors, ctx);
   if(moversMemory && Date.now() - moversMemory.time < MOVERS_TTL_SECONDS*1000){
@@ -617,6 +641,10 @@ export default {
     if(path === "/market/news"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
       return marketNews(cors, ctx);
+    }
+    if(path === "/news/top"){
+      if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);
+      return topNews(cors, ctx);
     }
     if(path === "/market/earnings"){
       if(request.method !== "GET") return json({error:"method_not_allowed"}, 405, cors);

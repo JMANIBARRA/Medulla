@@ -16961,6 +16961,40 @@ async function aiLiveContext(text){
       }
     }catch(e){}
   }
+  /* sports: recent results (with series/playoff context) and headlines */
+  const SPORT_RE = /world series|super bowl|stanley cup|nba finals|playoff|champion|won|win|score|game|match|season|standings|mlb|nba|nfl|nhl|mls|ncaa|baseball|basketball|football|hockey|soccer|tennis|atp|wta|wimbledon|roland|grand slam|premier league|brewers|yankees|dodgers|heat|dolphins|panthers|inter miami|lakers|celtics|chiefs/;
+  if(SPORT_RE.test(t) && typeof espnGet === "function"){
+    const want = [["baseball","mlb","MLB",/mlb|baseball|world series|brewers|yankees|dodgers|mets|rays|marlins/],["football","nfl","NFL",/nfl|football|super bowl|dolphins|chiefs|eagles|bills/],["basketball","nba","NBA",/nba|basketball|heat|lakers|celtics|knicks/],["hockey","nhl","NHL",/nhl|hockey|stanley cup|panthers/],["soccer","usa.1","MLS",/mls|soccer|inter miami|messi/],["soccer","eng.1","Premier League",/premier league|epl|soccer/],["tennis","atp","ATP",/tennis|atp|wimbledon|roland|grand slam|open/],["football","college-football","College football",/college|ncaa/]];
+    let lgs = want.filter(w=>w[3].test(t));
+    if(!lgs.length) lgs = want.slice(0,4);
+    const fmtD = d=>`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+    const end = new Date(), start = new Date(Date.now()-6*864e5);
+    await Promise.all(lgs.slice(0,4).map(async ([sport, league, label])=>{
+      const lines = [];
+      try{
+        const d = await espnGet(`/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${fmtD(start)}-${fmtD(end)}&limit=60`);
+        const stOf = ev=>((ev.status || ((ev.competitions||[])[0]||{}).status || {}).type || {});
+        (d.events||[]).filter(ev=>stOf(ev).completed || stOf(ev).state === "in").slice(-14).forEach(ev=>{
+          const c = (ev.competitions||[])[0] || {}, note = ((c.notes||[])[0]||{}).headline || "", ser = (c.series||{}).summary || "";
+          const cs = (c.competitors||[]).map(x=>`${(x.team||x.athlete||{}).displayName || "?"} ${typeof x.score === "object" ? (x.score||{}).displayValue : (x.score ?? "")}${x.winner ? " (won)" : ""}`).join(" vs ");
+          lines.push(`${(ev.date||"").slice(0,10)}: ${cs}${note ? ` — ${note}` : ""}${ser ? ` — ${ser}` : ""}${stOf(ev).state === "in" ? " — LIVE now" : ""}`);
+        });
+      }catch(e){}
+      try{
+        const n = await espnGet(`/apis/site/v2/sports/${sport}/${league}/news?limit=8`);
+        (n.articles||[]).slice(0,8).forEach(a=>lines.push(`Headline (${(a.published||"").slice(0,10)}): ${a.headline}${a.description ? " — " + a.description : ""}`));
+      }catch(e){}
+      if(lines.length) parts.push(`${label} — recent results and news (ESPN, live):\n` + lines.join("\n"));
+    }));
+  }
+  /* market / company news */
+  if(/stock|market|earnings|ceo|company|shares|nasdaq|dow|s&p|economy|fed\b|inflation|crypto|bitcoin/.test(t) && MEDULLA_AI_PROXY_URL){
+    try{ const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/market/news"); const d = await r.json(); if(d.items && d.items.length) parts.push("Market headlines (live): " + d.items.slice(0,15).map(i=>`${i.title} (${i.source})`).join(" | ")); }catch(e){}
+  }
+  /* general news */
+  if(/news|headline|happen|going on|latest|today|current events|who won|did .* win|election|president|breaking/.test(t) && MEDULLA_AI_PROXY_URL){
+    try{ const r = await fetch(MEDULLA_AI_PROXY_URL.replace(/\/+$/,"") + "/news/top"); if(r.ok){ const d = await r.json(); if(d.items && d.items.length) parts.push("Top news headlines (live): " + d.items.slice(0,20).map(i=>`${i.title} (${i.source}${i.ts ? ", " + new Date(i.ts).toLocaleDateString("en-US",{month:"short", day:"numeric"}) : ""})`).join(" | ")); } }catch(e){}
+  }
   /* what's on the open widgets right now */
   try{
     document.querySelectorAll(".claustrum-widget[data-widget-id]").forEach(card=>{
@@ -16970,7 +17004,7 @@ async function aiLiveContext(text){
       if(reply && !/nothing showing on it right now/.test(reply)) parts.push(reply.slice(0, 600));
     });
   }catch(e){}
-  return parts.length ? `Live data from the user's dashboard (use it to answer; give specific times and numbers from it, don't say you can't see it):\n${parts.join("\n")}` : "";
+  return parts.length ? `Live data fetched just now (it is newer than your training — trust it over what you remember, answer directly from it with specifics, and don't say you're unsure if the answer is here):\n${parts.join("\n")}` : "";
 }
 /* ================= AI ACTIONS =================
    The AI can change things in the app by putting lines like
