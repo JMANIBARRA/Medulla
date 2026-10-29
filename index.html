@@ -1718,6 +1718,10 @@
   .tf-empty{padding:26px 18px;border-radius:14px;border:1px dashed rgba(124,180,255,.3);text-align:center;display:flex;flex-direction:column;gap:6px;} .tf-empty b{font-size:15px;} .tf-empty span{font-size:13px;color:var(--text-dim);}
   .tf-map{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(124,180,255,.18);background:#0a1628;min-height:360px;}
   .tf-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;filter:invert(.9) hue-rotate(180deg) saturate(.8) brightness(.95);}
+  #tf-lmap{position:absolute;inset:0;background:#0a1628;}
+  #tf-lmap[hidden],.tf-map iframe[hidden]{display:none;}
+  .tf-map .leaflet-control-attribution{background:rgba(9,20,38,.7);color:#8ea3c0;font-size:10px;} .tf-map .leaflet-control-attribution a{color:#9fd0ff;}
+  .tf-map .leaflet-bar a{background:#0d1d36;color:#cfe0f5;border-color:rgba(124,180,255,.25);}
   .tf-map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--text-dim);font-size:13px;}
   .tf-map-empty[hidden]{display:none;}
   .tf-addbtn{width:100%;height:44px;border-radius:12px;border:1px dashed rgba(124,180,255,.35);background:transparent;color:#9fd0ff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;}
@@ -12089,6 +12093,16 @@ const tfPt = x=>x.lat != null ? `${x.lat},${x.lon}` : encodeURIComponent(x.q || 
 function tfGoogle(a, b){ return `https://www.google.com/maps/dir/?api=1${a ? `&origin=${tfPt(a)}` : ""}&destination=${tfPt(b)}&travelmode=driving`; }
 function tfWaze(b){ return b.lat != null ? `https://waze.com/ul?ll=${b.lat},${b.lon}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(b.q || b.name)}&navigate=yes`; }
 function tfEmbed(a, b){ return a ? `https://maps.google.com/maps?saddr=${tfPt(a)}&daddr=${tfPt(b)}&layer=t&output=embed` : `https://maps.google.com/maps?q=${tfPt(b)}&z=13&layer=t&output=embed`; }
+let tfLeafletP = null;
+function tfLeaflet(){
+  if(window.L && window.L.map) return Promise.resolve(window.L);
+  return tfLeafletP || (tfLeafletP = new Promise((res, rej)=>{
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    sc.onload = ()=>res(window.L); sc.onerror = ()=>{ tfLeafletP = null; rej(new Error("leaflet")); };
+    document.head.appendChild(sc);
+  }));
+}
 function trafficFullHTML(){
   return `<div class="tf">
     <div class="tf-head">
@@ -12099,7 +12113,7 @@ function trafficFullHTML(){
     <div class="tf-from" id="tf-from"></div>
     <div class="tf-body">
       <div class="tf-list" id="tf-list"></div>
-      <div class="tf-map"><iframe id="tf-map" title="Route map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div class="tf-map-empty" id="tf-map-empty">Pick a place to see the route and traffic.</div></div>
+      <div class="tf-map"><div id="tf-lmap"></div><iframe id="tf-map" title="Route map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" hidden></iframe><div class="tf-map-empty" id="tf-map-empty">Pick a place to see the route and traffic.</div></div>
     </div>
     <div class="tf-trip" id="tf-trip"></div>
     <div class="tf-add" id="tf-add"></div>
@@ -12201,12 +12215,44 @@ function hydrateTrafficFull(scope){
       }catch(e){ if(cell.isConnected) cell.innerHTML = `<span class="tf-dim">—</span>`; }
     }
   }
-  function renderMap(){
-    const p = trafficData.places.find(x=>x.id===sel), fr = $t("#tf-map"), em = $t("#tf-map-empty");
-    if(!p){ fr.removeAttribute("src"); em.hidden = false; return; }
-    const o = origin(); em.hidden = true;
-    const src = tfEmbed(o && trafficData.from !== p.id ? o : null, p);
-    if(fr.getAttribute("src") !== src) fr.src = src;
+  /* our own map (Leaflet): normal scroll zooms, drag moves; route drawn from OSRM.
+     Google's embed is only the fallback if the map library can't load. */
+  let lmap = null, lroute = null, lmarks = [], mapSeq = 0;
+  async function renderMap(){
+    const seq = ++mapSeq;
+    const p = trafficData.places.find(x=>x.id===sel), fr = $t("#tf-map"), em = $t("#tf-map-empty"), host = $t("#tf-lmap");
+    if(!p){ em.hidden = false; return; }
+    em.hidden = true;
+    const o = origin(), from = o && trafficData.from !== p.id ? o : null;
+    const dest = p.lat != null ? {lat:p.lat, lon:p.lon} : p.alat != null ? {lat:p.alat, lon:p.alon} : null;
+    let L;
+    try{ L = await tfLeaflet(); }catch(e){ L = null; }
+    if(seq !== mapSeq || !alive) return;
+    if(!L || !dest || (from && from.lat == null)){
+      host.hidden = true; fr.hidden = false;
+      const src = tfEmbed(from, p); if(fr.getAttribute("src") !== src) fr.src = src;
+      return;
+    }
+    fr.hidden = true; host.hidden = false;
+    if(!lmap){
+      lmap = L.map(host, {zoomControl:true, attributionControl:true, scrollWheelZoom:true, wheelPxPerZoomLevel:90});
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {subdomains:"abcd", maxZoom:19, attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(lmap);
+      lmap.setView([dest.lat, dest.lon], 12);
+    }
+    lmarks.forEach(m=>m.remove()); lmarks = []; if(lroute){ lroute.remove(); lroute = null; }
+    const pin = (pt, color, label)=>L.circleMarker([pt.lat, pt.lon], {radius:8, color:"#fff", weight:2, fillColor:color, fillOpacity:1}).bindTooltip(label).addTo(lmap);
+    lmarks.push(pin(dest, "#2f8bff", p.name));
+    if(from){
+      lmarks.push(pin(from, "#36d39a", trafficData.from === "here" ? "You" : nameOf(trafficData.from)));
+      try{
+        const d = await (await fetch(`https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`)).json();
+        if(seq !== mapSeq || !alive) return;
+        const coords = d.routes[0].geometry.coordinates.map(([x,y])=>[y,x]);
+        lroute = L.polyline(coords, {color:"#4d9bff", weight:5, opacity:.9}).addTo(lmap);
+        lmap.fitBounds(lroute.getBounds(), {padding:[30,30]});
+      }catch(e){ lmap.fitBounds([[from.lat, from.lon],[dest.lat, dest.lon]], {padding:[40,40]}); }
+    } else lmap.setView([dest.lat, dest.lon], 14);
+    setTimeout(()=>lmap && lmap.invalidateSize(), 50);
   }
   function renderAdd(){
     const box = $t("#tf-add");
