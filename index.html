@@ -2529,7 +2529,22 @@
   .sc-sres{font-family:var(--font-mono);font-size:13.5px;white-space:nowrap;} .sc-sres em{font-style:normal;font-weight:800;margin-right:4px;} .sc-sres em.W{color:#36d39a;} .sc-sres em.L{color:#ff6b78;} .sc-sres em.L2{color:#36d39a;font-size:11px;}
   .sc-news[hidden]{display:none;}
   .sc-news-head{display:flex;align-items:baseline;gap:10px;margin:0 2px 10px;} .sc-news-head h3{margin:0;font-size:15px;letter-spacing:.04em;} .sc-news-head small{font-size:12px;color:#8ea3c0;}
-  .sc-news-row{display:grid;grid-template-columns:1.6fr repeat(3,1fr);grid-auto-rows:auto;gap:10px;}
+  .sc-news-row{position:relative;}
+  .sc-slide{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:220px;border-radius:16px;overflow:hidden;background:rgba(15,32,58,.75);border:1px solid rgba(90,169,255,.18);color:inherit;text-decoration:none;}
+  .sc-slide:hover{border-color:rgba(124,180,255,.5);}
+  .sc-slide-img{background:#0a1628 center/cover no-repeat;min-height:220px;}
+  .sc-slide-txt{display:flex;flex-direction:column;gap:8px;padding:20px 56px 34px 22px;justify-content:center;}
+  .sc-slide:not(:has(.sc-slide-img)){grid-template-columns:1fr;} .sc-slide:not(:has(.sc-slide-img)) .sc-slide-txt{padding-left:56px;}
+  .sc-slide-txt em{font-style:normal;font-size:11.5px;font-weight:700;color:#7fbcff;letter-spacing:.03em;}
+  .sc-slide-txt b{font-size:21px;line-height:1.3;}
+  .sc-slide-txt small{font-size:13.5px;color:#a9bcd6;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .sc-slide-more{font-size:12.5px;font-weight:700;color:#7fbcff;}
+  .sc-sl-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:38px;height:38px;border-radius:50%;border:1px solid rgba(124,180,255,.35);background:rgba(9,20,38,.85);color:#e6eef8;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;}
+  .sc-sl-arrow:hover{background:#2f8bff;border-color:#2f8bff;} .sc-sl-arrow.l{left:10px;} .sc-sl-arrow.r{right:10px;}
+  .sc-sl-dots{position:absolute;bottom:12px;right:22px;display:flex;gap:6px;z-index:2;}
+  .sc-sl-dots button{width:8px;height:8px;padding:0;border-radius:999px;border:none;background:rgba(255,255,255,.3);cursor:pointer;transition:width .2s;}
+  .sc-sl-dots button.on{width:22px;background:#4d9bff;}
+  @media (max-width:820px){ .sc-slide{grid-template-columns:1fr;} .sc-slide-img{min-height:160px;} .sc-slide-txt{padding:16px 18px 34px;} .sc-slide-txt b{font-size:17px;} .sc-sl-arrow{top:90px;} }
   .sc-story{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:rgba(15,32,58,.7);border:1px solid rgba(90,169,255,.16);color:inherit;text-decoration:none;min-width:0;transition:border-color .15s,transform .15s;}
   .sc-story:hover{border-color:rgba(124,180,255,.5);transform:translateY(-2px);}
   .sc-story.lead{grid-row:span 2;}
@@ -2540,7 +2555,7 @@
   .sc-story-txt b{font-size:13.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
   .sc-story.lead .sc-story-txt b{font-size:17px;}
   .sc-story-txt small{font-size:12.5px;color:#a9bcd6;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
-  @media (max-width:820px){ .sc-news-row{grid-template-columns:1fr 1fr;} .sc-story.lead{grid-column:1/-1;grid-row:auto;} }
+
   .sc-root{padding:16px 20px 20px;color:#e6eef8;font-family:var(--font-body);background:radial-gradient(ellipse 60% 40% at 20% 0%, rgba(40,105,210,.14), transparent 70%);}
   .sc-root svg{width:16px;height:16px;flex:none;}
   .sc-grow{flex:1;}
@@ -9265,12 +9280,19 @@ const scState = {tab:"all", day:0, q:"", all:false, editing:false};
 if(!Array.isArray(sportsData.pinned)) sportsData.pinned = [];
 const scIconFor = sport=>({football:"football", basketball:"basketball", baseball:"baseball", hockey:"hockey", soccer:"soccer", tennis:"tennis"})[sport] || "all";
 function scYmd(d){ return d.toLocaleDateString("en-CA", {timeZone:"America/New_York"}).replace(/-/g, ""); }
+/* carousel of views: last week · today · this week · next week (weeks run Mon–Sun); or one picked date */
+const SC_VIEWS = [["last","Last week"],["today","Today"],["week","This week"],["next","Next week"]];
+function scWeek(off){ const m = new Date(); m.setDate(m.getDate() - ((m.getDay()+6)%7) + off*7); const e = new Date(m); e.setDate(m.getDate()+6); return [m, e]; }
 function scDates(day){
-  if(scState.upcoming){ const a = new Date(); a.setDate(a.getDate()+1); const b = new Date(); b.setDate(b.getDate()+7); return `${scYmd(a)}-${scYmd(b)}`; }
+  const v = scState.view || "today";
+  if(v === "last" || v === "week" || v === "next"){ const [a,b] = scWeek(v === "last" ? -1 : v === "next" ? 1 : 0); return `${scYmd(a)}-${scYmd(b)}`; }
+  if(v === "today") return scYmd(new Date());
   const d = new Date(); d.setDate(d.getDate() + day); return scYmd(d);
 }
 function scDayLabel(){
-  if(scState.upcoming) return "UPCOMING GAMES";
+  const v = scState.view || "today";
+  if(v !== "date" && v !== "today"){ const [a,b] = scWeek(v === "last" ? -1 : v === "next" ? 1 : 0); const f = d=>d.toLocaleDateString("en-US",{month:"short", day:"numeric"}).toUpperCase(); return `${v === "last" ? "LAST WEEK" : v === "next" ? "NEXT WEEK" : "THIS WEEK"} · ${f(a)} – ${f(b)}`; }
+  if(v === "today") return "LIVE & TODAY'S SCORES";
   if(scState.day === 0) return "LIVE & RECENT SCORES";
   if(scState.day === -1) return "YESTERDAY'S SCORES";
   const d = new Date(); d.setDate(d.getDate() + scState.day);
@@ -9279,7 +9301,7 @@ function scDayLabel(){
 const scCache = {};
 async function scBoard(sport, league, dates){
   const k = `${sport}/${league}/${dates}`, c = scCache[k];
-  if(c && Date.now() - c.ts < (scState.day < 0 ? 600000 : 45000)) return c.data;
+  if(c && Date.now() - c.ts < (scState.view === "last" || (scState.view === "date" && scState.day < 0) ? 600000 : 45000)) return c.data;
   const data = await espnGet(`/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${dates}&limit=200`);
   scCache[k] = {ts:Date.now(), data};
   return data;
@@ -9401,7 +9423,7 @@ function sportsFullHTML(){
     </section>
     <div class="sc-bar">
       <span class="sc-dot"></span><h3 id="sc-bar-title">LIVE &amp; RECENT SCORES</h3><span class="sc-grow"></span>
-      <div class="sc-days"><button type="button" data-step="-1">${scI("l")}</button><button type="button" data-day="0">Today</button><button type="button" data-day="-1">Yesterday</button><button type="button" data-day="up">Upcoming</button><button type="button" data-step="1">${scI("r")}</button></div>
+      <div class="sc-days"><button type="button" data-step="-1" title="Previous">${scI("l")}</button>${SC_VIEWS.map(([k,l])=>`<button type="button" data-view="${k}">${l}</button>`).join("")}<button type="button" data-step="1" title="Next">${scI("r")}</button></div>
       <label class="sc-datepick" title="Pick any date"><input type="date" id="sc-date"></label>
       <label class="sc-search">${scI("search")}<input id="sc-q" placeholder="Search teams or leagues" autocomplete="off"></label>
       <button type="button" class="sc-link" id="sc-viewall">View all ${scI("r")}</button>
@@ -9414,9 +9436,9 @@ async function scRender(scope){
   const root = scope.querySelector("#sc-root");
   if(!root) return;
   root.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab === scState.tab));
-  root.querySelectorAll("[data-day]").forEach(b=>b.classList.toggle("on", b.dataset.day === "up" ? !!scState.upcoming : (!scState.upcoming && +b.dataset.day === scState.day)));
+  root.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("on", b.dataset.view === (scState.view || "today")));
   root.querySelector("#sc-bar-title").textContent = scDayLabel();
-  const dp = root.querySelector("#sc-date"); if(dp){ const d = new Date(); d.setDate(d.getDate() + scState.day); dp.value = scState.upcoming ? "" : d.toISOString().slice(0,10); }
+  const dp = root.querySelector("#sc-date"); if(dp){ if(scState.view === "date"){ const d = new Date(); d.setDate(d.getDate() + scState.day); dp.value = d.toISOString().slice(0,10); } else dp.value = ""; }
   root.querySelector("#sc-viewall").innerHTML = (scState.all ? "Show less " : "View all ") + scI("r");
   root.querySelector("#sc-edit-fav span").textContent = scState.editing ? "Done" : "Edit favorites";
   root.querySelector("#sc-favs").innerHTML = scFavsHTML();
@@ -9426,14 +9448,14 @@ async function scRender(scope){
   if(!scope.querySelector("#sc-grid")) return;
   const q = scState.q.trim().toLowerCase();
   if(q) games = games.filter(g=>`${g.a.full} ${g.b.full} ${g.a.name} ${g.b.name} ${g.league}`.toLowerCase().includes(q));
-  const fut = scState.upcoming || scState.day > 0;
+  const fut = scState.view === "next" || (scState.view === "date" && scState.day > 0);
   const rank = g=>(sportsData.pinned.includes(g.id) ? 0 : scIsFav(g) ? 1 : g.big === 2 ? 1.5 : g.big ? 2.5 : 3) + (g.state === "in" ? 0 : g.state === "post" ? 1 : 2) * (fut ? 0 : 1);
   games.sort((x,y)=>rank(x)-rank(y) || (fut ? new Date(x.date) - new Date(y.date) : new Date(y.date) - new Date(x.date)));
   root.querySelector("#sc-livetag").hidden = !games.some(g=>g.state === "in");
   const shown = scState.all ? games : games.slice(0, 8);
   grid.innerHTML = shown.length ? shown.map(scCardHTML).join("")
     : scLastFailed ? `<div class="sc-dim">Couldn't reach the scores service right now — tap refresh to try again.</div>`
-    : `<div class="sc-dim">${q ? `No games match “${escapeHtml(scState.q)}”.` : scState.upcoming ? "No upcoming games this week." : "No games on this day."}</div>`;
+    : `<div class="sc-dim">${q ? `No games match “${escapeHtml(scState.q)}”.` : ["last","week","next"].includes(scState.view) ? "No games in this week." : "No games on this day."}</div>`;
   grid.querySelectorAll("[data-pin]").forEach(b=>b.addEventListener("click", ()=>{
     const id = b.dataset.pin, i = sportsData.pinned.indexOf(id);
     if(i >= 0) sportsData.pinned.splice(i, 1); else sportsData.pinned.push(id);
@@ -9466,14 +9488,19 @@ function hydrateSportsFull(scope){
   root.querySelector("#sc-close").addEventListener("click", closeModal);
   root.querySelector("#sc-refresh").addEventListener("click", ()=>{ for(const k in scCache) delete scCache[k]; for(const k in scNewsCache) delete scNewsCache[k]; scRender(scope); scRenderNews(scope); });
   root.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click", ()=>{ scState.tab = b.dataset.tab; scRender(scope); scRenderNews(scope); }));
-  root.querySelectorAll("[data-day]").forEach(b=>b.addEventListener("click", ()=>{ if(b.dataset.day === "up"){ scState.upcoming = true; } else { scState.upcoming = false; scState.day = +b.dataset.day; } scRender(scope); }));
-  root.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{ if(scState.upcoming){ scState.upcoming = false; scState.day = 0; } scState.day += +b.dataset.step; scRender(scope); }));
-  root.querySelector("#sc-date").addEventListener("change", e=>{ if(!e.target.value) return; const t = new Date(e.target.value+"T12:00:00"), n = new Date(); n.setHours(12,0,0,0); scState.upcoming = false; scState.day = Math.round((t - n)/864e5); scRender(scope); });
+  root.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click", ()=>{ scState.view = b.dataset.view; scState.day = 0; scRender(scope); }));
+  root.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{
+    const keys = SC_VIEWS.map(v=>v[0]);
+    if(scState.view === "date"){ scState.day += +b.dataset.step; }   /* a picked date: step day by day */
+    else { const i = keys.indexOf(scState.view || "today"); scState.view = keys[(i + +b.dataset.step + keys.length) % keys.length]; }
+    scRender(scope);
+  }));
+  root.querySelector("#sc-date").addEventListener("change", e=>{ if(!e.target.value) return; const t = new Date(e.target.value+"T12:00:00"), n = new Date(); n.setHours(12,0,0,0); scState.view = "date"; scState.day = Math.round((t - n)/864e5); scRender(scope); });
   let qt = null;
   root.querySelector("#sc-q").addEventListener("input", e=>{ scState.q = e.target.value; clearTimeout(qt); qt = setTimeout(()=>scRender(scope), 200); });
   root.querySelector("#sc-viewall").addEventListener("click", ()=>{ scState.all = !scState.all; scRender(scope); });
   root.querySelector("#sc-edit-fav").addEventListener("click", ()=>{ scState.editing = !scState.editing; scRender(scope).then(()=>{ const i = scope.querySelector("#sc-fav-input"); if(i) i.focus(); }); });
-  const intervalId = setInterval(()=>{ if(scState.day === 0 && !scState.upcoming) scRender(scope); }, 30000);   /* live scores tick */
+  const intervalId = setInterval(()=>{ if((scState.view || "today") === "today" || scState.view === "week") scRender(scope); }, 30000);   /* live scores tick */
   return function cleanup(){ clearInterval(intervalId); scState.editing = false; };
 }
 /* ---- Top stories: ESPN headlines, big moments first (championships, trades, records) ---- */
@@ -9509,53 +9536,26 @@ async function scRenderNews(scope){
   if(!items.length){ box.hidden = true; return; }
   const ago = t=>{ const h = Math.round((Date.now()-t)/36e5); return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h/24)}d ago`; };
   box.hidden = false;
-  scope.querySelector("#sc-news-row").innerHTML = items.map((n,i)=>`<a class="sc-story${i===0?" lead":""}" href="${escapeHtml(n.link)}" target="_blank" rel="noopener">
-      ${n.img ? `<span class="sc-story-img" style="background-image:url('${escapeHtml(n.img)}')"></span>` : ""}
-      <span class="sc-story-txt"><em>${escapeHtml(n.label)} · ${ago(n.t)}</em><b>${escapeHtml(n.h)}</b>${i===0 && n.d ? `<small>${escapeHtml(n.d)}</small>` : ""}</span></a>`).join("");
-}
-/* a team's whole season: every game, played and upcoming (ESPN team schedule) */
-async function scOpenSeason(scope, t){
-  const ov = document.createElement("div"); ov.className = "bd-ov sc-season-ov";
-  ov.innerHTML = `<div class="sc-season"><div class="sc-season-head">${t.logo ? `<img src="${escapeHtml(t.logo)}" alt="">` : ""}<div><b>${escapeHtml(t.name)}</b><small id="sc-season-sub">Loading season…</small></div><div class="sc-season-tabs" id="sc-season-tabs"></div><button type="button" class="bd-x" aria-label="Close">✕</button></div><div class="sc-season-list" id="sc-season-list"><div class="sc-dim">Loading…</div></div></div>`;
-  document.body.appendChild(ov);
-  const close = ()=>{ window.removeEventListener("keydown", onKey, true); ov.classList.remove("show"); setTimeout(()=>ov.remove(), 180); };
-  const onKey = e=>{ if(e.key === "Escape"){ e.stopImmediatePropagation(); close(); } };
-  window.addEventListener("keydown", onKey, true);
-  ov.addEventListener("click", e=>{ if(e.target === ov || e.target.closest(".bd-x")) close(); });
-  requestAnimationFrame(()=>ov.classList.add("show"));
-  const parts = {};
-  await Promise.all([["2","Regular season"],["3","Postseason"],["1","Preseason"]].map(async ([k,l])=>{
-    try{ const d = await espnGet(`/apis/site/v2/sports/${t.sport}/${t.league}/teams/${t.id}/schedule?seasontype=${k}`); if((d.events||[]).length) parts[k] = {label:l, events:d.events, rec:(d.team && d.team.recordSummary) || "", season:(d.season && d.season.displayName) || ""}; }catch(e){}
-  }));
-  const keys = ["3","2","1"].filter(k=>parts[k]);
-  if(!keys.length){ ov.querySelector("#sc-season-list").innerHTML = `<div class="sc-dim">Couldn't load this team's schedule right now.</div>`; ov.querySelector("#sc-season-sub").textContent = ""; return; }
-  let cur = keys.includes("2") ? "2" : keys[0];
-  const render = ()=>{
-    const P = parts[cur];
-    ov.querySelector("#sc-season-sub").textContent = [P.season, P.rec ? `Record ${P.rec}` : ""].filter(Boolean).join(" · ");
-    ov.querySelector("#sc-season-tabs").innerHTML = keys.map(k=>`<button type="button" data-k="${k}" class="${k===cur?"on":""}">${parts[k].label}</button>`).join("");
-    ov.querySelectorAll("[data-k]").forEach(b=>b.addEventListener("click", ()=>{ cur = b.dataset.k; render(); }));
-    let firstUpcoming = -1;
-    const rows = P.events.map((ev,i)=>{
-      const c = (ev.competitions||[])[0] || {}, cs = c.competitors || [];
-      const me = cs.find(x=>String((x.team||{}).id) === String(t.id)) || cs[0] || {}, op = cs.find(x=>x !== me) || {};
-      const st = ((c.status||{}).type)||{}, done = st.completed, live = st.state === "in";
-      if(!done && !live && firstUpcoming < 0) firstUpcoming = i;
-      const sc = x=>{ const v = x.score; return v == null ? "" : typeof v === "object" ? (v.displayValue ?? v.value ?? "") : v; };
-      const win = done ? (me.winner ? "W" : op.winner ? "L" : "T") : "";
-      const d = new Date(c.date || ev.date);
-      const opT = op.team || {};
-      return `<div class="sc-srow${live ? " live" : ""}${i === firstUpcoming ? " next" : ""}">
-        <span class="sc-sdate">${d.toLocaleDateString("en-US",{month:"short", day:"numeric"})}<small>${d.toLocaleDateString("en-US",{weekday:"short"})}</small></span>
-        <span class="sc-sopp">${me.homeAway === "away" ? "@" : "vs"} ${opT.logos && opT.logos[0] ? `<img src="${escapeHtml(opT.logos[0].href)}" alt="">` : ""}<b>${escapeHtml(opT.shortDisplayName || opT.displayName || "TBD")}</b></span>
-        <span class="sc-sres">${done ? `<em class="${win}">${win}</em> ${escapeHtml(String(sc(me)))}–${escapeHtml(String(sc(op)))}` : live ? `<em class="L2">LIVE</em> ${escapeHtml(String(sc(me)))}–${escapeHtml(String(sc(op)))}` : `<span class="sc-dim">${d.toLocaleTimeString("en-US",{hour:"numeric", minute:"2-digit"})}</span>`}</span>
-      </div>`;
-    }).join("");
-    const list = ov.querySelector("#sc-season-list");
-    list.innerHTML = rows;
-    const nx = list.querySelector(".next, .live"); if(nx) nx.scrollIntoView({block:"center"});
+  const row = scope.querySelector("#sc-news-row");
+  let i = Math.min(row._i || 0, items.length - 1);
+  const show = ()=>{
+    const n = items[i];
+    row.innerHTML = `<button type="button" class="sc-sl-arrow l" data-sl="-1" aria-label="Previous story">‹</button>
+      <a class="sc-slide" href="${escapeHtml(n.link)}" target="_blank" rel="noopener">
+        ${n.img ? `<span class="sc-slide-img" style="background-image:url('${escapeHtml(n.img)}')"></span>` : ""}
+        <span class="sc-slide-txt"><em>${escapeHtml(n.label)} · ${ago(n.t)}</em><b>${escapeHtml(n.h)}</b>${n.d ? `<small>${escapeHtml(n.d)}</small>` : ""}<span class="sc-slide-more">Read on ESPN ↗</span></span>
+      </a>
+      <button type="button" class="sc-sl-arrow r" data-sl="1" aria-label="Next story">›</button>
+      <div class="sc-sl-dots">${items.map((_,k)=>`<button type="button" data-dot="${k}" class="${k===i?"on":""}" aria-label="Story ${k+1}"></button>`).join("")}</div>`;
+    row.querySelectorAll("[data-sl]").forEach(b=>b.addEventListener("click", ()=>{ i = (i + +b.dataset.sl + items.length) % items.length; row._i = i; restart(); show(); }));
+    row.querySelectorAll("[data-dot]").forEach(b=>b.addEventListener("click", ()=>{ i = +b.dataset.dot; row._i = i; restart(); show(); }));
   };
-  render();
+  /* advances by itself every 8 seconds; pauses while you hover */
+  const restart = ()=>{ clearInterval(row._t); row._t = setInterval(()=>{ if(!row.isConnected){ clearInterval(row._t); return; } if(row.matches(":hover")) return; i = (i+1) % items.length; row._i = i; show(); }, 8000); };
+  let sx = null;
+  row.ontouchstart = e=>{ sx = e.touches[0].clientX; };
+  row.ontouchend = e=>{ if(sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if(Math.abs(dx) > 50){ i = (i + (dx < 0 ? 1 : -1) + items.length) % items.length; row._i = i; restart(); show(); } };
+  show(); restart();
 }
 async function loadEvents(scope){ if(scope && scope.querySelector && scope.querySelector("#sc-root")) return scRender(scope); }
 
