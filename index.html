@@ -3103,6 +3103,11 @@
   .db-bal-chart{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;min-width:0;}
   .db-bal-chart svg{width:100%;height:130px;display:block;overflow:visible;}
   .db-bal-empty{font-size:12px;color:var(--text-dim);text-align:center;}
+  .db-bal-tip{position:absolute;z-index:5;pointer-events:none;padding:6px 10px;border-radius:9px;background:#0b1a33;border:1px solid rgba(124,180,255,.35);box-shadow:0 10px 24px -8px rgba(0,0,0,.7);white-space:nowrap;display:flex;flex-direction:column;}
+  .db-bal-tip[hidden],.db-bal-hdot[hidden],.db-bal-hline[hidden]{display:none;}
+  .db-bal-tip b{font-family:var(--font-mono);font-size:14px;color:#fff;} .db-bal-tip span{font-size:11px;color:#a9bcd6;} .db-bal-tip em{font-style:normal;font-family:var(--font-mono);font-size:11px;} .db-bal-tip em.up{color:var(--good);} .db-bal-tip em.down{color:var(--bad);}
+  .db-bal-hdot{position:absolute;z-index:4;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px var(--accent),0 0 12px var(--accent);pointer-events:none;}
+  .db-bal-hline{position:absolute;z-index:3;width:1px;background:rgba(255,255,255,.25);pointer-events:none;}
   .db-bal-chg{font-family:var(--font-mono);font-size:12.5px;text-align:right;margin-bottom:4px;} .db-bal-chg.up{color:var(--good);} .db-bal-chg.down{color:var(--bad);} .db-bal-chg span{color:var(--text-dim);}
   .db-bal.clickable{cursor:pointer;}
   .db-bal-stocks{margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--text-dim);white-space:nowrap;min-height:16px;}
@@ -22270,6 +22275,33 @@ function renderDbBalanceChart(){
   dot.style.cssText = `position:relative;height:0;`;
   dot.innerHTML = `<span style="position:absolute;left:calc(${(last[0]/W*100).toFixed(2)}% - 6px);top:${(last[1]/H*130-136).toFixed(1)}px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px var(--accent),0 0 14px var(--accent);"></span>`;
   box.appendChild(dot);
+  /* hover / touch: a dot and the balance at that point */
+  box.style.position = "relative";
+  const svgEl = box.querySelector("svg");
+  const tip = document.createElement("div"); tip.className = "db-bal-tip"; tip.hidden = true;
+  const hdot = document.createElement("div"); hdot.className = "db-bal-hdot"; hdot.hidden = true;
+  const hline = document.createElement("div"); hline.className = "db-bal-hline"; hline.hidden = true;
+  box.append(hline, hdot, tip);
+  const showAt = clientX=>{
+    const r = svgEl.getBoundingClientRect(), bx = box.getBoundingClientRect();
+    const fx = Math.max(0, Math.min(1, (clientX - r.left)/r.width)), tt = t0 + fx*(t1 - t0);
+    let i = 0, best = Infinity; pts.forEach((p,k)=>{ const d = Math.abs(p.t - tt); if(d < best){ best = d; i = k; } });
+    const px = r.left - bx.left + xy[i][0]/W*r.width, py = r.top - bx.top + xy[i][1]/H*r.height;
+    const dt = new Date(pts[i].t), sameDay = dt.toDateString() === new Date().toDateString();
+    const when = sameDay ? "Now" : dt.toLocaleDateString("en-US",{month:"short", day:"numeric", year: dt.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined}) + (range === "1M" ? " · " + dt.toLocaleTimeString("en-US",{hour:"numeric", minute:"2-digit"}) : "");
+    const diff = pts[i].v - pts[0].v;
+    tip.innerHTML = `<b>${dbBalance.hidden ? "••••" : dbMoney(pts[i].v)}</b><span>${when}</span>${!dbBalance.hidden && i ? `<em class="${diff >= 0 ? "up" : "down"}">${diff >= 0 ? "+" : "−"}${dbMoney(Math.abs(diff)).replace("-","")}</em>` : ""}`;
+    tip.hidden = hdot.hidden = hline.hidden = false;
+    hdot.style.left = px + "px"; hdot.style.top = py + "px";
+    hline.style.left = px + "px"; hline.style.top = (r.top - bx.top) + "px"; hline.style.height = r.height + "px";
+    const tw = tip.offsetWidth; tip.style.left = Math.max(0, Math.min(bx.width - tw, px - tw/2)) + "px"; tip.style.top = Math.max(-34, py - 54) + "px";
+  };
+  const hide = ()=>{ tip.hidden = hdot.hidden = hline.hidden = true; };
+  svgEl.addEventListener("pointermove", e=>showAt(e.clientX));
+  svgEl.addEventListener("pointerdown", e=>{ e.stopPropagation(); showAt(e.clientX); });
+  svgEl.addEventListener("click", e=>e.stopPropagation());
+  svgEl.addEventListener("pointerleave", hide);
+  svgEl.style.cursor = "crosshair"; svgEl.style.touchAction = "pan-y";
   if(!dbBalance.hidden && Math.abs(chg) >= 0.01) box.insertAdjacentHTML("afterbegin", `<div class="db-bal-chg ${chg >= 0 ? "up" : "down"}">${chg >= 0 ? "▲ +" : "▼ −"}${dbMoney(Math.abs(chg)).replace("-","")} (${Math.abs(pct).toFixed(1)}%) <span>${lbl}</span></div>`);
 }
 function wireDbBalance(){
