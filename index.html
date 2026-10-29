@@ -1770,6 +1770,12 @@
   .tf-pbtns button{height:38px;padding:0 14px;border-radius:999px;border:1px solid rgba(130,153,184,.3);background:transparent;color:#cfe0f5;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
   .tf-go.off{opacity:.4;pointer-events:none;}
   @media (max-width:820px){ .tf-stop{grid-template-columns:44px 1fr auto;} .tf-leg{grid-column:2/-1;} }
+  #ai-timers{position:fixed;right:18px;bottom:24px;z-index:9700;display:flex;flex-direction:column;gap:8px;}
+  .ait{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border-radius:14px;background:#0f2140;border:1px solid rgba(124,180,255,.35);box-shadow:0 14px 30px -12px rgba(0,0,0,.7);color:#e6eef8;}
+  .ait b{font-family:var(--font-mono);font-size:20px;} .ait small{font-size:12px;color:#a9bcd6;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ait button{width:26px;height:26px;border-radius:50%;border:1px solid rgba(130,153,184,.3);background:transparent;color:#cfe0f5;cursor:pointer;}
+  .ait.ring{border-color:#ffb040;animation:ait-ring .6s ease-in-out infinite alternate;} .ait.ring b{color:#ffc46b;}
+  @keyframes ait-ring{from{box-shadow:0 0 0 0 rgba(255,176,64,.5);}to{box-shadow:0 0 0 8px rgba(255,176,64,0);}}
   .tf-astyped{display:flex !important;flex-direction:column;align-items:flex-start !important;background:#102544 !important;border-top:1px dashed rgba(124,180,255,.3) !important;}
   .tf-astyped b{color:#9fd0ff;} .tf-astyped small{flex-basis:auto !important;}
   .tf-hint{margin-right:auto;align-self:center;font-size:12px;color:var(--text-dim);}
@@ -16751,21 +16757,211 @@ async function aiLiveContext(text){
   }catch(e){}
   return parts.length ? `Live data from the user's dashboard (use it to answer; give specific times and numbers from it, don't say you can't see it):\n${parts.join("\n")}` : "";
 }
+/* ================= AI ACTIONS =================
+   The AI can change things in the app by putting lines like
+     ACTION {"type":"vehicle_update","vehicle":"Tacoma","mileage":4100}
+   in its reply. Those lines are run here (and hidden from the reply). If an action fails, the
+   reply says so instead of pretending it worked. */
+function aiFindVehicle(name){
+  const vs = (garageData && garageData.vehicles) || [];
+  if(!vs.length) return null;
+  if(!name) return vs.length === 1 ? vs[0] : null;
+  const n = String(name).toLowerCase();
+  return vs.find(v=>(v.vehicle||"").toLowerCase() === n) || vs.find(v=>(v.vehicle||"").toLowerCase().includes(n)) || vs.find(v=>n.includes((v.vehicle||"").toLowerCase().split(" ").pop())) || null;
+}
+function aiNum(x){ if(x == null) return null; const r = String(x).trim().toLowerCase().replace(/[$,\s]/g,""); const k = r.match(/^([\d.]+)k$/); if(k) return Math.round(parseFloat(k[1])*1000); const n = parseFloat(r); return isFinite(n) ? n : null; }
+function aiDataSnapshot(){
+  const lines = [];
+  const vs = (garageData && garageData.vehicles) || [];
+  if(vs.length) lines.push("Vehicles in the Garage: " + vs.map(v=>`"${v.vehicle}"${v.year ? " ("+v.year+")" : ""}${v.mileage ? ", "+(garMiles(v) ?? v.mileage).toLocaleString()+" mi" : ""}`).join("; "));
+  if(typeof pfData !== "undefined" && pfData.holdings.length) lines.push("Stock holdings: " + pfData.holdings.map(h=>`${h.sym} ${h.shares}`).join(", "));
+  if(typeof trafficData !== "undefined" && trafficData.places.length) lines.push("Saved places (Traffic): " + trafficData.places.map(p=>p.name).join(", "));
+  return lines.join("\n");
+}
+const AI_ACTION_GUIDE = `
+YOU CAN CHANGE THINGS IN THIS APP. When the user asks you to change, add, log, update or open something, do it by writing one line per action, exactly like this (valid JSON after the word ACTION):
+ACTION {"type":"vehicle_update","vehicle":"<vehicle name>","mileage":4100}
+Available actions:
+- vehicle_update: {"vehicle", optional "mileage" (number of miles), "year", "color", "engine", "drive"}
+- vehicle_service_done: {"vehicle","item" (e.g. "oil change","registration","tire rotation"), optional "date" (YYYY-MM-DD), "miles", "cost"} — marks a maintenance item done
+- vehicle_log: {"vehicle","title", optional "kind" ("repair"|"service"|"upgrade"), "date", "miles", "cost", "notes"} — adds to repair/service history
+- vehicle_costs: {"vehicle", optional "insurance" (amount), "insurance_per" ("mo"|"6mo"|"yr"), "own" ("owned"|"financed"|"leased"), "payment", "apr", "payments_left"}
+- calendar_add: {"date":"YYYY-MM-DD","title", optional "time" like "3:00 PM"}
+- calendar_remove: {"date":"YYYY-MM-DD","title"}
+- fitness_log: {"category" ("workout"|"food"|"labs"|"notes"),"text"}
+- holding_set: {"symbol","shares"} (shares 0 removes it)
+- open_app: {"app"} (e.g. "garage","fitness","calendar","market","traffic","finance","mail")
+- set_timer: {"minutes" (can be decimal), optional "label"} — a countdown that rings and shows on screen
+- cancel_timer: {} — stops all timers (or {"label"} for one)
+- note_add: {"text"} — adds a line to the Scratchpad
+- mail_add: {"label","url"} — adds an inbox link to Mail
+- balance_set: {"field" ("cash"|"liabilities"),"amount"} — Total Balance numbers
+- set_avatar: {"look"} ("original"|"v2"|"v3" android|"v4" cosmo|"v5" halo|"v6" circuit|"v7" mad scientist|"v8" wizard|"v9" anime)
+"4.1k" miles means 4100. Use the exact vehicle name from the list below when you can. Put the ACTION lines first, then a short confirmation in plain words. The app checks each action — if one fails it tells the user, so never claim something is done unless you wrote an ACTION for it. If no action above can do what was asked, say plainly that you can't do that yet — never pretend.`;
+function aiRunAction(a){
+  const t = a && a.type;
+  const needV = ()=>{ const v = aiFindVehicle(a.vehicle); if(!v) throw new Error(a.vehicle ? `I couldn't find a vehicle called “${a.vehicle}” in your Garage` : "which vehicle?"); return v; };
+  const saveG = ()=>{ saveJSON(NS+"garage", garageData); try{ renderWidgets(); }catch(e){} };
+  if(t === "vehicle_update"){
+    const v = needV(); const ch = [];
+    if(a.mileage != null){ const m = aiNum(a.mileage); if(m == null) throw new Error("that mileage isn't a number"); v.mileage = String(Math.round(m)); ch.push(`mileage ${Math.round(m).toLocaleString()} mi`); }
+    ["year","color","engine","drive"].forEach(k=>{ if(a[k] != null && a[k] !== ""){ v[k] = String(a[k]); ch.push(`${k} ${a[k]}`); } });
+    if(!ch.length) throw new Error("nothing to change");
+    saveG(); return `${v.vehicle}: ${ch.join(", ")}`;
+  }
+  if(t === "vehicle_service_done"){
+    const v = needV(), m = garMaint(v), q = String(a.item||"").toLowerCase();
+    const it = m.items.find(x=>x.name.toLowerCase() === q) || m.items.find(x=>x.name.toLowerCase().includes(q.split(" ")[0])) || m.items.find(x=>q.includes(x.name.toLowerCase().split(" ")[0]));
+    if(!it) throw new Error(`no maintenance item like “${a.item}” on ${v.vehicle}`);
+    const today = new Date().toISOString().slice(0,10), mi = aiNum(a.miles) ?? garMiles(v);
+    it.lastDate = a.date || today; it.lastMiles = mi;
+    if(mi != null && (garMiles(v) == null || mi > garMiles(v))) v.mileage = String(mi);
+    m.log.push({id:"l"+Date.now(), date:it.lastDate, title:it.name, kind:"service", miles:mi, cost:aiNum(a.cost)||0, notes:a.notes||""});
+    saveG(); return `${v.vehicle}: ${it.name} marked done`;
+  }
+  if(t === "vehicle_log"){
+    const v = needV(), m = garMaint(v); if(!a.title) throw new Error("what was done?");
+    const mi = aiNum(a.miles);
+    m.log.push({id:"l"+Date.now(), date:a.date || new Date().toISOString().slice(0,10), title:String(a.title), kind:["repair","service","upgrade"].includes(a.kind) ? a.kind : "repair", miles:mi, cost:aiNum(a.cost)||0, notes:a.notes||""});
+    if(mi != null && (garMiles(v) == null || mi > garMiles(v))) v.mileage = String(mi);
+    saveG(); return `${v.vehicle}: logged “${a.title}”`;
+  }
+  if(t === "vehicle_costs"){
+    const v = needV(); garMaint(v); const c = v.costs;
+    if(a.insurance != null) c.insurance = String(aiNum(a.insurance) ?? a.insurance);
+    if(a.insurance_per) c.insPer = a.insurance_per;
+    if(a.own) c.own = a.own;
+    if(a.payment != null) c.payment = String(aiNum(a.payment) ?? a.payment);
+    if(a.apr != null) c.apr = String(aiNum(a.apr) ?? a.apr);
+    if(a.payments_left != null) c.monthsLeft = String(aiNum(a.payments_left) ?? a.payments_left);
+    saveG(); return `${v.vehicle}: costs updated`;
+  }
+  if(t === "calendar_add"){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(a.date||"") || !a.title) throw new Error("need a date and a title");
+    (calendarData.events[a.date] = calendarData.events[a.date] || []).push({title:String(a.title), time:a.time||""});
+    saveJSON(NS+"calendar", calendarData); try{ refreshMountedCalendarUI(); renderDbCalendar(); }catch(e){}
+    return `added “${a.title}” on ${a.date}`;
+  }
+  if(t === "calendar_remove"){
+    const arr = calendarData.events[a.date] || [], q = String(a.title||"").toLowerCase();
+    const i = arr.findIndex(e=>e.title.toLowerCase().includes(q)); if(i < 0) throw new Error(`no “${a.title}” on ${a.date}`);
+    arr.splice(i,1); if(!arr.length) delete calendarData.events[a.date];
+    saveJSON(NS+"calendar", calendarData); try{ refreshMountedCalendarUI(); renderDbCalendar(); }catch(e){}
+    return `removed “${a.title}”`;
+  }
+  if(t === "fitness_log"){
+    if(!a.text) throw new Error("nothing to log");
+    addFitnessEntry(String(a.text), ["workout","food","labs","notes"].includes(a.category) ? a.category : undefined); return "logged to Fitness";
+  }
+  if(t === "holding_set"){
+    const sym = String(a.symbol||"").toUpperCase().trim(), sh = aiNum(a.shares); if(!sym || sh == null) throw new Error("need a symbol and shares");
+    const h = pfData.holdings.find(x=>x.sym === sym);
+    if(sh <= 0){ if(!h) throw new Error(`${sym} isn't in your holdings`); pfData.holdings = pfData.holdings.filter(x=>x !== h); }
+    else if(h) h.shares = sh; else pfData.holdings.push({sym, shares:sh});
+    savePf(); try{ renderDbBalance(); dbRefreshStocks(true); }catch(e){}
+    return `${sym}: ${sh} shares`;
+  }
+  if(t === "open_app"){
+    const n = String(a.app||"").toLowerCase(), alias = {finance:"banking", assets:"networth", projects:"claudeprojects", clock:"chrono", notes:"scratchpad"};
+    const def = WIDGET_DEFS.find(w=>!w.retired && (w.id === (alias[n]||n) || w.title.toLowerCase() === n));
+    if(!def) throw new Error(`no app called “${a.app}”`);
+    setTimeout(()=>dbOpenWidget(def.id), 400); return `opening ${def.title}`;
+  }
+  if(t === "set_avatar"){
+    const map = {android:"v3", cosmo:"v4", halo:"v5", circuit:"v6", "mad scientist":"v7", wizard:"v8", anime:"v9", "variation 2":"v2"};
+    const k = map[String(a.look||"").toLowerCase()] || String(a.look||"").toLowerCase();
+    if(!/^(original|v[2-9])$/.test(k)) throw new Error(`no look called “${a.look}”`);
+    portraitChoice = k; saveJSON(NS+"portraitChoice", k); applyPortraitChoice(); return "look changed";
+  }
+  if(t === "set_timer"){
+    const mins = aiNum(a.minutes) ?? (aiNum(a.seconds) != null ? aiNum(a.seconds)/60 : null);
+    if(!mins || mins <= 0) throw new Error("how long should the timer be?");
+    aiStartTimer(mins*60, a.label || ""); return `timer set for ${aiDur(mins*60)}`;
+  }
+  if(t === "cancel_timer"){
+    const before = aiTimers.length;
+    aiTimers.filter(x=>!a.label || x.label.toLowerCase().includes(String(a.label).toLowerCase())).forEach(x=>aiStopTimer(x.id));
+    if(before === aiTimers.length) throw new Error("there's no timer running"); return "timer cancelled";
+  }
+  if(t === "note_add"){
+    if(!a.text) throw new Error("nothing to write");
+    const pg = activeScratchPage(); pg.content = (pg.content ? pg.content.replace(/\s*$/,"") + "\n" : "") + String(a.text);
+    saveJSON(NS+"scratchpad", scratchData); try{ renderWidgets(); }catch(e){} return "added to Scratchpad";
+  }
+  if(t === "mail_add"){
+    if(!a.url) throw new Error("need the inbox web address");
+    let url = String(a.url); if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+    mailData.push({label:String(a.label || url), url, hidden:false}); saveJSON(NS+"maillinks", mailData); return `added ${a.label || url} to Mail`;
+  }
+  if(t === "balance_set"){
+    const n = aiNum(a.amount); if(n == null) throw new Error("that amount isn't a number");
+    const f = a.field === "liabilities" ? "liabilities" : "assets";
+    dbBalance[f] = Math.round(n*100)/100; dbRecordNet(); try{ renderDbBalance(); }catch(e){} return `${f === "assets" ? "cash" : "liabilities"} set to $${n.toLocaleString()}`;
+  }
+  throw new Error(`I can't do “${t}” yet`);
+}
+/* ---- timers started from chat: a pill in the corner counts down, then rings ---- */
+let aiTimers = [];
+function aiDur(sec){ sec = Math.round(sec); const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s2 = sec%60; return h ? `${h} hr ${m} min` : m ? `${m} min${s2 ? ` ${s2} sec` : ""}` : `${s2} sec`; }
+function aiTimerUI(){
+  let box = document.getElementById("ai-timers");
+  if(!aiTimers.length){ if(box) box.remove(); return; }
+  if(!box){ box = document.createElement("div"); box.id = "ai-timers"; document.body.appendChild(box); }
+  const now = Date.now();
+  box.innerHTML = aiTimers.map(x=>{ const left = Math.max(0, Math.ceil((x.end-now)/1000)); const mm = Math.floor(left/60), ss = left%60;
+    return `<div class="ait${x.ringing?" ring":""}"><span>⏱</span><b>${x.ringing ? "Time's up!" : `${Math.floor(mm/60) ? Math.floor(mm/60)+":"+String(mm%60).padStart(2,"0") : mm}:${String(ss).padStart(2,"0")}`}</b>${x.label ? `<small>${escapeHtml(x.label)}</small>` : ""}<button type="button" data-ait="${x.id}" title="${x.ringing ? "Dismiss" : "Cancel"}">✕</button></div>`; }).join("");
+  box.querySelectorAll("[data-ait]").forEach(b=>b.addEventListener("click", ()=>aiStopTimer(b.dataset.ait)));
+}
+function aiBeep(){
+  try{ const ctx = new (window.AudioContext||window.webkitAudioContext)(); [0,.35,.7,1.4,1.75,2.1].forEach(t=>{ const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.0001, ctx.currentTime+t); g.gain.exponentialRampToValueAtTime(.25, ctx.currentTime+t+.02); g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime+t+.25); o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+.3); }); }catch(e){}
+}
+function aiStartTimer(sec, label){
+  const x = {id:"t"+Date.now()+Math.random().toString(36).slice(2,5), end:Date.now()+sec*1000, label, ringing:false};
+  aiTimers.push(x);
+  x.tick = setInterval(()=>{
+    if(!x.ringing && Date.now() >= x.end){
+      x.ringing = true; aiBeep();
+      try{ presentAiReply(label ? `Your ${label} timer is done.` : "Time's up."); }catch(e){}
+      try{ if(window.Notification && Notification.permission === "granted") new Notification("Medulla", {body: label ? `${label} — time's up` : "Time's up"}); }catch(e){}
+      setTimeout(()=>aiStopTimer(x.id), 60000);
+    }
+    aiTimerUI();
+  }, 500);
+  try{ if(window.Notification && Notification.permission === "default") Notification.requestPermission(); }catch(e){}
+  aiTimerUI();
+}
+function aiStopTimer(id){ const x = aiTimers.find(t=>t.id===id); if(x) clearInterval(x.tick); aiTimers = aiTimers.filter(t=>t.id!==id); aiTimerUI(); }
+function aiApplyActions(reply){
+  const done = [], failed = [];
+  const lines = reply.split("\n");
+  const kept = lines.filter(line=>{
+    const m = line.match(/^\s*`*\s*ACTION\s*:?\s*(\{.*\})\s*`*\s*$/);
+    if(!m) return true;
+    try{ done.push(aiRunAction(JSON.parse(m[1]))); }catch(e){ failed.push(e.message || String(e)); }
+    return false;
+  });
+  let text = kept.join("\n").replace(/```\s*```/g,"").trim();
+  if(failed.length){
+    text = (done.length ? `Done: ${done.join("; ")}.\n` : "") + `I couldn't finish that — ${failed.join("; ")}.`;
+  } else if(done.length && !text) text = `Done: ${done.join("; ")}.`;
+  return {text, done, failed};
+}
 async function tryGroq(text){
   if(!cloudAiAvailable()) return null;
   lastCloudAiError = "";
   try{
     const live = await aiLiveContext(text);
     const messages = [
-      {role:"system", content: getAiSystemPrompt() + (live ? "\n\n" + live : "")},
+      {role:"system", content: getAiSystemPrompt() + "\n" + AI_ACTION_GUIDE + "\n" + aiDataSnapshot() + "\nToday is " + new Date().toLocaleDateString("en-CA") + "." + (live ? "\n\n" + live : "")},
       ...aiConversation.slice(-AI_HISTORY_MAX_MESSAGES),
       {role:"user", content: text}
     ];
     const res = await groqChatRequest({ model:"openai/gpt-oss-120b", messages });
     if(!res.ok){ lastCloudAiError = await describeCloudAiFailure(res); console.warn("cloud AI failed:", lastCloudAiError); return null; }
     const data = await res.json();
-    const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if(!reply) return "(empty response)";
+    const raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if(!raw) return "(empty response)";
+    const reply = /ACTION/.test(raw) ? aiApplyActions(raw).text : raw;
     aiConversation.push({role:"user", content:text}, {role:"assistant", content:reply});
     if(aiConversation.length > AI_HISTORY_MAX_MESSAGES) aiConversation = aiConversation.slice(-AI_HISTORY_MAX_MESSAGES);
     saveAiConversation();
