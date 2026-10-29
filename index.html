@@ -1694,10 +1694,16 @@
   .tf-seg{display:flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:12px;background:rgba(9,20,38,.7);border:1px solid rgba(130,153,184,.16);}
   .tf-seg button{height:32px;padding:0 12px;border:none;border-radius:9px;background:none;color:#c3d4ea;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
   .tf-seg button.on{background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;}
-  .tf-when{margin-left:auto;font-weight:600;color:#cfe0f5;}
+  .tf-when{margin-left:auto;font-weight:700;font-size:12.5px;padding:4px 10px;border-radius:999px;background:rgba(54,211,154,.14);color:#7ee2b8;}
+  .tf-when.busy{background:rgba(255,176,64,.15);color:#ffc46b;} .tf-when.rush{background:rgba(255,93,108,.16);color:#ff8a95;}
+  .tf-from select{height:34px;border-radius:9px;padding:0 10px;background:rgba(9,20,38,.85);border:1px solid rgba(130,153,184,.25);color:var(--text-primary);font:inherit;font-size:13.5px;font-weight:600;color-scheme:dark;}
+  .tf-link{border:none;background:none;color:#7fbcff;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:0;}
+  .tf-go{flex:none;height:38px;padding:0 18px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#2f8bff,#1462e0);color:#fff;font-weight:700;font-size:14px;text-decoration:none;}
+  .tf-go:hover{filter:brightness(1.1);}
+  .tf-time b{font-size:22px !important;}
   .tf-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;min-height:420px;}
   .tf-list{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:60vh;}
-  .tf-card{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(130,153,184,.14);cursor:pointer;transition:border-color .15s,background .15s;}
+  .tf-card{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(130,153,184,.14);cursor:pointer;transition:border-color .15s,background .15s;}
   .tf-card:hover{border-color:rgba(124,180,255,.4);} .tf-card.on{border-color:#4d9bff;background:rgba(47,139,255,.12);}
   .tf-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:rgba(90,169,255,.12);}
   .tf-ct{min-width:0;} .tf-ct b{display:block;font-size:15px;} .tf-ct small{display:block;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1705,7 +1711,7 @@
   .tf-time small{display:block;font-size:11.5px;color:var(--text-dim);}
   .tf-links{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;} .tf-links a{font-size:12px;font-weight:600;color:#7fbcff;text-decoration:none;} .tf-links a:hover{text-decoration:underline;}
   .tf-dim{color:var(--text-dim);font-size:12.5px;}
-  .tf-del{position:absolute;top:6px;right:6px;height:22px;min-width:22px;padding:0 6px;border-radius:999px;border:1px solid rgba(130,153,184,.25);background:#0d1d36;color:var(--text-dim);font-size:11px;cursor:pointer;opacity:0;}
+  .tf-del{position:absolute;top:-8px;right:-8px;height:22px;min-width:22px;padding:0 6px;border-radius:999px;border:1px solid rgba(130,153,184,.25);background:#0d1d36;color:var(--text-dim);font-size:11px;cursor:pointer;opacity:0;}
   .tf-card:hover .tf-del,.tf-del.armed{opacity:1;} .tf-del.armed{color:#ff8a95;border-color:#ff8a95;}
   @media (hover:none){ .tf-del{opacity:1;} }
   .tf-note{padding:10px 12px;border-radius:12px;background:rgba(255,176,64,.08);border:1px solid rgba(255,176,64,.3);color:#ffd28a;font-size:12.5px;}
@@ -12067,7 +12073,7 @@ function trafficFullHTML(){
       <div><h2>Traffic</h2><p>Drive times to your places, with live traffic one tap away</p></div>
       <button type="button" class="ph-x" id="tf-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
-    <div class="tf-from"><span>Leaving from</span><div class="tf-seg" id="tf-from"></div><span class="tf-when" id="tf-when"></span></div>
+    <div class="tf-from" id="tf-from"></div>
     <div class="tf-body">
       <div class="tf-list" id="tf-list"></div>
       <div class="tf-map"><iframe id="tf-map" title="Route map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div class="tf-map-empty" id="tf-map-empty">Pick a place to see the route and traffic.</div></div>
@@ -12084,12 +12090,17 @@ function hydrateTrafficFull(scope){
     const p = trafficData.places.find(x=>x.id === trafficData.from); return p || null;
   };
   function renderFrom(){
-    const opts = [["here","📍 Where I am"]].concat(trafficData.places.map(p=>[p.id, `${TF_ICONS[p.icon]||"📍"} ${p.name}`]));
+    const opts = [["here","where you are"]].concat(trafficData.places.map(p=>[p.id, p.name]));
     if(!opts.some(o=>o[0]===trafficData.from)) trafficData.from = "here";
-    $t("#tf-from").innerHTML = opts.map(([k,l])=>`<button type="button" data-from="${k}" class="${trafficData.from===k?"on":""}">${escapeHtml(l)}</button>`).join("");
-    $t("#tf-from").querySelectorAll("[data-from]").forEach(b=>b.addEventListener("click", ()=>{ trafficData.from = b.dataset.from; tfSave(); if(trafficData.from==="here" && !here) locate(); renderFrom(); renderList(); renderMap(); }));
-    const now = new Date(), f = tfRushFactor(now);
-    $t("#tf-when").textContent = f >= 1.35 ? "🔴 Rush hour now" : f >= 1.15 ? "🟠 Busier than usual" : "🟢 Light traffic time";
+    const f = tfRushFactor(new Date());
+    const where = trafficData.from === "here" && here ? (hereApprox ? `${hereCity || "your area"} (approx.)` : "your current location") : "";
+    $t("#tf-from").innerHTML = `<span>From</span>
+      <select id="tf-from-sel" aria-label="Starting point">${opts.map(([k,l])=>`<option value="${k}"${trafficData.from===k?" selected":""}>${escapeHtml(l)}</option>`).join("")}</select>
+      ${where ? `<span class="tf-dim">· ${escapeHtml(where)}</span>` : ""}
+      ${trafficData.from === "here" && hereApprox ? `<button type="button" class="tf-link" data-loc>Use exact location</button>` : ""}
+      <span class="tf-when ${f >= 1.35 ? "rush" : f >= 1.15 ? "busy" : ""}">${f >= 1.35 ? "Rush hour" : f >= 1.15 ? "Busier than usual" : "Light traffic"}</span>`;
+    $t("#tf-from-sel").addEventListener("change", e=>{ trafficData.from = e.target.value; tfSave(); if(trafficData.from==="here" && !here) locate(); renderFrom(); renderList(); renderMap(); });
+    $t("#tf-from").querySelectorAll("[data-loc]").forEach(b=>b.addEventListener("click", ()=>{ b.textContent = "Locating…"; locate(true); }));
   }
   let hereApprox = false, hereCity = "";
   async function approx(){
@@ -12101,17 +12112,17 @@ function hydrateTrafficFull(scope){
     const fallback = async why=>{
       if(!here && await approx()){ hereErr = ""; }
       else if(!here) hereErr = why;
-      if(alive){ renderList(); renderMap(); }
+      if(alive){ renderFrom(); renderList(); renderMap(); }
     };
     if(!navigator.geolocation || !window.isSecureContext) return fallback("Couldn't find your location — pick a saved place to leave from.");
     navigator.geolocation.getCurrentPosition(p=>{
       here = {lat:p.coords.latitude, lon:p.coords.longitude}; hereApprox = false; hereErr = ""; tfBias = here;
-      if(alive){ renderList(); renderMap(); }
+      if(alive){ renderFrom(); renderList(); renderMap(); }
     }, err=>{
       hereDenied = err && err.code === 1;
       fallback(hereDenied ? "Location is blocked for this site in your browser." : "Couldn't get your exact location.");
     }, {enableHighAccuracy:true, timeout:12000, maximumAge:120000});
-    if(!here) approx().then(ok=>{ if(ok && alive && hereErr === "Finding you…"){ hereErr = ""; renderList(); renderMap(); } });
+    if(!here) approx().then(ok=>{ if(ok && alive && hereErr === "Finding you…"){ hereErr = ""; renderFrom(); renderList(); renderMap(); } });
   }
   let hereDenied = false;
   async function renderList(){
@@ -12123,13 +12134,14 @@ function hydrateTrafficFull(scope){
     const f = tfRushFactor(new Date());
     const note = trafficData.from !== "here" ? ""
       : !o ? `<div class="tf-note">${escapeHtml(hereErr || "Finding you…")} ${hereErr && hereErr !== "Finding you…" ? `<button type="button" class="tf-loc" data-loc>Try again</button>` : ""}${hereDenied ? `<br><small>To fix it: click the 🔒 next to the web address → Location → Allow, then press Try again.</small>` : ""}</div>`
-      : hereApprox ? `<div class="tf-note soft">📍 Using your approximate location${hereCity ? ` (${escapeHtml(hereCity)})` : ""}. <button type="button" class="tf-loc" data-loc>Use my exact location</button>${hereDenied ? `<br><small>Location is blocked for this site — click the 🔒 next to the web address → Location → Allow.</small>` : ""}</div>` : "";
+      : "";
     box.innerHTML = note + trafficData.places.map(p=>{
       const same = o && trafficData.from === p.id;
       return `<div class="tf-card${sel===p.id?" on":""}${same?" same":""}" data-p="${p.id}" role="button" tabindex="0">
         <span class="tf-ic">${TF_ICONS[p.icon]||"📍"}</span>
         <div class="tf-ct"><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.label||"")}</small></div>
         <div class="tf-time" data-time="${p.id}">${same ? `<span class="tf-dim">You're here</span>` : o ? `<span class="tf-dim">…</span>` : ""}</div>
+        ${same ? "" : `<a class="tf-go" href="${tfGoogle(o, p)}" target="_blank" rel="noopener" title="Directions with live traffic in Google Maps">Go</a>`}
         <button type="button" class="tf-del" data-del="${p.id}" title="Remove" aria-label="Remove">✕</button>
       </div>`;
     }).join("");
@@ -12150,15 +12162,19 @@ function hydrateTrafficFull(scope){
     for(const p of trafficData.places){
       if(trafficData.from === p.id) continue;
       const cell = box.querySelector(`[data-time="${p.id}"]`);
-      if(p.lat == null || o.lat == null){ cell.innerHTML = `<span class="tf-dim">Drive time in Maps</span><span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a><a href="${tfWaze(p)}" target="_blank" rel="noopener">Waze ↗</a></span>`; continue; }
+      if(o.lat == null || (p.lat == null && p.alat == null)){ cell.innerHTML = `<span class="tf-dim">Tap Go</span>`; continue; }
+      if(p.lat == null){
+        try{ const r = await tfRoute(o, {lat:p.alat, lon:p.alon}); if(cell.isConnected) cell.innerHTML = `<b class="${f >= 1.35 ? "rush" : f >= 1.15 ? "busy" : "ok"}">~${tfRange(r.sec*f)}</b><small>about ${(r.m/1609.34).toFixed(0)} mi</small>`; }
+        catch(e){ if(cell.isConnected) cell.innerHTML = `<span class="tf-dim">Tap Go</span>`; }
+        continue;
+      }
       try{
         const r = await tfRoute(o, p);
         if(!alive || !cell.isConnected) return;
         const lo = r.sec * f, hi = r.sec * (f + .12);
         const busy = f >= 1.35 ? "rush" : f >= 1.15 ? "busy" : "ok";
-        cell.innerHTML = `<b class="${busy}">${tfRange(lo, f >= 1.15 ? hi : null)}</b><small>${(r.m/1609.34).toFixed(1)} mi · ${tfFmtMin(r.sec)} with no traffic</small>
-          <span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a><a href="${tfWaze(p)}" target="_blank" rel="noopener">Waze ↗</a></span>`;
-      }catch(e){ if(cell.isConnected) cell.innerHTML = `<span class="tf-dim">Couldn't get a route</span><span class="tf-links"><a href="${tfGoogle(o,p)}" target="_blank" rel="noopener">Google Maps ↗</a></span>`; }
+        cell.innerHTML = `<b class="${busy}">${tfRange(lo, f >= 1.15 ? hi : null)}</b><small>${(r.m/1609.34).toFixed(1)} mi</small>`;
+      }catch(e){ if(cell.isConnected) cell.innerHTML = `<span class="tf-dim">—</span>`; }
     }
   }
   function renderMap(){
@@ -12196,7 +12212,7 @@ function hydrateTrafficFull(scope){
       box.querySelector("#tf-save").addEventListener("click", ()=>{
         const icon = box._ic || "other", name = nm.value.trim() || picked.name || (icon[0].toUpperCase()+icon.slice(1));
         const id = "p" + Date.now();
-        trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, q:picked.q || "", label:picked.q ? "Opens in Google Maps / Waze" : (picked.name ? picked.addr : picked.addr || picked.label)});
+        trafficData.places.push({id, name, icon, lat:picked.lat, lon:picked.lon, alat:picked.alat ?? null, alon:picked.alon ?? null, q:picked.q || "", label:picked.q ? "Located by Google Maps" : (picked.name ? picked.addr : picked.addr || picked.label)});
         tfSave(); sel = id; adding = false; picked = null; box._name = box._q = ""; box._ic = "";
         renderAdd(); renderFrom(); renderList(); renderMap();
       });
@@ -12215,11 +12231,21 @@ function hydrateTrafficFull(scope){
         const asked = q.value.trim();
         try{ results = await tfSearch(asked); }catch(e){ results = []; }
         if(!alive || box._q.trim() !== asked) return;
-        rb.innerHTML = (results.length ? resHTML() : `<div class="tf-dim" style="padding:8px 10px;">No match in the free map data.</div>`)
-          + `<button type="button" class="tf-astyped" data-typed><b>Not listed? Use “${escapeHtml(asked)}”</b><small>Google Maps and Waze will find it when you tap them — or paste a Google Maps link to the place for drive times here too.</small></button>`;
+        const w0 = (asked.toLowerCase().match(/[a-z]{3,}/)||[""])[0];
+        const goodHit = results.some(r=>(r.name||"").toLowerCase().includes(w0));
+        const typedBtn = `<button type="button" class="tf-astyped" data-typed><b>Use Google Maps to find “${escapeHtml(asked)}”</b><small>Best for specific businesses — Go and the map use Google, which knows every location.</small></button>`;
+        rb.innerHTML = goodHit ? resHTML() + typedBtn : typedBtn + (results.length ? `<div class="tf-dim" style="padding:8px 10px 4px;">Other matches</div>` + resHTML() : "");
         wire();
         const ty = rb.querySelector("[data-typed]");
-        if(ty) ty.addEventListener("click", ()=>{ picked = {lat:null, lon:null, q:asked, name:asked.replace(/\b\w/g, c=>c.toUpperCase()), addr:"Found in Google Maps / Waze when you go", kind:asked}; box._ic = tfGuessIcon(picked); box._name = picked.name; results = []; renderAdd(); });
+        if(ty) ty.addEventListener("click", async ()=>{
+          /* Google finds the exact business when you tap Go; for a drive time here, locate the street/town you typed */
+          let ap = null;
+          const streetish = tfNormalize(asked).replace(/^[^\d]*?(?=\b(\d|SW|SE|NW|NE)\b)/i, "").trim();
+          for(const qq of [streetish, asked.split(/\s+/).slice(-1)[0]]){
+            if(!qq || ap) continue;
+            try{ const d = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us${tfBias ? `&viewbox=${tfBias.lon-.6},${tfBias.lat+.6},${tfBias.lon+.6},${tfBias.lat-.6}&bounded=1` : ""}&q=${encodeURIComponent(qq)}`)).json(); if(d && d[0]) ap = {lat:+d[0].lat, lon:+d[0].lon}; }catch(e){}
+          }
+          picked = {lat:null, lon:null, alat: ap ? ap.lat : null, alon: ap ? ap.lon : null, q:asked, name:asked.replace(/\b\w/g, c=>c.toUpperCase()), addr:"Located by Google Maps", kind:asked}; box._ic = tfGuessIcon(picked); box._name = picked.name; results = []; renderAdd(); });
       }, 400);
     });
     q.addEventListener("keydown", e=>{ if(e.key==="Enter" && results.length) pickIt(0); });
